@@ -17,7 +17,7 @@ import {
 import { Type } from "class-transformer";
 import { prisma } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { RateLimitGuard, fingerprintOf } from "./guards";
+import { RateLimitGuard, IdentidadGuard, fingerprintOf } from "./guards";
 import { sortByProximity } from "./geo";
 
 class CreateCentroDto {
@@ -46,12 +46,7 @@ export class CentrosService {
   }
 
   async create(fingerprint: string, dto: CreateCentroDto) {
-    // upsert the user so a fresh fingerprint can still create
-    await prisma.usuario.upsert({
-      where: { fingerprint },
-      update: {},
-      create: { fingerprint },
-    });
+    // IdentidadGuard already guarantees the Usuario exists with a complete identity.
     const centro = await prisma.$transaction(async (tx) => {
       const c = await tx.centro.create({ data: dto });
       await tx.voluntario.create({
@@ -78,7 +73,7 @@ export class CentrosController {
 
   // Identified users only (fingerprint header). Rate-limited (spec §6.5).
   @Post()
-  @UseGuards(RateLimitGuard)
+  @UseGuards(RateLimitGuard, IdentidadGuard)
   create(@Req() req: any, @Body() dto: CreateCentroDto) {
     return this.service.create(fingerprintOf(req), dto);
   }

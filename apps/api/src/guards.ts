@@ -17,6 +17,25 @@ export function fingerprintOf(req: any): string {
   return fp;
 }
 
+// Identity is "complete" once name + cedula + phone are all present (spec §3).
+export const identidadCompleta = (u: any) =>
+  Boolean(u?.nombre && u?.cedula && u?.telefono);
+
+// Gate contribution endpoints behind a complete identity.
+@Injectable()
+export class IdentidadGuard implements CanActivate {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest();
+    const fingerprint = fingerprintOf(req);
+    const u = await prisma.usuario.findUnique({ where: { fingerprint } });
+    if (!identidadCompleta(u))
+      throw new ForbiddenException(
+        "Completa tu identidad para realizar esta acción",
+      );
+    return true;
+  }
+}
+
 // Only volunteers of the target centro may scan/approve donations (spec §6.4).
 @Injectable()
 export class VoluntarioGuard implements CanActivate {
