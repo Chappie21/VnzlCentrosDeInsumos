@@ -1,70 +1,185 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Icon from "./_components/Icon";
+import Field from "./_components/Field";
+import { onboard } from "./lib/api";
+import {
+  normalizeCedula,
+  normalizeTelefono,
+  validateOnboarding,
+  type OnboardingErrors,
+} from "./lib/validate";
+import { hasFullIdentity, isAnon, setAnon, setIdentity, syncIdentity } from "./lib/identity";
 
-type Insumo = { id: string; nombre: string; cantidadTotal: number };
-type Centro = {
-  id: string;
-  nombre: string;
-  estado: string;
-  ciudad: string;
-  direccion: string;
-  insumos: Insumo[];
-  distanciaKm?: number | null;
-};
+function OnboardingForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const next = params.get("next") || "/centros";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-export default function Home() {
-  const [centros, setCentros] = useState<Centro[]>([]);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-
-  // Ask for location; if denied, list stays unsorted and the user filters manually (spec §4.1).
+  // Login is the landing view. Known devices (identified or "solo observar") skip it.
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (p) => setCoords({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => setCoords(null),
-    );
-  }, []);
+    (async () => {
+      if (hasFullIdentity() || isAnon()) {
+        router.replace(next);
+        return;
+      }
+      if (await syncIdentity()) router.replace(next);
+    })();
+  }, [next, router]);
 
-  useEffect(() => {
-    const q = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
-    fetch(`${API}/centros${q}`)
-      .then((r) => r.json())
-      .then((d) => setCentros(Array.isArray(d) ? d : []))
-      .catch(() => setCentros([]));
-  }, [coords]);
+  const [nombre, setNombre] = useState("");
+  const [cedula, setCedula] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [errors, setErrors] = useState<OnboardingErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const liveErrors = validateOnboarding({ nombre, cedula, telefono });
+  const hasErrors = Object.keys(liveErrors).length > 0;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setApiError(null);
+    const found = validateOnboarding({ nombre, cedula, telefono });
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+
+    const body = {
+      nombre: nombre.trim(),
+      cedula: normalizeCedula(cedula),
+      telefono: normalizeTelefono(telefono),
+    };
+
+    setSubmitting(true);
+    try {
+      const res = await onboard(body);
+      if (!res.ok) {
+        setApiError("No se pudo guardar. Inténtalo de nuevo.");
+        return;
+      }
+      setIdentity(body);
+      router.push(next);
+    } catch {
+      setApiError("Error de conexión. Inténtalo de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleObserve() {
+    setAnon();
+    router.push(next);
+  }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-bold">Centros de Acopio Activos</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        {coords ? "Ordenados por cercanía a tu ubicación" : "Activa la ubicación para ordenar por cercanía"}
-      </p>
+    <div className="flex min-h-dvh flex-col bg-surface text-on-surface">
+      <header className="sticky top-0 z-50 mx-auto flex h-12 w-full max-w-[1024px] items-center justify-between border-b-2 border-outline-variant bg-surface px-4">
+        <button
+          type="button"
+          aria-label="Menú"
+          className="flex h-12 w-12 items-center justify-center rounded-full text-emergency transition-colors hover:bg-surface-container-high active:scale-95"
+        >
+          <Icon name="menu" />
+        </button>
+        <h1 className="text-xl font-bold uppercase tracking-tight text-emergency">
+          RESPONSE CORE
+        </h1>
+        <span
+          aria-hidden
+          className="flex h-12 w-12 items-center justify-center rounded-full text-emergency"
+        >
+          <Icon name="emergency" />
+        </span>
+      </header>
 
-      <ul className="mt-6 space-y-4">
-        {centros.map((c) => (
-          <li key={c.id} className="rounded-xl border bg-white p-4 shadow-sm">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">{c.nombre}</h2>
-              {c.distanciaKm != null && (
-                <span className="text-sm text-emerald-600">{c.distanciaKm.toFixed(1)} km</span>
-              )}
+      <main className="mx-auto flex w-full max-w-[1024px] flex-grow items-center justify-center px-4 py-8">
+        <div className="relative w-full max-w-md space-y-8 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute right-0 top-0 -mr-10 -mt-10 h-32 w-32 rounded-full bg-primary-container opacity-10"
+          />
+
+          <div className="space-y-2 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
+              <Icon name="healing" filled className="text-4xl" />
             </div>
-            <p className="text-sm text-slate-500">
-              {c.ciudad}, {c.estado} — {c.direccion}
+            <h2 className="text-2xl font-semibold text-on-surface">Ayuda de Emergencia</h2>
+            <p className="text-base text-on-surface-variant">
+              Completa tus datos para asistir o monitorear recursos vitales.
             </p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {c.insumos.map((i) => (
-                <li key={i.id} className="rounded-full bg-slate-100 px-3 py-1 text-sm">
-                  {i.nombre}: <b>{i.cantidadTotal}</b>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-        {centros.length === 0 && <p className="text-slate-400">No hay centros todavía.</p>}
-      </ul>
-    </main>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <Field
+                label="Nombre completo"
+                icon="person"
+                placeholder="Ingresa tu nombre"
+                value={nombre}
+                onChange={setNombre}
+                error={errors.nombre}
+              />
+              <Field
+                label="Cédula de identidad"
+                icon="badge"
+                placeholder="Ingresa tu cédula"
+                value={cedula}
+                onChange={setCedula}
+                error={errors.cedula}
+              />
+              <Field
+                label="Teléfono"
+                icon="phone"
+                type="tel"
+                inputMode="tel"
+                placeholder="Ingresa tu teléfono"
+                value={telefono}
+                onChange={setTelefono}
+                error={errors.telefono}
+              />
+            </div>
+
+            {apiError && <p className="text-sm text-emergency">{apiError}</p>}
+
+            <div className="space-y-4 pt-2">
+              <button
+                type="submit"
+                disabled={hasErrors || submitting}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon name="login" />
+                {submitting ? "Entrando…" : "Entrar y Ayudar"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleObserve}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high active:scale-[0.98]"
+              >
+                <Icon name="visibility" />
+                Solo quiero observar
+              </button>
+            </div>
+          </form>
+
+          <div className="flex items-center justify-center gap-2 border-t border-outline-variant pt-4">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-success" aria-hidden />
+            <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+              Sistema Activo
+            </span>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingForm />
+    </Suspense>
   );
 }
