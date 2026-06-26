@@ -1,0 +1,50 @@
+name: Web
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "apps/web/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/web.yml"
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "apps/web/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/web.yml"
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test Web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Web
+        run: pnpm --filter @vnzl/web test
+
+      # El build de Next puede requerir red (next/font Google). Lo dejamos como
+      # step normal: queremos que falle si rompe. El test es el check principal.
+      - name: Build Web
+        run: pnpm --filter @vnzl/web build
