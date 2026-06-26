@@ -1,0 +1,101 @@
+name: Migrations / DB
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "packages/database/**"
+      - ".github/workflows/migrations.yml"
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "packages/database/**"
+      - ".github/workflows/migrations.yml"
+
+concurrency:
+  group: migrations-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-db:
+    name: Validate Schema & Migrations
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://vnzl:vnzl@localhost:5432/insumos?schema=public
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vnzl
+          POSTGRES_PASSWORD: vnzl
+          POSTGRES_DB: insumos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vnzl -d insumos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @vnzl/database run generate
+
+      - name: Validate Prisma schema
+        run: pnpm --filter @vnzl/database exec prisma validate
+
+      # El filtro corre dentro de packages/database, por lo que las rutas
+      # relativas dentro de ese cwd son `prisma/migrations` y
+      # `prisma/schema.prisma`. La condicion del if usa la ruta completa
+      # desde la raiz del checkout, que es el cwd del paso bash.
+      - name: Verify migrations against a clean DB
+        run: |
+          set -euo pipefail
+          if [ -d "packages/database/prisma/migrations" ]; then
+            echo "Migraciones versionadas encontradas: aplicando y verificando drift."
+
+            # Aplica todas las migraciones a la DB limpia (falla si hay una rota/conflictiva).
+            pnpm --filter @vnzl/database exec prisma migrate deploy
+
+            # Debe estar al dia con la DB.
+            pnpm --filter @vnzl/database exec prisma migrate status
+
+            # Chequeo de drift/conflicto: si las migraciones no reflejan el schema,
+            # `migrate diff --exit-code` devuelve 2 (hay diff) y fallamos con mensaje claro.
+            if pnpm --filter @vnzl/database exec prisma migrate diff \
+                --from-migrations prisma/migrations \
+                --to-schema-datamodel prisma/schema.prisma \
+                --exit-code; then
+              echo "OK: las migraciones reflejan el schema (sin drift)."
+            else
+              status=$?
+              if [ "$status" -eq 2 ]; then
+                echo "::error::Las migraciones NO reflejan el schema actual (drift detectado). Genera una nueva migracion."
+              else
+                echo "::error::Fallo inesperado al calcular el diff de migraciones (exit $status)."
+              fi
+              exit 1
+            fi
+          else
+            echo "No hay carpeta de migraciones versionadas todavia."
+            echo "Aplicando el schema con 'prisma db push' contra la DB limpia para garantizar que aplica sin conflictos."
+            pnpm --filter @vnzl/database exec prisma db push
+            echo "NOTA: aun no existen migraciones versionadas (packages/database/prisma/migrations)."
+          fi

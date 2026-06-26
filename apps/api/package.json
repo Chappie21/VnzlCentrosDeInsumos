@@ -5,7 +5,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "test": "tsx --test src/geo.test.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.27",
@@ -26,6 +26,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
