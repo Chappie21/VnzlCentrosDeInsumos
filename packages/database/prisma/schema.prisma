@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Prisma 7: connection URL lives in prisma.config.ts (CLI) and the
+  // driver adapter (runtime, src/index.ts), not here.
+}
+
+model Usuario {
+  fingerprint String       @id
+  nombre      String?
+  cedula      String?
+  telefono    String?
+
+  centros     Voluntario[]
+  movimientos Historial[]
+}
+
+model Centro {
+  id          String       @id @default(uuid())
+  nombre      String
+  estado      String // Ej: Zulia, Miranda...
+  ciudad      String // Ej: Maracaibo, Caracas...
+  direccion   String
+  latitud     Float? // Coordenadas para geolocalización
+  longitud    Float?
+  creadoEn    DateTime     @default(now())
+
+  voluntarios Voluntario[]
+  insumos     Insumo[]
+
+  @@index([estado, ciudad])
+}
+
+model Voluntario {
+  id         String   @id @default(uuid())
+  usuarioId  String
+  centroId   String
+  asignadoEn DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])
+  centro  Centro  @relation(fields: [centroId], references: [id])
+
+  @@unique([usuarioId, centroId])
+}
+
+model Insumo {
+  id            String      @id @default(uuid())
+  nombre        String
+  descripcion   String?
+  centroId      String
+  cantidadTotal Int         @default(0)
+
+  centro      Centro      @relation(fields: [centroId], references: [id])
+  movimientos Historial[]
+}
+
+model Historial {
+  id        String   @id @default(uuid())
+  insumoId  String
+  usuarioId String
+  cantidad  Int // Positivo (entrada) o negativo (salida)
+  fecha     DateTime @default(now())
+
+  insumo  Insumo  @relation(fields: [insumoId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])
+
+  @@index([insumoId])
+}

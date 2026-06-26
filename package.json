@@ -1,0 +1,17 @@
+{
+  "name": "vnzl-insumos",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "db:generate": "pnpm --filter @vnzl/database run generate",
+    "db:push": "pnpm --filter @vnzl/database run push",
+    "up": "docker compose up -d",
+    "postinstall": "ln -sf ../../.env packages/database/.env && ln -sf ../../.env apps/api/.env && ln -sf ../../.env apps/web/.env"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.0",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
