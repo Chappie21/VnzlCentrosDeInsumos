@@ -7,7 +7,8 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 ## Índice de flujos
 
 <!-- agregá una línea por flujo documentado -->
-- _(aún no hay flujos documentados)_
+- [Directorio de centros](directorio-centros.md) — listado público con filtros y geolocalización.
+- [Donar (donación por QR)](donar.md) — carrito de insumos → QR de entrega stateless.
 
 ---
 

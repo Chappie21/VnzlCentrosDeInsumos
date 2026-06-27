@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/centros" }));
+let mockPath = "/centros";
+vi.mock("next/navigation", () => ({ usePathname: () => mockPath }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...p }: any) => (
     <a href={href} {...p}>
@@ -15,6 +16,10 @@ vi.mock("../lib/identity", () => ({ hasFullIdentity: () => false }));
 import BottomNav from "./BottomNav";
 
 describe("BottomNav", () => {
+  beforeEach(() => {
+    mockPath = "/centros";
+  });
+
   it("oculta tabs de operador (Mi Centro, Escanear) para anónimo", () => {
     render(<BottomNav />);
     expect(screen.getByText("Centros")).toBeTruthy();
@@ -28,5 +33,11 @@ describe("BottomNav", () => {
     const link = screen.getByText("Centros").closest("a")!;
     expect(link.className).toContain("bg-primary-container");
     expect(link.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("no se renderiza en flujos enfocados como /donar", () => {
+    mockPath = "/donar";
+    const { container } = render(<BottomNav />);
+    expect(container.querySelector("nav")).toBeNull();
   });
 });
