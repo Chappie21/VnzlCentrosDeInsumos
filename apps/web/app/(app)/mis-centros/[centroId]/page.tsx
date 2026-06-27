@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { EmptyState } from "../../../_components";
+import { EmptyState, Icon } from "../../../_components";
+import { ROUTES } from "../../../constants";
 import { useCentroDetalle } from "../../../_hooks";
 import {
   DetalleHeader,
@@ -33,6 +35,16 @@ export default function CentroDetallePage() {
     <div className="flex flex-col gap-6 py-2">
       <DetalleHeader centro={data} />
       <StatsRow centro={data} />
+      {/* Invitar voluntarios: solo el JEFE (el server lo refuerza con JefeGuard). */}
+      {data.rol === "JEFE" && (
+        <Link
+          href={ROUTES.invitarVoluntarios(data.id)}
+          className="flex h-12 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high"
+        >
+          <Icon name="group_add" />
+          Invitar voluntarios
+        </Link>
+      )}
       <OperativoToggle centro={data} />
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant">

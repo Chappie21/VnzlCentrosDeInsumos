@@ -16,6 +16,7 @@ export default function NuevoCentro() {
   const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState<"form" | "success">("form");
   const [createdNombre, setCreatedNombre] = useState("");
+  const [createdId, setCreatedId] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Auth gate: requiere identidad completa; si no, vuelve a onboarding con `next`.
@@ -47,7 +48,9 @@ export default function NuevoCentro() {
         setApiError(msg || "No se pudo registrar el centro. Inténtalo de nuevo.");
         return;
       }
+      const created = await res.json().catch(() => null);
       setCreatedNombre(body.nombre);
+      setCreatedId(created?.id ?? "");
       setScreen("success");
     } catch {
       setApiError("Error de conexión. Inténtalo de nuevo.");
@@ -68,8 +71,7 @@ export default function NuevoCentro() {
         <SuccessView
           centroNombre={createdNombre}
           onVerCentro={() => router.push(ROUTES.misCentros)}
-          // ponytail: invitar ayudantes aún no existe; no-op hasta que haya flujo.
-          onInvitar={() => {}}
+          onInvitar={() => router.push(ROUTES.invitarVoluntarios(createdId))}
         />
       </div>
     );

@@ -14,10 +14,12 @@ import { Transform } from "class-transformer";
 import { prisma } from "@vnzl/database";
 import {
   IdentidadGuard,
-  VoluntarioGuard,
+  JefeGuard,
+  RateLimitGuard,
   fingerprintOf,
   identidadCompleta,
 } from "./guards";
+import { INVITACION } from "./constants";
 
 class OnboardDto {
   @IsString()
@@ -42,6 +44,20 @@ class OnboardDto {
     message: "Teléfono móvil venezolano inválido",
   })
   telefono: string;
+}
+
+// Solo el JEFE puede mintear: el centro objetivo viaja en el body.
+class InviteDto {
+  @IsString()
+  @IsNotEmpty()
+  centroId: string;
+}
+
+// Token de invitación a canjear por quien se une.
+class AceptarInvitacionDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
 }
 
 @Injectable()
@@ -69,12 +85,13 @@ export class UsuariosService {
     });
   }
 
-  // Volunteer invite link/QR = short-lived JWT bound to a centro (spec §4.3).
+  // Invitación = JWT corto ligado a un centro (spec §4). El front arma la URL absoluta.
   invite(centroId: string) {
-    const token = this.jwt.sign({ centroId }, { expiresIn: "24h" });
-    return { token, url: `/invite/${token}` };
+    const token = this.jwt.sign({ centroId }, { expiresIn: INVITACION.expiresIn });
+    return { token, expiresInMin: INVITACION.ttlMin };
   }
 
+  // Canje del token: une al device como VOLUNTARIO (idempotente, no degrada al JEFE).
   async accept(fingerprint: string, token: string) {
     let centroId: string;
     try {
@@ -82,11 +99,16 @@ export class UsuariosService {
     } catch {
       throw new UnauthorizedException("Invitación inválida o expirada");
     }
-    return prisma.voluntario.upsert({
+    await prisma.voluntario.upsert({
       where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
-      update: {},
+      update: {}, // re-aceptar no toca el rol existente
       create: { usuarioId: fingerprint, centroId },
     });
+    const centro = await prisma.centro.findUnique({
+      where: { id: centroId },
+      select: { nombre: true },
+    });
+    return { centroId, nombre: centro?.nombre ?? null };
   }
 }
 
@@ -105,16 +127,17 @@ export class UsuariosController {
     return this.service.onboard(fingerprintOf(req), dto);
   }
 
-  // Only an existing volunteer of the centro can mint invites.
+  // Solo el JEFE del centro puede mintear invitaciones (con rate-limit anti-abuso).
   @Post("invitaciones")
-  @UseGuards(VoluntarioGuard)
-  invite(@Body() body: { centroId: string }) {
-    return this.service.invite(body.centroId);
+  @UseGuards(RateLimitGuard, JefeGuard)
+  invite(@Body() dto: InviteDto) {
+    return this.service.invite(dto.centroId);
   }
 
+  // Unirse: requiere identidad completa (rate-limit anti-abuso de canje).
   @Post("invitaciones/aceptar")
-  @UseGuards(IdentidadGuard)
-  accept(@Req() req: any, @Body() body: { token: string }) {
-    return this.service.accept(fingerprintOf(req), body.token);
+  @UseGuards(RateLimitGuard, IdentidadGuard)
+  accept(@Req() req: any, @Body() dto: AceptarInvitacionDto) {
+    return this.service.accept(fingerprintOf(req), dto.token);
   }
 }
