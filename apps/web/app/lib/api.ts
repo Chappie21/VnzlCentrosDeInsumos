@@ -96,6 +96,15 @@ export function recibirDonacion(centroId: string, items: DonationItem[]) {
   });
 }
 
+// Carga de inventario INICIAL (solo al crear el centro; el server la rechaza si ya
+// hay movimientos). Reusa /historial/recibir con tipo=INICIAL (CEN-20).
+export function cargaInicial(centroId: string, items: DonationItem[]) {
+  return apiFetch("/historial/recibir", {
+    method: "POST",
+    body: JSON.stringify({ centroId, items, tipo: "INICIAL" }),
+  });
+}
+
 // Lista liviana de centros para el dropdown de destino (CEN-17).
 export type CentroLite = { id: string; nombre: string; ciudad: string };
 export async function getCentrosSelect(): Promise<CentroLite[]> {

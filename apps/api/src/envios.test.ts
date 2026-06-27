@@ -22,6 +22,7 @@ vi.mock("@vnzl/database", () => ({
   Prisma: {},
   NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
   CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
+  TipoMovimiento: { INICIAL: "INICIAL", DONACION: "DONACION", ENVIO: "ENVIO", AJUSTE: "AJUSTE" },
 }));
 
 import { EnviosService, EnviosController } from "./envios";
@@ -61,7 +62,7 @@ describe("EnviosService.crear", () => {
     );
     expect(tx.historial.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ insumoId: "i1", usuarioId: "vol-1", cantidad: -3, envioId: "e1" }),
+        data: expect.objectContaining({ insumoId: "i1", usuarioId: "vol-1", cantidad: -3, envioId: "e1", tipo: "ENVIO" }),
       }),
     );
     expect(tx.insumo.update).toHaveBeenCalledWith(

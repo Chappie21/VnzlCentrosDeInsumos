@@ -13,6 +13,7 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 - [Crear centro + invitar](crear-centro.md) — registrar un centro de acopio e invitar ayudantes.
 - [Gestión de voluntarios](voluntarios.md) — el JEFE lista a sus miembros y los remueve.
 - [Recepción por escaneo](escaneo.md) — voluntario escanea el QR y registra insumos en su centro.
+- [Carga de inventario inicial](carga-inventario.md) — declarar el stock al crear el centro (manual o Excel/CSV), una sola vez.
 - [Envíos (descargo)](envios.md) — despacho de un centro a otro destino + guía con QR.
 
 ---

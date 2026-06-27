@@ -70,6 +70,7 @@ export default function NuevoCentro() {
       <div className="min-h-dvh bg-surface text-on-surface">
         <SuccessView
           centroNombre={createdNombre}
+          onCargarInicial={() => router.push(ROUTES.cargarInventario(createdId))}
           onVerCentro={() => router.push(ROUTES.misCentros)}
           onInvitar={() => router.push(ROUTES.invitarVoluntarios(createdId))}
         />

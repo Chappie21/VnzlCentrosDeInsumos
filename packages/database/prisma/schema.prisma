@@ -89,11 +89,20 @@ enum RolVoluntario {
   VOLUNTARIO  // agregado vía invitación
 }
 
+// Origen de un movimiento de Historial (para auditoría).
+enum TipoMovimiento {
+  INICIAL    // carga de inventario al crear el centro (una sola vez)
+  DONACION   // recepción de una donación (escaneo o carga)
+  ENVIO      // salida por despacho a otro destino
+  AJUSTE     // movimiento manual (+/-)
+}
+
 model Historial {
   id        String   @id @default(uuid())
   insumoId  String
   usuarioId String
   cantidad  Int // Positivo (entrada) o negativo (salida)
+  tipo      TipoMovimiento @default(DONACION)
   envioId   String? // set si el movimiento (-) es parte de un despacho
   fecha     DateTime @default(now())
 

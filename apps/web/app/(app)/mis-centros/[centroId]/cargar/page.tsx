@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Icon } from "../../../../_components";
 import { ROUTES } from "../../../../constants";
-import { recibirDonacion } from "../../../../lib/api";
+import { cargaInicial } from "../../../../lib/api";
 import type { DonationItem } from "../../../../lib/donation";
 import CargaInventario from "./_components/CargaInventario";
 
@@ -16,15 +16,16 @@ export default function CargarInventarioPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [cargados, setCargados] = useState(0);
-  const [resetKey, setResetKey] = useState(0);
 
   async function confirmar(items: DonationItem[]) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await recibirDonacion(params.centroId, items);
+      const res = await cargaInicial(params.centroId, items);
       if (!res.ok) {
-        setError("No se pudo cargar el inventario. ¿Sos miembro del centro?");
+        const data = await res.json().catch(() => null);
+        const msg = Array.isArray(data?.message) ? data.message.join(" ") : data?.message;
+        setError(msg || "No se pudo cargar el inventario. ¿Sos miembro del centro?");
         return;
       }
       setCargados(items.length);
@@ -43,27 +44,15 @@ export default function CargarInventarioPage() {
           <Icon name="check_circle" filled className="text-4xl" />
         </div>
         <p className="text-on-surface">
-          {cargados} {cargados === 1 ? "insumo cargado" : "insumos cargados"} al inventario.
+          {cargados} {cargados === 1 ? "insumo cargado" : "insumos cargados"} como inventario inicial.
         </p>
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => router.push(ROUTES.misCentroDetalle(params.centroId))}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011]"
-          >
-            Ver el centro
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDone(false);
-              setResetKey((k) => k + 1);
-            }}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-          >
-            Cargar más
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => router.push(ROUTES.misCentroDetalle(params.centroId))}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011]"
+        >
+          Ver el centro
+        </button>
       </div>
     );
   }
@@ -71,13 +60,15 @@ export default function CargarInventarioPage() {
   return (
     <div className="mx-auto max-w-md space-y-4 py-4">
       <div>
-        <h2 className="text-2xl font-semibold text-on-surface">Cargar inventario</h2>
+        <h2 className="text-2xl font-semibold text-on-surface">Inventario inicial</h2>
         <p className="mt-1 text-on-surface-variant">
-          Agregá los insumos a mano o importá un Excel/CSV (columnas: nombre, categoría, cantidad).
+          Cargá lo que el centro ya tiene al registrarse: a mano o importando un Excel/CSV
+          (columnas: nombre, categoría, cantidad). Esto se hace una sola vez; después el stock
+          se mueve por recepción y envíos.
         </p>
       </div>
       {error && <p className="text-sm text-emergency">{error}</p>}
-      <CargaInventario key={resetKey} onConfirmar={confirmar} submitting={submitting} />
+      <CargaInventario onConfirmar={confirmar} submitting={submitting} />
     </div>
   );
 }

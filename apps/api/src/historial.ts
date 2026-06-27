@@ -17,7 +17,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { prisma, Prisma, CategoriaInsumo } from "@vnzl/database";
+import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
 
@@ -44,6 +44,7 @@ class RecibirItemDto {
 
 class RecibirDto {
   @IsString() centroId: string;
+  @IsOptional() @IsEnum(TipoMovimiento) tipo?: TipoMovimiento; // default DONACION; INICIAL = carga al crear
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
   @Type(() => RecibirItemDto)
@@ -56,9 +57,15 @@ class RecibirDto {
 export class HistorialService {
   constructor(private readonly redis: RedisService) {}
 
-  private moveOps(tx: Prisma.TransactionClient, insumoId: string, usuarioId: string, cantidad: number) {
+  private moveOps(
+    tx: Prisma.TransactionClient,
+    insumoId: string,
+    usuarioId: string,
+    cantidad: number,
+    tipo: TipoMovimiento = TipoMovimiento.AJUSTE,
+  ) {
     return [
-      tx.historial.create({ data: { insumoId, usuarioId, cantidad } }),
+      tx.historial.create({ data: { insumoId, usuarioId, cantidad, tipo } }),
       tx.insumo.update({
         where: { id: insumoId },
         data: { cantidadTotal: { increment: cantidad } },
@@ -103,6 +110,16 @@ export class HistorialService {
     }
     const items = [...byKey.values()];
 
+    const tipo = dto.tipo ?? TipoMovimiento.DONACION;
+    // INICIAL es una carga de una sola vez: solo si el centro no tiene movimientos aún.
+    if (tipo === TipoMovimiento.INICIAL) {
+      const previos = await prisma.historial.count({ where: { insumo: { centroId: dto.centroId } } });
+      if (previos > 0)
+        throw new BadRequestException(
+          "El inventario inicial solo se carga al crear el centro; este centro ya tiene movimientos.",
+        );
+    }
+
     await prisma.$transaction(async (tx) => {
       for (const it of items) {
         let insumo = await tx.insumo.findFirst({
@@ -122,7 +139,7 @@ export class HistorialService {
         }
         // Regla de oro: cantidadTotal solo se mueve creando Historial dentro de la tx.
         await tx.historial.create({
-          data: { insumoId: insumo.id, usuarioId, cantidad: it.cantidad },
+          data: { insumoId: insumo.id, usuarioId, cantidad: it.cantidad, tipo },
         });
         await tx.insumo.update({
           where: { id: insumo.id },

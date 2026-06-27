@@ -19,7 +19,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { prisma } from "@vnzl/database";
+import { prisma, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
 
@@ -86,7 +86,7 @@ export class EnviosService {
       for (const it of items) {
         // Regla de oro: cantidadTotal solo se mueve creando Historial.
         await tx.historial.create({
-          data: { insumoId: it.insumoId, usuarioId, cantidad: -it.cantidad, envioId: e.id },
+          data: { insumoId: it.insumoId, usuarioId, cantidad: -it.cantidad, envioId: e.id, tipo: TipoMovimiento.ENVIO },
         });
         await tx.insumo.update({
           where: { id: it.insumoId },

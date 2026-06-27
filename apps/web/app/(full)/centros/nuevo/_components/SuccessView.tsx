@@ -2,12 +2,14 @@ import { Icon } from "../../../../_components";
 
 type SuccessViewProps = {
   centroNombre: string;
+  onCargarInicial: () => void;
   onVerCentro: () => void;
   onInvitar: () => void;
 };
 
 export default function SuccessView({
   centroNombre,
+  onCargarInicial,
   onVerCentro,
   onInvitar,
 }: SuccessViewProps) {
@@ -45,6 +47,15 @@ export default function SuccessView({
       </div>
 
       <div className="space-y-3">
+        <button
+          type="button"
+          onClick={onCargarInicial}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98]"
+        >
+          <Icon name="upload_file" />
+          Cargar inventario inicial
+        </button>
+
         <button
           type="button"
           onClick={onVerCentro}
