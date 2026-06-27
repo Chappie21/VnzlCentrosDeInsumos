@@ -13,3 +13,8 @@ export const NAV_TABS: {
   { href: ROUTES.inventario, icon: "inventory_2", label: "Inventario", requiresIdentity: false },
   { href: ROUTES.scanning, icon: "qr_code_scanner", label: "Escanear", requiresIdentity: true },
 ];
+
+// Rutas de "flujo" enfocado (donar, etc.): ocultan el BottomNav porque no son
+// destinos de tab sino tareas con su propio foco. Agregar prefijos a medida que
+// aparezcan (crear centro, invitar, nuevo envío).
+export const NAV_HIDDEN_PREFIXES: string[] = [ROUTES.donar];
