@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Field, Icon, TextAreaField } from "../../../_components";
+import { Field, Icon, SelectField, TextAreaField } from "../../../_components";
 import { useGeolocation } from "../../../_hooks";
 import { createCentro } from "../../../lib/api";
 import { hasFullIdentity, syncIdentity } from "../../../lib/identity";
 import { validateCentro, type CentroInput } from "../../../lib/validate";
-import { QK, ROUTES } from "../../../constants";
+import { QK, ROUTES, ESTADOS, municipiosDe } from "../../../constants";
 import { GeolocationCard, SuccessView } from "./_components";
 
 const fmt = (n: number) => n.toFixed(6);
@@ -39,6 +39,7 @@ export default function NuevoCentro() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isValid },
   } = useForm<CentroInput>({
     mode: "onChange",
@@ -66,6 +67,12 @@ export default function NuevoCentro() {
     setValue("latitud", coords.lat, { shouldValidate: true });
     setValue("longitud", coords.lng, { shouldValidate: true });
   }, [coords, setValue]);
+
+  // Cascada: al cambiar el estado, la ciudad seleccionada deja de ser válida.
+  const estado = watch("estado");
+  useEffect(() => {
+    setValue("ciudad", "", { shouldValidate: true });
+  }, [estado, setValue]);
 
   const mutation = useMutation({
     mutationFn: createCentro,
@@ -156,19 +163,24 @@ export default function NuevoCentro() {
           />
 
           <div className="grid grid-cols-2 gap-4">
-            <Field
-              label="Ciudad"
-              icon="location_city"
-              placeholder="Ciudad"
-              error={errors.ciudad?.message}
-              {...register("ciudad")}
-            />
-            <Field
+            <SelectField
               label="Estado / Provincia"
               icon="map"
               placeholder="Estado"
+              options={ESTADOS}
+              defaultValue=""
               error={errors.estado?.message}
               {...register("estado")}
+            />
+            <SelectField
+              label="Ciudad"
+              icon="location_city"
+              placeholder={estado ? "Ciudad" : "Elegí estado"}
+              options={municipiosDe(estado)}
+              defaultValue=""
+              disabled={!estado}
+              error={errors.ciudad?.message}
+              {...register("ciudad")}
             />
           </div>
 
