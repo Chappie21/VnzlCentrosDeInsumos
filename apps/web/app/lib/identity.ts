@@ -1,6 +1,6 @@
 "use client";
 
-import { getMe } from "./api";
+import { getMe, getToken, setToken } from "./api";
 
 export type Identity = { nombre: string; cedula: string; telefono: string };
 
@@ -43,7 +43,9 @@ export function isAnon(): boolean {
 // but local storage was cleared. Safe to call on mount; no-op on errors.
 export async function syncIdentity(): Promise<Identity | null> {
   if (typeof window === "undefined") return null;
-  if (hasFullIdentity()) return getIdentity();
+  // Cached identity AND token -> no network. If the token is missing (e.g. a
+  // pre-JWT device), fall through to /me to mint one.
+  if (hasFullIdentity() && getToken()) return getIdentity();
   try {
     const res = await getMe();
     if (!res.ok) return null;
@@ -55,6 +57,7 @@ export async function syncIdentity(): Promise<Identity | null> {
         telefono: me.telefono,
       };
       setIdentity(identity);
+      if (me.token) setToken(me.token); // refresca el JWT en cada apertura
       return identity;
     }
   } catch {

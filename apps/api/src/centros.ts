@@ -17,7 +17,7 @@ import {
 import { Type } from "class-transformer";
 import { prisma } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { RateLimitGuard, IdentidadGuard, fingerprintOf } from "./guards";
+import { AuthGuard, RateLimitGuard, IdentidadGuard, fingerprintOf } from "./guards";
 import { sortByProximity } from "./geo";
 
 class CreateCentroDto {
@@ -73,7 +73,7 @@ export class CentrosController {
 
   // Identified users only (fingerprint header). Rate-limited (spec §6.5).
   @Post()
-  @UseGuards(RateLimitGuard, IdentidadGuard)
+  @UseGuards(AuthGuard, RateLimitGuard, IdentidadGuard)
   create(@Req() req: any, @Body() dto: CreateCentroDto) {
     return this.service.create(fingerprintOf(req), dto);
   }

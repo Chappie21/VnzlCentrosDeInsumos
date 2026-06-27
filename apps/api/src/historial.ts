@@ -11,7 +11,7 @@ import { ArrayMinSize, IsInt, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { prisma, Prisma } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
+import { AuthGuard, IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
 
 class MovimientoDto {
   @IsString() insumoId: string;
@@ -73,14 +73,14 @@ export class HistorialController {
   // Single manual movement. Caller must be a volunteer of the centro that owns the insumo.
   // ponytail: VoluntarioGuard checks body.centroId, so the single route also carries it.
   @Post()
-  @UseGuards(IdentidadGuard, VoluntarioGuard)
+  @UseGuards(AuthGuard, IdentidadGuard, VoluntarioGuard)
   add(@Req() req: any, @Body() body: { centroId: string } & MovimientoDto) {
     return this.service.addOne(fingerprintOf(req), body);
   }
 
   // QR approval. Volunteer-only, transactional batch.
   @Post("batch")
-  @UseGuards(IdentidadGuard, VoluntarioGuard)
+  @UseGuards(AuthGuard, IdentidadGuard, VoluntarioGuard)
   batch(@Req() req: any, @Body() dto: BatchDto) {
     return this.service.batch(fingerprintOf(req), dto);
   }
