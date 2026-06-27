@@ -5,7 +5,7 @@ import Link from "next/link";
 import Icon from "./Icon";
 import { ROUTES } from "../constants";
 
-// Barra superior compartida (menu · RESPONSE CORE · emergency).
+// Barra superior compartida (menu · Acopio Venezuela · emergency).
 // El burger abre un menú simple; hoy solo "Volver al inicio". onMenu queda como
 // hook opcional por si algún contenedor quiere reaccionar a la apertura.
 export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
@@ -53,7 +53,7 @@ export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
       </div>
 
       <h1 className="min-w-0 flex-1 truncate text-center text-xl font-bold uppercase tracking-tight text-emergency">
-        RESPONSE CORE
+        Acopio Venezuela
       </h1>
       <span
         aria-hidden

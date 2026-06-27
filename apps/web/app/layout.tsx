@@ -6,8 +6,8 @@ import Providers from "./providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata = {
-  title: "Centros de Acopio · Venezuela",
-  description: "Directorio de centros de acopio y donaciones de emergencia",
+  title: "Acopio Venezuela",
+  description: "Acopio Venezuela — centros de acopio y donaciones de emergencia",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
