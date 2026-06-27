@@ -9,6 +9,7 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 <!-- agregá una línea por flujo documentado -->
 - [Directorio de centros](directorio-centros.md) — listado público con filtros y geolocalización.
 - [Donar (donación por QR)](donar.md) — carrito de insumos → QR de entrega stateless.
+- [Recepción por escaneo](escaneo.md) — voluntario escanea el QR y registra insumos en su centro.
 
 ---
 
