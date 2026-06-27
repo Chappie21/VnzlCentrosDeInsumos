@@ -165,6 +165,44 @@ describe("CentrosService.create — escritura transaccional", () => {
   });
 });
 
+describe("CentrosService.mias — centros del voluntario", () => {
+  it("filtra por el usuarioId del fingerprint", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+
+    const res = await service.mias("fp-123");
+
+    expect(res).toEqual([]);
+    const arg = prismaMock.centro.findMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ voluntarios: { some: { usuarioId: "fp-123" } } });
+  });
+
+  it("expone insumos con cantidadTotal y la cuenta de voluntarios; sin PII", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([
+      {
+        ...centroBase,
+        insumos: [
+          { id: "i1", nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+        ],
+        _count: { voluntarios: 3 },
+      },
+    ]);
+
+    const res = await service.mias("fp-123");
+
+    expect(res).toHaveLength(1);
+    expect(res[0].voluntarios).toBe(3);
+    expect(res[0].insumos[0]).toEqual({
+      id: "i1",
+      nombre: "Agua",
+      nivel: "URGENTE",
+      categoria: "AGUA",
+      cantidadTotal: 12,
+    });
+    expect(res[0]).not.toHaveProperty("_count");
+    expect(res[0]).not.toHaveProperty("latitud");
+  });
+});
+
 describe("CentrosController", () => {
   it("list delega la query al service", () => {
     const svc = { list: vi.fn().mockReturnValue("ok") } as any;
@@ -172,6 +210,14 @@ describe("CentrosController", () => {
     const query = { q: "x", page: 2 };
     expect(ctrl.list(query as any)).toBe("ok");
     expect(svc.list).toHaveBeenCalledWith(query);
+  });
+
+  it("mios usa el fingerprint del header y delega al service", () => {
+    const svc = { mias: vi.fn().mockReturnValue("ok") } as any;
+    const ctrl = new CentrosController(svc);
+    const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-9" : undefined) };
+    expect(ctrl.mias(req as any)).toBe("ok");
+    expect(svc.mias).toHaveBeenCalledWith("fp-9");
   });
 });
 

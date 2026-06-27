@@ -6,3 +6,4 @@ export { default as TopAppBar } from "./TopAppBar";
 export { default as BottomNav } from "./BottomNav";
 export { default as Fab } from "./Fab";
 export { default as EmptyState } from "./EmptyState";
+export { default as Qr } from "./Qr";
