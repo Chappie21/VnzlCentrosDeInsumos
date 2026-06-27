@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "./_components/Icon";
 import Field from "./_components/Field";
-import { onboard, setToken } from "./lib/api";
+import { onboard } from "./lib/api";
 import {
   normalizeCedula,
   normalizeTelefono,
@@ -209,17 +209,16 @@ function OnboardingForm({
     setSubmitting(true);
     try {
       const res = await onboard(body);
-      const data = await res.json().catch(() => null);
       if (!res.ok) {
+        const data = await res.json().catch(() => null);
         const msg = Array.isArray(data?.message)
           ? data.message.join(" ")
           : data?.message;
         setApiError(msg || "No se pudo guardar. Inténtalo de nuevo.");
         return;
       }
-      if (data?.token) setToken(data.token); // JWT: queda autenticado
       setIdentity(body);
-      onDone(body); // la vista pasa a perfil
+      onDone(body); // queda autenticado: la vista pasa a perfil
     } catch {
       setApiError("Error de conexión. Inténtalo de nuevo.");
     } finally {
