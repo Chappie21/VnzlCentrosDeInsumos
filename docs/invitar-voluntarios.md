@@ -85,6 +85,7 @@ token (`(full)/guia/[id]`) ya están. No hay UI de invitación ni helpers en `li
 ## 7. Pendientes / deuda
 
 - Descargar QR vía serialización SVG (`ponytail`): si se necesita PNG, renderizar a canvas.
-- Lista/gestión de voluntarios (quitar miembros, ver nombres) — pantalla aparte del diseño.
+- ~~Lista/gestión de voluntarios (quitar miembros, ver nombres) — pantalla aparte del diseño.~~
+  **Implementado** → ver [`voluntarios.md`](voluntarios.md).
 - Revocar invitaciones antes de expirar: hoy no hay (los tokens son stateless). Si hace falta,
   mover a invitaciones persistidas con estado.

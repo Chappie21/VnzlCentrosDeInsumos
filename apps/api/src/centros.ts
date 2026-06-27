@@ -1,8 +1,11 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Injectable,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -308,6 +311,38 @@ function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
   };
 }
 
+// Listado de miembros para la pantalla de gestión (solo JEFE). Allowlist explícita:
+// expone el id de la fila Voluntario (clave de remoción) + PII mínima de contacto del
+// usuario. NUNCA `usuarioId` (= fingerprint, regla AGENTS.md).
+const voluntarioSelect = {
+  id: true,
+  rol: true,
+  asignadoEn: true,
+  usuario: { select: { nombre: true, cedula: true, telefono: true } },
+} satisfies Prisma.VoluntarioSelect;
+
+type VoluntarioRow = Prisma.VoluntarioGetPayload<{ select: typeof voluntarioSelect }>;
+
+export type VoluntarioItem = {
+  id: string;
+  nombre: string | null;
+  cedula: string | null;
+  telefono: string | null;
+  rol: RolVoluntario;
+  asignadoEn: Date;
+};
+
+function toVoluntarioItem(v: VoluntarioRow): VoluntarioItem {
+  return {
+    id: v.id,
+    nombre: v.usuario.nombre,
+    cedula: v.usuario.cedula,
+    telefono: v.usuario.telefono,
+    rol: v.rol,
+    asignadoEn: v.asignadoEn,
+  };
+}
+
 @Injectable()
 export class CentrosService {
   constructor(private readonly redis: RedisService) {}
@@ -467,6 +502,35 @@ export class CentrosService {
     await this.redis.bumpCentros();
     return centro;
   }
+
+  // Miembros de un centro (solo JEFE, garantizado por JefeGuard). El JEFE primero
+  // ("JEFE" < "VOLUNTARIO"), luego por antigüedad. Sin cache: data sensible y chica.
+  async listarVoluntarios(centroId: string): Promise<VoluntarioItem[]> {
+    const rows = await prisma.voluntario.findMany({
+      where: { centroId },
+      select: voluntarioSelect,
+      orderBy: [{ rol: "asc" }, { asignadoEn: "asc" }],
+    });
+    return rows.map(toVoluntarioItem);
+  }
+
+  // Remover un voluntario (solo JEFE). Identificado por Voluntario.id (nunca por
+  // fingerprint). Valida pertenencia al centro (evita borrado cruzado) y prohíbe
+  // remover al JEFE/dueño. bumpCentros: el conteo viaja en el directorio y el detalle.
+  async removerVoluntario(centroId: string, voluntarioId: string): Promise<{ ok: true }> {
+    const link = await prisma.voluntario.findUnique({
+      where: { id: voluntarioId },
+      select: { centroId: true, rol: true },
+    });
+    if (!link || link.centroId !== centroId)
+      throw new NotFoundException("Voluntario no encontrado en este centro");
+    if (link.rol === RolVoluntario.JEFE)
+      throw new BadRequestException("No podés remover al jefe del centro");
+
+    await prisma.voluntario.delete({ where: { id: voluntarioId } });
+    await this.redis.bumpCentros();
+    return { ok: true };
+  }
 }
 
 @Controller("centros")
@@ -513,5 +577,22 @@ export class CentrosController {
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   actualizarOperativo(@Param("centroId") centroId: string, @Body() dto: UpdateOperativoDto) {
     return this.service.actualizarOperativo(centroId, dto);
+  }
+
+  // Gestión de voluntarios: listar miembros del centro. Solo el JEFE.
+  @Get(":centroId/voluntarios")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  listarVoluntarios(@Param("centroId") centroId: string) {
+    return this.service.listarVoluntarios(centroId);
+  }
+
+  // Gestión de voluntarios: remover un miembro por Voluntario.id. Solo el JEFE.
+  @Delete(":centroId/voluntarios/:voluntarioId")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  removerVoluntario(
+    @Param("centroId") centroId: string,
+    @Param("voluntarioId") voluntarioId: string,
+  ) {
+    return this.service.removerVoluntario(centroId, voluntarioId);
   }
 }
