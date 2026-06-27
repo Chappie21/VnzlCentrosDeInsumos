@@ -4,3 +4,6 @@ dist
 .turbo
 .env
 *.log
+
+# TS incremental build cache
+*.tsbuildinfo

@@ -26,12 +26,17 @@ model Centro {
   direccion   String
   latitud     Float? // Coordenadas para geolocalización
   longitud    Float?
+  // ponytail: estado de recepción toggled a mano por el operador (Activo/Cerrado).
+  // Upgrade: derivar de un modelo de horarios (día+hora+timezone) si hace falta.
+  recibiendoAhora Boolean   @default(true)
+  horarioCierre   String? // "20:00" — solo display, nunca se filtra por él
   creadoEn    DateTime     @default(now())
 
   voluntarios Voluntario[]
   insumos     Insumo[]
 
   @@index([estado, ciudad])
+  @@index([recibiendoAhora])
 }
 
 model Voluntario {
@@ -47,14 +52,32 @@ model Voluntario {
 }
 
 model Insumo {
-  id            String      @id @default(uuid())
+  id            String          @id @default(uuid())
   nombre        String
   descripcion   String?
   centroId      String
-  cantidadTotal Int         @default(0)
+  cantidadTotal Int             @default(0)
+  nivel         NivelInsumo     @default(NORMAL) // color del badge (URGENTE/NORMAL/SUFICIENTE)
+  categoria     CategoriaInsumo? // ícono del badge
 
   centro      Centro      @relation(fields: [centroId], references: [id])
   movimientos Historial[]
+
+  @@index([centroId, nivel]) // soporta el filtro "Urgencia Alta"
+}
+
+enum NivelInsumo {
+  URGENTE
+  NORMAL
+  SUFICIENTE
+}
+
+enum CategoriaInsumo {
+  AGUA
+  MEDICAMENTOS
+  ROPA
+  ALIMENTOS
+  HERRAMIENTAS
 }
 
 model Historial {

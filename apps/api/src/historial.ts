@@ -44,7 +44,7 @@ export class HistorialService {
 
   async addOne(usuarioId: string, m: MovimientoDto) {
     const [hist] = await prisma.$transaction(this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad));
-    await this.redis.client.del("centros:list");
+    await this.redis.bumpCentros();
     return hist;
   }
 
@@ -61,7 +61,7 @@ export class HistorialService {
     await prisma.$transaction(
       dto.movimientos.flatMap((m) => this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad)),
     );
-    await this.redis.client.del("centros:list");
+    await this.redis.bumpCentros();
     return { ok: true, aplicados: dto.movimientos.length };
   }
 }
