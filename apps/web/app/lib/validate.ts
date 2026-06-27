@@ -1,16 +1,20 @@
 export type OnboardingInput = { nombre: string; cedula: string; telefono: string };
 export type OnboardingErrors = { nombre?: string; cedula?: string; telefono?: string };
 
-// Cédula VE: V12345678 / V-12345678 / E-1234567. Normaliza a V12345678 (sin guion).
-const CEDULA_RE = /^[VEve]-?\d{6,8}$/;
+// Mismas reglas que el backend (apps/api OnboardDto), para no recibir 400.
+const CEDULA_RE = /^[VE]\d{6,9}$/;
+const TELEFONO_RE = /^(?:\+?58|0)?4(?:12|14|16|24|26)\d{7}$/;
 
+// Mayúsculas, sin puntos/espacios/guiones; dígitos solos -> prefijo V.
 export function normalizeCedula(raw: string): string {
-  const v = raw.trim().toUpperCase().replace(/-/g, "");
+  let v = raw.toUpperCase().replace(/[.\s-]/g, "");
+  if (/^\d+$/.test(v)) v = "V" + v;
   return v;
 }
 
+// Quita espacios, guiones y paréntesis.
 export function normalizeTelefono(raw: string): string {
-  return raw.replace(/\s+/g, "").trim();
+  return raw.replace(/[\s\-()]/g, "");
 }
 
 export function validateOnboarding(body: OnboardingInput): OnboardingErrors {
@@ -20,14 +24,12 @@ export function validateOnboarding(body: OnboardingInput): OnboardingErrors {
     errors.nombre = "El nombre debe tener al menos 3 caracteres.";
   }
 
-  const cedula = body.cedula.trim();
-  if (!CEDULA_RE.test(cedula)) {
-    errors.cedula = "Cédula inválida. Ej: V12345678.";
+  if (!CEDULA_RE.test(normalizeCedula(body.cedula))) {
+    errors.cedula = "Cédula inválida. Ej: V12345678 o E1234567.";
   }
 
-  const tel = normalizeTelefono(body.telefono);
-  if (!/^\+?\d{7,15}$/.test(tel)) {
-    errors.telefono = "Teléfono inválido. Solo dígitos (y opcional +).";
+  if (!TELEFONO_RE.test(normalizeTelefono(body.telefono))) {
+    errors.telefono = "Teléfono móvil venezolano inválido. Ej: 04141234567.";
   }
 
   return errors;
