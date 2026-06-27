@@ -45,4 +45,9 @@ tres caminos: **Quiero Donar**, **Entrar y Ayudar** o **Solo quiero observar** (
 - Smoke: completar datos → cada botón rutea a su flujo; "solo observar" entra sin datos.
 
 ## 6. Pendientes / deuda
-- Sin recuperación de identidad entre dispositivos (es por dispositivo, por diseño).
+- **Identidad por dispositivo (decisión, no bug).** El `fingerprint` vive en el `localStorage`
+  de cada navegador → cada navegador/dispositivo es un usuario distinto. Consecuencia: si creás
+  un centro en el navegador A y aceptás una invitación en el navegador B, cada uno verá solo
+  *su* centro en "Mis Centros". **Guía de uso:** operá y aceptá invitaciones desde el mismo
+  dispositivo. Se evaluó vincular por cédula+teléfono o login con OTP y se descartó por ahora
+  (fricción / riesgo de suplantación). Upgrade futuro si se necesita identidad cross-device.
