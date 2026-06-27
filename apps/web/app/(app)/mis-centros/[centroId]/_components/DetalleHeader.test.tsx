@@ -14,6 +14,7 @@ const base: Omit<CentroDetalle, "rol"> = {
   recibiendoAhora: true,
   horarioCierre: null,
   voluntarios: 3,
+  donaciones: 0,
   insumos: [],
 };
 

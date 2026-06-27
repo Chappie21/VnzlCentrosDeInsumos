@@ -166,6 +166,7 @@ export type CentroDetalle = {
   recibiendoAhora: boolean;
   horarioCierre: string | null;
   voluntarios: number;
+  donaciones: number;
   rol: RolCentro;
   insumos: InsumoDetalle[];
 };

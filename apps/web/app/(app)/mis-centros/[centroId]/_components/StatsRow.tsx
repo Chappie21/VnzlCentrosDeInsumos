@@ -16,8 +16,9 @@ function Stat({ icon, valor, label }: { icon: string; valor: number; label: stri
 export default function StatsRow({ centro }: { centro: CentroDetalle }) {
   const criticos = centro.insumos.filter((i) => i.nivel === "URGENTE").length;
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-2 gap-3">
       <Stat icon="inventory_2" valor={centro.insumos.length} label={STATS.insumos} />
+      <Stat icon="volunteer_activism" valor={centro.donaciones} label={STATS.donaciones} />
       <Stat icon="group" valor={centro.voluntarios} label={STATS.voluntarios} />
       <Stat icon="priority_high" valor={criticos} label={STATS.criticos} />
     </div>

@@ -284,11 +284,12 @@ export type CentroDetalle = {
   horarioCierre: string | null;
   creadoEn: Date;
   voluntarios: number;
+  donaciones: number;
   rol: RolVoluntario;
   insumos: InsumoDetalle[];
 };
 
-function toCentroDetalle(c: DetalleRow): CentroDetalle {
+function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
   return {
     id: c.id,
     nombre: c.nombre,
@@ -301,6 +302,7 @@ function toCentroDetalle(c: DetalleRow): CentroDetalle {
     horarioCierre: c.horarioCierre,
     creadoEn: c.creadoEn,
     voluntarios: c._count.voluntarios,
+    donaciones,
     rol: c.voluntarios[0]?.rol ?? RolVoluntario.VOLUNTARIO,
     insumos: c.insumos,
   };
@@ -435,11 +437,18 @@ export class CentrosService {
   // Detalle de un centro (solo miembros, garantizado por VoluntarioGuard). Sin
   // cache: refleja inventario al instante. `cantidadTotal` se expone para lectura.
   async detalle(fingerprint: string, centroId: string): Promise<CentroDetalle> {
-    const row = await prisma.centro.findUniqueOrThrow({
-      where: { id: centroId },
-      select: detalleSelect(fingerprint),
-    });
-    return toCentroDetalle(row);
+    // Donaciones recibidas = entradas de Historial (cantidad > 0) de los insumos
+    // del centro. Las salidas (cantidad < 0) no cuentan.
+    const [row, donaciones] = await Promise.all([
+      prisma.centro.findUniqueOrThrow({
+        where: { id: centroId },
+        select: detalleSelect(fingerprint),
+      }),
+      prisma.historial.count({
+        where: { cantidad: { gt: 0 }, insumo: { centroId } },
+      }),
+    ]);
+    return toCentroDetalle(row, donaciones);
   }
 
   // Datos principales (solo JEFE, garantizado por JefeGuard). Actualiza solo los

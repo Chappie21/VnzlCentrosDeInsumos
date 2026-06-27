@@ -88,6 +88,7 @@ type CentroDetalle = {
   horarioCierre: string | null;
   creadoEn: Date;               // serializa como ISO string en la respuesta HTTP
   voluntarios: number;          // _count, no lista de PII
+  donaciones: number;           // entradas de Historial (cantidad > 0) del centro
   rol: RolVoluntario;           // rol del usuario que pide (JEFE | VOLUNTARIO)
   insumos: InsumoDetalle[];
 };
@@ -121,7 +122,7 @@ descartada por el pipe).
 ### Componentes (`[centroId]/_components/`)
 - `DetalleHeader` — nombre, ubicación, badge Activo/Cerrado; lápiz de editar **solo si
   `rol === "JEFE"`**.
-- `StatsRow` — insumos, voluntarios, items críticos (= insumos en nivel `URGENTE`).
+- `StatsRow` — insumos, donaciones recibidas, voluntarios, items críticos (= insumos en nivel `URGENTE`).
 - `OperativoToggle` — botón que togglea `recibiendoAhora` (`useMutation` → `updateOperativo`).
 - `InventarioResumen` — lista de insumos; cada fila deja cambiar el `nivel`
   (`<select>` → `updateInsumo`). `cantidadTotal` se muestra de solo lectura.

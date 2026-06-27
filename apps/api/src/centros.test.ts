@@ -11,6 +11,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
+    historial: { count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -248,6 +249,7 @@ describe("CentrosService.detalle — dashboard de miembros", () => {
       _count: { voluntarios: 4 },
       voluntarios: [{ rol: "JEFE" }],
     });
+    prismaMock.historial.count.mockResolvedValue(7);
 
     const res = await service.detalle("fp-123", "c1");
 
@@ -256,8 +258,14 @@ describe("CentrosService.detalle — dashboard de miembros", () => {
     expect(arg.where).toEqual({ id: "c1" });
     expect(arg.select.voluntarios.where).toEqual({ usuarioId: "fp-123" });
 
+    // donaciones = entradas de Historial (cantidad > 0) de los insumos del centro
+    expect(prismaMock.historial.count).toHaveBeenCalledWith({
+      where: { cantidad: { gt: 0 }, insumo: { centroId: "c1" } },
+    });
+
     expect(res.latitud).toBe(10.5);
     expect(res.voluntarios).toBe(4);
+    expect(res.donaciones).toBe(7);
     expect(res.rol).toBe("JEFE");
     expect(res.insumos[0]).toEqual({
       id: "i1",
@@ -281,6 +289,7 @@ describe("CentrosService.detalle — dashboard de miembros", () => {
       _count: { voluntarios: 1 },
       voluntarios: [],
     });
+    prismaMock.historial.count.mockResolvedValue(0);
     const res = await service.detalle("fp-x", "c1");
     expect(res.rol).toBe("VOLUNTARIO");
   });

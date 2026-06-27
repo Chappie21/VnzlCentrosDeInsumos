@@ -16,5 +16,6 @@ export const NIVELES: readonly NivelInsumo[] = ["URGENTE", "NORMAL", "SUFICIENTE
 export const STATS = {
   insumos: "Insumos",
   voluntarios: "Voluntarios",
+  donaciones: "Donaciones",
   criticos: "Items críticos",
 } as const;
