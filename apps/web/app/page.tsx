@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon, Field, TopAppBar } from "./_components";
+import { ROUTES } from "./constants";
 import { onboard } from "./lib/api";
 import {
   normalizeCedula,
@@ -81,11 +82,16 @@ function Home() {
   return (
     <Shell>
       {identity ? (
-        <ProfileView identity={identity} onContinue={() => router.push("/centros")} />
+        <ProfileView
+          identity={identity}
+          onContinue={() => router.push(ROUTES.centros)}
+          onDonate={() => router.push(ROUTES.donar)}
+        />
       ) : (
         <OnboardingForm
           next={next}
           onDone={(id) => setIdentityState(id)}
+          onDonate={() => router.push(ROUTES.donar)}
           onObserve={() => {
             setAnon();
             router.push(next);
@@ -99,9 +105,11 @@ function Home() {
 function ProfileView({
   identity,
   onContinue,
+  onDonate,
 }: {
   identity: Identity;
   onContinue: () => void;
+  onDonate: () => void;
 }) {
   const rows: { icon: string; label: string; value: string }[] = [
     { icon: "person", label: "Nombre completo", value: identity.nombre },
@@ -141,14 +149,24 @@ function ProfileView({
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={onContinue}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98]"
-      >
-        <Icon name="arrow_forward" />
-        Continuar a centros
-      </button>
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={onDonate}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98]"
+        >
+          <Icon name="volunteer_activism" />
+          Quiero Donar
+        </button>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high active:scale-[0.98]"
+        >
+          <Icon name="arrow_forward" />
+          Continuar a centros
+        </button>
+      </div>
 
       <StatusFooter />
     </>
@@ -158,13 +176,17 @@ function ProfileView({
 function OnboardingForm({
   next,
   onDone,
+  onDonate,
   onObserve,
 }: {
   next: string;
   onDone: (id: Identity) => void;
+  onDonate: () => void;
   onObserve: () => void;
 }) {
   const [apiError, setApiError] = useState<string | null>(null);
+  // Qué botón disparó el submit: ambos onboardean, pero divergen el destino.
+  const intent = useRef<"help" | "donate">("help");
 
   const {
     register,
@@ -209,7 +231,8 @@ function OnboardingForm({
         return;
       }
       setIdentity(body);
-      onDone(body); // queda autenticado: la vista pasa a perfil
+      if (intent.current === "donate") onDonate();
+      else onDone(body); // queda autenticado: la vista pasa a perfil
     } catch {
       setApiError("Error de conexión. Inténtalo de nuevo.");
     }
@@ -259,6 +282,17 @@ function OnboardingForm({
         <div className="space-y-4 pt-2">
           <button
             type="submit"
+            onClick={() => (intent.current = "donate")}
+            disabled={!isValid || isSubmitting}
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Icon name="volunteer_activism" />
+            Quiero Donar
+          </button>
+
+          <button
+            type="submit"
+            onClick={() => (intent.current = "help")}
             disabled={!isValid || isSubmitting}
             className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
