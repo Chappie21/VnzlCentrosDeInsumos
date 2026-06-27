@@ -1,4 +1,5 @@
 import { getFingerprint } from "../fingerprint";
+import type { DonationItem } from "./donation";
 
 export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -85,4 +86,12 @@ export async function getMisCentros(): Promise<MiCentro[]> {
   const res = await apiFetch("/centros/mios");
   if (!res.ok) throw new Error("No se pudieron cargar tus centros");
   return res.json();
+}
+
+// Registrar donación escaneada por nombre en un centro (CEN-19).
+export function recibirDonacion(centroId: string, items: DonationItem[]) {
+  return apiFetch("/historial/recibir", {
+    method: "POST",
+    body: JSON.stringify({ centroId, items }),
+  });
 }

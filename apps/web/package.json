@@ -10,6 +10,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.1",
     "@vnzl/venezuela": "workspace:*",
+    "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "next": "^16.2.9",
     "qrcode.react": "^4.2.0",
