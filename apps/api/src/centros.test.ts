@@ -12,6 +12,11 @@ const { prismaMock } = vi.hoisted(() => ({
       update: vi.fn(),
     },
     historial: { count: vi.fn() },
+    voluntario: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      delete: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -218,6 +223,70 @@ describe("CentrosService.mias — centros del voluntario", () => {
   });
 });
 
+describe("CentrosService.listarVoluntarios — gestión de miembros", () => {
+  it("filtra por centro, ordena (JEFE primero) y aplana sin exponer usuarioId", async () => {
+    prismaMock.voluntario.findMany.mockResolvedValue([
+      {
+        id: "v-jefe",
+        rol: "JEFE",
+        asignadoEn: new Date("2026-01-01"),
+        usuario: { nombre: "Ana", cedula: "V-1", telefono: "0414-1" },
+      },
+      {
+        id: "v-vol",
+        rol: "VOLUNTARIO",
+        asignadoEn: new Date("2026-02-01"),
+        usuario: { nombre: "Beto", cedula: "V-2", telefono: "0414-2" },
+      },
+    ]);
+
+    const res = await service.listarVoluntarios("c1");
+
+    const arg = prismaMock.voluntario.findMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ centroId: "c1" });
+    expect(arg.orderBy).toEqual([{ rol: "asc" }, { asignadoEn: "asc" }]);
+    // proyección: nunca el fingerprint/usuarioId
+    expect(arg.select).not.toHaveProperty("usuarioId");
+
+    expect(res).toEqual([
+      { id: "v-jefe", nombre: "Ana", cedula: "V-1", telefono: "0414-1", rol: "JEFE", asignadoEn: new Date("2026-01-01") },
+      { id: "v-vol", nombre: "Beto", cedula: "V-2", telefono: "0414-2", rol: "VOLUNTARIO", asignadoEn: new Date("2026-02-01") },
+    ]);
+    expect(res[0]).not.toHaveProperty("usuarioId");
+  });
+});
+
+describe("CentrosService.removerVoluntario — remoción (solo JEFE)", () => {
+  it("borra la fila, invalida cache y devuelve { ok: true }", async () => {
+    prismaMock.voluntario.findUnique.mockResolvedValue({ centroId: "c1", rol: "VOLUNTARIO" });
+    prismaMock.voluntario.delete.mockResolvedValue({});
+
+    const res = await service.removerVoluntario("c1", "v-vol");
+
+    expect(prismaMock.voluntario.delete).toHaveBeenCalledWith({ where: { id: "v-vol" } });
+    expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
+    expect(res).toEqual({ ok: true });
+  });
+
+  it("rechaza (NotFound) si la fila no existe", async () => {
+    prismaMock.voluntario.findUnique.mockResolvedValue(null);
+    await expect(service.removerVoluntario("c1", "ghost")).rejects.toThrow(/no encontrado/i);
+    expect(prismaMock.voluntario.delete).not.toHaveBeenCalled();
+  });
+
+  it("rechaza (NotFound) si la fila es de otro centro (sin borrado cruzado)", async () => {
+    prismaMock.voluntario.findUnique.mockResolvedValue({ centroId: "otro", rol: "VOLUNTARIO" });
+    await expect(service.removerVoluntario("c1", "v-vol")).rejects.toThrow(/no encontrado/i);
+    expect(prismaMock.voluntario.delete).not.toHaveBeenCalled();
+  });
+
+  it("rechaza remover a un JEFE (BadRequest)", async () => {
+    prismaMock.voluntario.findUnique.mockResolvedValue({ centroId: "c1", rol: "JEFE" });
+    await expect(service.removerVoluntario("c1", "v-jefe")).rejects.toThrow(/jefe/i);
+    expect(prismaMock.voluntario.delete).not.toHaveBeenCalled();
+  });
+});
+
 describe("CentrosController", () => {
   it("list delega la query al service", () => {
     const svc = { list: vi.fn().mockReturnValue("ok") } as any;
@@ -233,6 +302,20 @@ describe("CentrosController", () => {
     const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-9" : undefined) };
     expect(ctrl.mias(req as any)).toBe("ok");
     expect(svc.mias).toHaveBeenCalledWith("fp-9");
+  });
+
+  it("listarVoluntarios delega el centroId al service", () => {
+    const svc = { listarVoluntarios: vi.fn().mockReturnValue("ok") } as any;
+    const ctrl = new CentrosController(svc);
+    expect(ctrl.listarVoluntarios("c1")).toBe("ok");
+    expect(svc.listarVoluntarios).toHaveBeenCalledWith("c1");
+  });
+
+  it("removerVoluntario delega centroId + voluntarioId al service", () => {
+    const svc = { removerVoluntario: vi.fn().mockReturnValue("ok") } as any;
+    const ctrl = new CentrosController(svc);
+    expect(ctrl.removerVoluntario("c1", "v-9")).toBe("ok");
+    expect(svc.removerVoluntario).toHaveBeenCalledWith("c1", "v-9");
   });
 });
 

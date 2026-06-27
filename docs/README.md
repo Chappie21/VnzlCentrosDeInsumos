@@ -11,6 +11,7 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 - [Directorio de centros](directorio-centros.md) — listado público con filtros y geolocalización.
 - [Donar (donación por QR)](donar.md) — carrito de insumos → QR de entrega stateless.
 - [Crear centro + invitar](crear-centro.md) — registrar un centro de acopio e invitar ayudantes.
+- [Gestión de voluntarios](voluntarios.md) — el JEFE lista a sus miembros y los remueve.
 - [Recepción por escaneo](escaneo.md) — voluntario escanea el QR y registra insumos en su centro.
 - [Envíos (descargo)](envios.md) — despacho de un centro a otro destino + guía con QR.
 

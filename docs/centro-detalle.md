@@ -25,6 +25,8 @@ Todos requieren identidad completa (`IdentidadGuard`) y membresía del centro.
 | `GET` | `/centros/:centroId` | `IdentidadGuard`, `VoluntarioGuard` | cualquier miembro | detalle completo |
 | `PATCH` | `/centros/:centroId` | `IdentidadGuard`, `JefeGuard` | solo JEFE | datos principales |
 | `PATCH` | `/centros/:centroId/operativo` | `IdentidadGuard`, `VoluntarioGuard` | cualquier voluntario | estado operativo |
+| `GET` | `/centros/:centroId/voluntarios` | `IdentidadGuard`, `JefeGuard` | solo JEFE | lista de miembros ([voluntarios.md](voluntarios.md)) |
+| `DELETE` | `/centros/:centroId/voluntarios/:voluntarioId` | `IdentidadGuard`, `JefeGuard` | solo JEFE | remover un miembro ([voluntarios.md](voluntarios.md)) |
 | `PATCH` | `/insumos/:id` | `IdentidadGuard` (+ membresía en service) | cualquier voluntario | metadata de insumo |
 
 **Orden de rutas:** `GET /centros/:centroId` se declara **después** de
@@ -122,6 +124,8 @@ descartada por el pipe).
 ### Componentes (`[centroId]/_components/`)
 - `DetalleHeader` — nombre, ubicación, badge Activo/Cerrado; lápiz de editar **solo si
   `rol === "JEFE"`**.
+- Acciones de JEFE (bajo `rol === "JEFE"`): "Gestionar voluntarios" (→ listar/remover, ver
+  [voluntarios.md](voluntarios.md)) e "Invitar voluntarios".
 - `StatsRow` — insumos, donaciones recibidas, voluntarios, items críticos (= insumos en nivel `URGENTE`).
 - `OperativoToggle` — botón que togglea `recibiendoAhora` (`useMutation` → `updateOperativo`).
 - `InventarioResumen` — lista de insumos; cada fila deja cambiar el `nivel`

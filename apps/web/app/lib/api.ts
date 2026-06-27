@@ -223,3 +223,35 @@ export type UpdateInsumoBody = {
 export function updateInsumo(id: string, body: UpdateInsumoBody) {
   return apiFetch(`/insumos/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 }
+
+// ---- Gestión de voluntarios (solo JEFE) ----
+
+// Un miembro del centro tal como lo ve el JEFE. `id` = Voluntario.id (clave de
+// remoción). Nunca el fingerprint. nombre/cedula/telefono son no-null para miembros
+// (la identidad completa es requisito para unirse/crear).
+export type VoluntarioItem = {
+  id: string;
+  nombre: string | null;
+  cedula: string | null;
+  telefono: string | null;
+  rol: RolCentro;
+  asignadoEn: string;
+};
+
+export async function getVoluntarios(centroId: string): Promise<VoluntarioItem[]> {
+  const res = await apiFetch(`/centros/${centroId}/voluntarios`);
+  if (!res.ok) throw new Error("No se pudieron cargar los voluntarios");
+  return res.json();
+}
+
+// Remover un voluntario por su Voluntario.id. El server (JefeGuard) bloquea remover
+// al jefe y el borrado cruzado entre centros.
+export async function removerVoluntario(centroId: string, voluntarioId: string): Promise<void> {
+  const res = await apiFetch(`/centros/${centroId}/voluntarios/${voluntarioId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.message || "No se pudo remover el voluntario");
+  }
+}
