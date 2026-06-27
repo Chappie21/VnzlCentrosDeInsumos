@@ -7,9 +7,17 @@ import {
   UseGuards,
   BadRequestException,
 } from "@nestjs/common";
-import { ArrayMinSize, IsInt, IsString, ValidateNested } from "class-validator";
+import {
+  ArrayMinSize,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from "class-validator";
 import { Type } from "class-transformer";
-import { prisma, Prisma } from "@vnzl/database";
+import { prisma, Prisma, CategoriaInsumo } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
 
@@ -24,6 +32,22 @@ class BatchDto {
   @ArrayMinSize(1)
   @Type(() => MovimientoDto)
   movimientos: MovimientoDto[];
+}
+
+// Donación escaneada desde un QR de donante: insumos por NOMBRE (el donante no
+// conoce insumoId). El centro hace upsert por nombre. Ver CEN-8 / CEN-19.
+class RecibirItemDto {
+  @IsString() nombre: string;
+  @IsOptional() @IsEnum(CategoriaInsumo) categoria?: CategoriaInsumo;
+  @IsInt() @Min(1) cantidad: number;
+}
+
+class RecibirDto {
+  @IsString() centroId: string;
+  @ValidateNested({ each: true })
+  @ArrayMinSize(1)
+  @Type(() => RecibirItemDto)
+  items: RecibirItemDto[];
 }
 
 // "Regla de oro": cantidadTotal is never set directly — only moved via Historial.
@@ -64,6 +88,51 @@ export class HistorialService {
     await this.redis.bumpCentros();
     return { ok: true, aplicados: dto.movimientos.length };
   }
+
+  // Recepción de una donación escaneada (insumos por nombre): upsert por
+  // (centroId, nombre) case-insensitive + entrada en Historial. Todo-o-nada.
+  async recibir(usuarioId: string, dto: RecibirDto) {
+    // Agrupar por nombre (case-insensitive) para no duplicar insumos en un mismo QR.
+    const byKey = new Map<string, { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }>();
+    for (const it of dto.items) {
+      const nombre = it.nombre.trim();
+      const key = nombre.toLowerCase();
+      const prev = byKey.get(key);
+      if (prev) prev.cantidad += it.cantidad;
+      else byKey.set(key, { nombre, categoria: it.categoria ?? null, cantidad: it.cantidad });
+    }
+    const items = [...byKey.values()];
+
+    await prisma.$transaction(async (tx) => {
+      for (const it of items) {
+        let insumo = await tx.insumo.findFirst({
+          where: { centroId: dto.centroId, nombre: { equals: it.nombre, mode: "insensitive" } },
+          select: { id: true },
+        });
+        if (!insumo) {
+          insumo = await tx.insumo.create({
+            data: {
+              centroId: dto.centroId,
+              nombre: it.nombre,
+              categoria: it.categoria,
+              cantidadTotal: 0,
+            },
+            select: { id: true },
+          });
+        }
+        // Regla de oro: cantidadTotal solo se mueve creando Historial dentro de la tx.
+        await tx.historial.create({
+          data: { insumoId: insumo.id, usuarioId, cantidad: it.cantidad },
+        });
+        await tx.insumo.update({
+          where: { id: insumo.id },
+          data: { cantidadTotal: { increment: it.cantidad } },
+        });
+      }
+    });
+    await this.redis.bumpCentros();
+    return { ok: true, recibidos: items.length };
+  }
 }
 
 @Controller("historial")
@@ -83,5 +152,12 @@ export class HistorialController {
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   batch(@Req() req: any, @Body() dto: BatchDto) {
     return this.service.batch(fingerprintOf(req), dto);
+  }
+
+  // Recepción por QR de donante (insumos por nombre). Solo voluntario del centro.
+  @Post("recibir")
+  @UseGuards(IdentidadGuard, VoluntarioGuard)
+  recibir(@Req() req: any, @Body() dto: RecibirDto) {
+    return this.service.recibir(fingerprintOf(req), dto);
   }
 }
