@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "./_components/Icon";
 import Field from "./_components/Field";
@@ -11,23 +11,15 @@ import {
   validateOnboarding,
   type OnboardingErrors,
 } from "./lib/validate";
-import { hasFullIdentity, isAnon, setAnon, setIdentity, syncIdentity } from "./lib/identity";
+import { setAnon, setIdentity } from "./lib/identity";
 
 function OnboardingForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/centros";
 
-  // Login is the landing view. Known devices (identified or "solo observar") skip it.
-  useEffect(() => {
-    (async () => {
-      if (hasFullIdentity() || isAnon()) {
-        router.replace(next);
-        return;
-      }
-      if (await syncIdentity()) router.replace(next);
-    })();
-  }, [next, router]);
+  // "/" siempre muestra el formulario; el salto a /centros ocurre solo
+  // tras "Entrar y Ayudar" o "Solo quiero observar".
 
   const [nombre, setNombre] = useState("");
   const [cedula, setCedula] = useState("");
