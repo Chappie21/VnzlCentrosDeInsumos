@@ -9,6 +9,8 @@ export const ROUTES = {
   invitarVoluntarios: (id: string) => `/mis-centros/${id}/invitar`,
   gestionarVoluntarios: (id: string) => `/mis-centros/${id}/voluntarios`,
   unirse: (token: string) => `/unirse/${token}`,
+  nuevoEnvio: (centroId: string) => `/envios/nuevo?centro=${centroId}`,
+  escanearDonacion: (centroId: string) => `/scanning?centro=${centroId}`,
   inventario: "/inventario",
   scanning: "/scanning",
 } as const;

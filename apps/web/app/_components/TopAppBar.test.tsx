@@ -15,7 +15,7 @@ describe("TopAppBar", () => {
   it("muestra el título y dispara onMenu", () => {
     const onMenu = vi.fn();
     render(<TopAppBar onMenu={onMenu} />);
-    expect(screen.getByText("RESPONSE CORE")).toBeTruthy();
+    expect(screen.getByText("Acopio Venezuela")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Menú"));
     expect(onMenu).toHaveBeenCalledOnce();
   });
