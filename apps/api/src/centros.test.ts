@@ -5,7 +5,13 @@ import { plainToInstance } from "class-transformer";
 // Mock del cliente compartido: evita conectar a Postgres y nos deja espiar queries.
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
-    centro: { findMany: vi.fn(), count: vi.fn() },
+    centro: {
+      findMany: vi.fn(),
+      count: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+      update: vi.fn(),
+    },
+    historial: { count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -18,7 +24,13 @@ vi.mock("@vnzl/database", () => ({
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
 }));
 
-import { CentrosService, CentrosController, CreateCentroDto } from "./centros";
+import {
+  CentrosService,
+  CentrosController,
+  CreateCentroDto,
+  UpdateCentroDto,
+  UpdateOperativoDto,
+} from "./centros";
 
 // redis fake: cached() ejecuta el fn directo; version fija.
 const redis = {
@@ -221,6 +233,131 @@ describe("CentrosController", () => {
     const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-9" : undefined) };
     expect(ctrl.mias(req as any)).toBe("ok");
     expect(svc.mias).toHaveBeenCalledWith("fp-9");
+  });
+});
+
+describe("CentrosService.detalle — dashboard de miembros", () => {
+  it("proyecta coords + insumos con descripcion/cantidadTotal, conteo y rol; sin PII", async () => {
+    prismaMock.centro.findUniqueOrThrow.mockResolvedValue({
+      ...centroBase,
+      latitud: 10.5,
+      longitud: -66.9,
+      creadoEn: new Date("2026-01-01"),
+      insumos: [
+        { id: "i1", nombre: "Agua", descripcion: "Botellones", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+      ],
+      _count: { voluntarios: 4 },
+      voluntarios: [{ rol: "JEFE" }],
+    });
+    prismaMock.historial.count.mockResolvedValue(7);
+
+    const res = await service.detalle("fp-123", "c1");
+
+    // filtra la relación voluntarios al usuario actual (take 1) para exponer su rol
+    const arg = prismaMock.centro.findUniqueOrThrow.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: "c1" });
+    expect(arg.select.voluntarios.where).toEqual({ usuarioId: "fp-123" });
+
+    // donaciones = entradas de Historial (cantidad > 0) de los insumos del centro
+    expect(prismaMock.historial.count).toHaveBeenCalledWith({
+      where: { cantidad: { gt: 0 }, insumo: { centroId: "c1" } },
+    });
+
+    expect(res.latitud).toBe(10.5);
+    expect(res.voluntarios).toBe(4);
+    expect(res.donaciones).toBe(7);
+    expect(res.rol).toBe("JEFE");
+    expect(res.insumos[0]).toEqual({
+      id: "i1",
+      nombre: "Agua",
+      descripcion: "Botellones",
+      nivel: "URGENTE",
+      categoria: "AGUA",
+      cantidadTotal: 12,
+    });
+    expect(res).not.toHaveProperty("_count");
+    expect(res).not.toHaveProperty("voluntariosList");
+  });
+
+  it("rol cae a VOLUNTARIO si la relación filtrada viene vacía", async () => {
+    prismaMock.centro.findUniqueOrThrow.mockResolvedValue({
+      ...centroBase,
+      latitud: null,
+      longitud: null,
+      creadoEn: new Date(),
+      insumos: [],
+      _count: { voluntarios: 1 },
+      voluntarios: [],
+    });
+    prismaMock.historial.count.mockResolvedValue(0);
+    const res = await service.detalle("fp-x", "c1");
+    expect(res.rol).toBe("VOLUNTARIO");
+  });
+});
+
+describe("CentrosService.actualizar / actualizarOperativo — escritura + bump", () => {
+  it("actualizar pasa solo los campos del dto y bumpea el directorio", async () => {
+    prismaMock.centro.update.mockResolvedValue({ ...centroBase });
+    const dto = { nombre: "Nuevo" } as any;
+
+    await service.actualizar("c1", dto);
+
+    expect(prismaMock.centro.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: dto });
+    expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
+  });
+
+  it("actualizarOperativo persiste recibiendoAhora/horarioCierre y bumpea", async () => {
+    prismaMock.centro.update.mockResolvedValue({ ...centroBase });
+    const dto = { recibiendoAhora: false, horarioCierre: "" } as any;
+
+    await service.actualizarOperativo("c1", dto);
+
+    expect(prismaMock.centro.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: dto });
+    expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("UpdateCentroDto — whitelist y regla ciudad⇒estado", () => {
+  const errores = async (data: Record<string, unknown>) =>
+    (await validate(plainToInstance(UpdateCentroDto, data))).flatMap((e) =>
+      Object.keys(e.constraints ?? {}),
+    );
+
+  it("acepta un patch parcial (solo nombre)", async () => {
+    expect(await errores({ nombre: "X" })).toHaveLength(0);
+  });
+
+  it("acepta estado + ciudad coherentes", async () => {
+    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toHaveLength(0);
+  });
+
+  it("rechaza ciudad sin estado (estado pasa a ser requerido)", async () => {
+    const e = await errores({ ciudad: "Baruta" });
+    expect(e).toContain("isIn"); // estado ausente => falla la whitelist
+  });
+
+  it("rechaza estado fuera de la whitelist", async () => {
+    expect(await errores({ estado: "Narnia", ciudad: "Baruta" })).toContain("isIn");
+  });
+
+  it("rechaza ciudad que no pertenece al estado", async () => {
+    expect(await errores({ estado: "Miranda", ciudad: "Maracaibo" })).toContain("isCiudadDeEstado");
+  });
+});
+
+describe("UpdateOperativoDto — tipos", () => {
+  it("acepta boolean + string (y vacío para limpiar)", async () => {
+    const errs = await validate(
+      plainToInstance(UpdateOperativoDto, { recibiendoAhora: true, horarioCierre: "" }),
+    );
+    expect(errs).toHaveLength(0);
+  });
+
+  it("rechaza recibiendoAhora no booleano", async () => {
+    const errs = await validate(
+      plainToInstance(UpdateOperativoDto, { recibiendoAhora: "sí" }),
+    );
+    expect(errs.flatMap((e) => Object.keys(e.constraints ?? {}))).toContain("isBoolean");
   });
 });
 

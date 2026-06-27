@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Injectable,
+  Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -20,6 +22,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   registerDecorator,
   type ValidationArguments,
 } from "class-validator";
@@ -27,7 +30,7 @@ import { Transform, Type } from "class-transformer";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario } from "@vnzl/database";
 import { ESTADOS, municipiosDe } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
-import { RateLimitGuard, IdentidadGuard, fingerprintOf } from "./guards";
+import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, fingerprintOf } from "./guards";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
 
@@ -66,6 +69,26 @@ export class CreateCentroDto {
   @IsString() direccion: string;
   @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
   @IsOptional() @Type(() => Number) @IsLongitude() longitud?: number;
+}
+
+// Edición de datos principales (solo JEFE). Todo opcional: se actualiza solo lo
+// enviado. Regla: `ciudad` necesita `estado` para validar contra la whitelist, así
+// que si viene `ciudad` exigimos también `estado` (ValidateIf fuerza su presencia).
+export class UpdateCentroDto {
+  @IsOptional() @IsString() nombre?: string;
+  @ValidateIf((o) => o.estado !== undefined || o.ciudad !== undefined)
+  @IsString() @IsIn([...ESTADOS]) estado?: string;
+  @IsOptional() @IsString() @IsCiudadDeEstado() ciudad?: string;
+  @IsOptional() @IsString() direccion?: string;
+  @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
+  @IsOptional() @Type(() => Number) @IsLongitude() longitud?: number;
+}
+
+// Estado operativo (cualquier voluntario). `horarioCierre` admite "" / null para
+// limpiarlo (solo display, nunca se filtra por él).
+export class UpdateOperativoDto {
+  @IsOptional() @IsBoolean() recibiendoAhora?: boolean;
+  @IsOptional() @IsString() horarioCierre?: string | null;
 }
 
 class ListCentrosQueryDto {
@@ -216,6 +239,75 @@ function toMiCentro(c: MiCentroRow): MiCentro {
   };
 }
 
+// Proyección del dashboard de detalle (solo miembros). A diferencia de la card
+// pública incluye coords + descripcion de insumos; igual que miCentroSelect filtra
+// `voluntarios` al usuario actual para exponer su `rol`. Nunca PII de terceros.
+const detalleSelect = (fingerprint: string) =>
+  ({
+    id: true,
+    nombre: true,
+    estado: true,
+    ciudad: true,
+    direccion: true,
+    latitud: true,
+    longitud: true,
+    recibiendoAhora: true,
+    horarioCierre: true,
+    creadoEn: true,
+    insumos: {
+      select: { id: true, nombre: true, descripcion: true, nivel: true, categoria: true, cantidadTotal: true },
+    },
+    _count: { select: { voluntarios: true } },
+    voluntarios: { where: { usuarioId: fingerprint }, select: { rol: true }, take: 1 },
+  }) satisfies Prisma.CentroSelect;
+
+type DetalleRow = Prisma.CentroGetPayload<{ select: ReturnType<typeof detalleSelect> }>;
+
+export type InsumoDetalle = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  nivel: NivelInsumo;
+  categoria: CategoriaInsumo | null;
+  cantidadTotal: number;
+};
+
+export type CentroDetalle = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  creadoEn: Date;
+  voluntarios: number;
+  donaciones: number;
+  rol: RolVoluntario;
+  insumos: InsumoDetalle[];
+};
+
+function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
+  return {
+    id: c.id,
+    nombre: c.nombre,
+    estado: c.estado,
+    ciudad: c.ciudad,
+    direccion: c.direccion,
+    latitud: c.latitud,
+    longitud: c.longitud,
+    recibiendoAhora: c.recibiendoAhora,
+    horarioCierre: c.horarioCierre,
+    creadoEn: c.creadoEn,
+    voluntarios: c._count.voluntarios,
+    donaciones,
+    rol: c.voluntarios[0]?.rol ?? RolVoluntario.VOLUNTARIO,
+    insumos: c.insumos,
+  };
+}
+
 @Injectable()
 export class CentrosService {
   constructor(private readonly redis: RedisService) {}
@@ -341,6 +433,40 @@ export class CentrosService {
     });
     return rows.map(toMiCentro);
   }
+
+  // Detalle de un centro (solo miembros, garantizado por VoluntarioGuard). Sin
+  // cache: refleja inventario al instante. `cantidadTotal` se expone para lectura.
+  async detalle(fingerprint: string, centroId: string): Promise<CentroDetalle> {
+    // Donaciones recibidas = entradas de Historial (cantidad > 0) de los insumos
+    // del centro. Las salidas (cantidad < 0) no cuentan.
+    const [row, donaciones] = await Promise.all([
+      prisma.centro.findUniqueOrThrow({
+        where: { id: centroId },
+        select: detalleSelect(fingerprint),
+      }),
+      prisma.historial.count({
+        where: { cantidad: { gt: 0 }, insumo: { centroId } },
+      }),
+    ]);
+    return toCentroDetalle(row, donaciones);
+  }
+
+  // Datos principales (solo JEFE, garantizado por JefeGuard). Actualiza solo los
+  // campos enviados; bumpCentros porque nombre/ciudad/estado/direccion aparecen en
+  // el directorio. Nunca toca cantidadTotal (regla de oro).
+  async actualizar(centroId: string, dto: UpdateCentroDto) {
+    const centro = await prisma.centro.update({ where: { id: centroId }, data: dto });
+    await this.redis.bumpCentros();
+    return centro;
+  }
+
+  // Estado operativo (cualquier voluntario). bumpCentros porque recibiendoAhora
+  // alimenta el filtro soloAbiertos del directorio.
+  async actualizarOperativo(centroId: string, dto: UpdateOperativoDto) {
+    const centro = await prisma.centro.update({ where: { id: centroId }, data: dto });
+    await this.redis.bumpCentros();
+    return centro;
+  }
 }
 
 @Controller("centros")
@@ -365,5 +491,27 @@ export class CentrosController {
   @UseGuards(RateLimitGuard, IdentidadGuard)
   create(@Req() req: any, @Body() dto: CreateCentroDto) {
     return this.service.create(fingerprintOf(req), dto);
+  }
+
+  // Detalle del centro (dashboard de miembros). DEBE declararse después de "mios"
+  // para que el literal no caiga en el param :centroId.
+  @Get(":centroId")
+  @UseGuards(IdentidadGuard, VoluntarioGuard)
+  detalle(@Req() req: any, @Param("centroId") centroId: string) {
+    return this.service.detalle(fingerprintOf(req), centroId);
+  }
+
+  // Editar datos principales: solo el JEFE.
+  @Patch(":centroId")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  actualizar(@Param("centroId") centroId: string, @Body() dto: UpdateCentroDto) {
+    return this.service.actualizar(centroId, dto);
+  }
+
+  // Editar estado operativo: cualquier voluntario del centro.
+  @Patch(":centroId/operativo")
+  @UseGuards(IdentidadGuard, VoluntarioGuard)
+  actualizarOperativo(@Param("centroId") centroId: string, @Body() dto: UpdateOperativoDto) {
+    return this.service.actualizarOperativo(centroId, dto);
   }
 }

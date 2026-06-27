@@ -6,3 +6,4 @@ export * from "./filters";
 export * from "./venezuela";
 export * from "./categorias";
 export * from "./mis-centros";
+export * from "./centro-detalle";

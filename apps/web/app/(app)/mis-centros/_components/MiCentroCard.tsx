@@ -1,13 +1,17 @@
+import Link from "next/link";
 import { Icon } from "../../../_components";
-import { ROL_LABEL } from "../../../constants";
+import { ROL_LABEL, ROUTES } from "../../../constants";
 import type { MiCentro } from "../../../lib/api";
 
 // Tarjeta de un centro propio: rol, ubicación, voluntarios, insumos y estado.
+// Linkea al dashboard de detalle del centro.
 export default function MiCentroCard({ centro }: { centro: MiCentro }) {
   const esJefe = centro.rol === "JEFE";
   return (
-    // ponytail: la ruta de detalle aún no existe; tarjeta no clickeable por ahora.
-    <article className="relative overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+    <Link
+      href={ROUTES.misCentroDetalle(centro.id)}
+      className="relative block overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-colors hover:bg-surface-container"
+    >
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-on-surface">{centro.nombre}</h2>
@@ -52,6 +56,6 @@ export default function MiCentroCard({ centro }: { centro: MiCentro }) {
         )}
         <Icon name="chevron_right" className="text-outline" />
       </div>
-    </article>
+    </Link>
   );
 }

@@ -25,4 +25,9 @@ describe("MiCentroCard", () => {
     render(<MiCentroCard centro={{ ...base, rol: "VOLUNTARIO" }} />);
     expect(screen.getByText("Voluntario")).toBeTruthy();
   });
+
+  it("linkea al detalle del centro", () => {
+    render(<MiCentroCard centro={{ ...base, rol: "JEFE" }} />);
+    expect(screen.getByRole("link").getAttribute("href")).toBe("/mis-centros/c1");
+  });
 });
