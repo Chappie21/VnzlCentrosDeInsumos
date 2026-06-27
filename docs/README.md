@@ -12,6 +12,7 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 - [Donar (donación por QR)](donar.md) — carrito de insumos → QR de entrega stateless.
 - [Crear centro + invitar](crear-centro.md) — registrar un centro de acopio e invitar ayudantes.
 - [Recepción por escaneo](escaneo.md) — voluntario escanea el QR y registra insumos en su centro.
+- [Envíos (descargo)](envios.md) — despacho de un centro a otro destino + guía con QR.
 
 ---
 
