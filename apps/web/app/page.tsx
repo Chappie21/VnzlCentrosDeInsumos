@@ -3,8 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import Icon from "./_components/Icon";
-import Field from "./_components/Field";
+import { Icon, Field, TopAppBar } from "./_components";
 import { onboard } from "./lib/api";
 import {
   normalizeCedula,
@@ -24,24 +23,7 @@ import {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-surface text-on-surface">
-      <header className="sticky top-0 z-50 mx-auto flex h-12 w-full max-w-[1024px] items-center justify-between border-b-2 border-outline-variant bg-surface px-4">
-        <button
-          type="button"
-          aria-label="Menú"
-          className="flex h-12 w-12 items-center justify-center rounded-full text-emergency transition-colors hover:bg-surface-container-high active:scale-95"
-        >
-          <Icon name="menu" />
-        </button>
-        <h1 className="text-xl font-bold uppercase tracking-tight text-emergency">
-          RESPONSE CORE
-        </h1>
-        <span
-          aria-hidden
-          className="flex h-12 w-12 items-center justify-center rounded-full text-emergency"
-        >
-          <Icon name="emergency" />
-        </span>
-      </header>
+      <TopAppBar />
 
       <main className="mx-auto flex w-full max-w-[1024px] flex-grow items-center justify-center px-4 py-8">
         <div className="relative w-full max-w-md space-y-8 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm">

@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from "@nestjs/common";
 import Redis from "ioredis";
+import { CACHE } from "./constants";
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
@@ -20,6 +21,16 @@ export class RedisService implements OnModuleDestroy {
     const val = await fn();
     await this.client.set(key, JSON.stringify(val), "EX", ttlSec);
     return val;
+  }
+
+  // Versión del listado de centros. La key de cache la incluye, así un bump
+  // invalida todas las combinaciones de filtros+página sin SCAN.
+  async centrosVersion(): Promise<string> {
+    return (await this.client.get(CACHE.centrosVersionKey)) ?? "0";
+  }
+
+  async bumpCentros(): Promise<void> {
+    await this.client.incr(CACHE.centrosVersionKey);
   }
 
   onModuleDestroy() {

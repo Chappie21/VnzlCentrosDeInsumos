@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { prisma } from "@vnzl/database";
 import { RedisService } from "./redis.service";
+import { RATE_LIMIT } from "./constants";
 
 // Identity = device fingerprint, sent as header. No login (spec §3).
 export function fingerprintOf(req: any): string {
@@ -57,12 +58,11 @@ export class VoluntarioGuard implements CanActivate {
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   constructor(private readonly redis: RedisService) {}
-  // ponytail: hard-coded 10/min. pull into config only when limits need to differ per route.
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
     const fp = req.header("x-fingerprint") || req.ip;
     const key = `rl:${req.route?.path ?? req.path}:${fp}`;
-    if (!(await this.redis.hit(key, 10, 60)))
+    if (!(await this.redis.hit(key, RATE_LIMIT.max, RATE_LIMIT.windowSec)))
       throw new HttpException(
         "Demasiadas solicitudes, espera un minuto",
         HttpStatus.TOO_MANY_REQUESTS,

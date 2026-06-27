@@ -1,15 +1,14 @@
 "use client";
 
 import { getMe } from "./api";
+import { STORAGE } from "../constants";
 
 export type Identity = { nombre: string; cedula: string; telefono: string };
-
-const KEY = "identity";
 
 export function getIdentity(): Identity | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(STORAGE.identity);
     if (!raw) return null;
     return JSON.parse(raw) as Identity;
   } catch {
@@ -19,13 +18,13 @@ export function getIdentity(): Identity | null {
 
 export function setIdentity(identity: Identity) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(identity));
-  localStorage.removeItem("anon");
+  localStorage.setItem(STORAGE.identity, JSON.stringify(identity));
+  localStorage.removeItem(STORAGE.anon);
 }
 
 export function setAnon() {
   if (typeof window === "undefined") return;
-  localStorage.setItem("anon", "1");
+  localStorage.setItem(STORAGE.anon, "1");
 }
 
 export function hasFullIdentity(): boolean {
@@ -36,7 +35,7 @@ export function hasFullIdentity(): boolean {
 // User explicitly chose "solo observar" — skip the login gate on landing.
 export function isAnon(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem("anon") === "1";
+  return localStorage.getItem(STORAGE.anon) === "1";
 }
 
 // Rehydrate localStorage from the backend if this device already onboarded

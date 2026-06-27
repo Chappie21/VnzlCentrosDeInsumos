@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { haversineKm, sortByProximity } from "./geo";
+import { haversineKm, sortByProximity, boundingBox } from "./geo";
 
 describe("geo", () => {
   it("haversine: Maracaibo->Caracas ~520km", () => {
@@ -30,5 +30,17 @@ describe("geo", () => {
       -66.9,
     );
     expect(out[0].id).toBe("has");
+  });
+
+  it("boundingBox: contiene el centro y crece con el radio", () => {
+    const lat = 10.5;
+    const lng = -66.9;
+    const small = boundingBox(lat, lng, 10);
+    const big = boundingBox(lat, lng, 100);
+    // el centro cae dentro de la caja
+    expect(lat).toBeGreaterThan(small.minLat);
+    expect(lat).toBeLessThan(small.maxLat);
+    // más radio -> caja más ancha
+    expect(big.maxLat - big.minLat).toBeGreaterThan(small.maxLat - small.minLat);
   });
 });
