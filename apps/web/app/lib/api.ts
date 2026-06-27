@@ -95,3 +95,32 @@ export function recibirDonacion(centroId: string, items: DonationItem[]) {
     body: JSON.stringify({ centroId, items }),
   });
 }
+
+// Lista liviana de centros para el dropdown de destino (CEN-17).
+export type CentroLite = { id: string; nombre: string; ciudad: string };
+export async function getCentrosSelect(): Promise<CentroLite[]> {
+  // ponytail: trae la primera página (máx del backend = 50). Si los centros pasan
+  // de 50, paginar o agregar un endpoint liviano de solo {id, nombre}.
+  const res = await apiFetch("/centros?limit=50");
+  if (!res.ok) throw new Error("No se pudieron cargar los centros");
+  const data = await res.json();
+  return (data.items ?? []).map((c: any) => ({ id: c.id, nombre: c.nombre, ciudad: c.ciudad }));
+}
+
+// Despachar un envío desde un centro (CEN-16/17). Origen = `centroId`.
+export type EnvioBody = {
+  centroId: string;
+  centroDestinoId?: string;
+  destinoTexto?: string;
+  transporte: string;
+  items: { insumoId: string; cantidad: number }[];
+};
+export async function crearEnvio(body: EnvioBody): Promise<{ id: string }> {
+  const res = await apiFetch("/envios", { method: "POST", body: JSON.stringify(body) });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msg = Array.isArray(data?.message) ? data.message.join(" ") : data?.message;
+    throw new Error(msg || "No se pudo generar el envío");
+  }
+  return res.json();
+}
