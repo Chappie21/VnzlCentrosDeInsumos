@@ -75,6 +75,15 @@ export default function CentroDetallePage() {
         </Link>
       </div>
 
+      {/* Carga manual / importar inventario (cualquier miembro). */}
+      <Link
+        href={ROUTES.cargarInventario(data.id)}
+        className="flex h-12 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high"
+      >
+        <Icon name="upload_file" />
+        Carga manual de inventario
+      </Link>
+
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant">
           Resumen de inventario
