@@ -1,6 +1,7 @@
 export const ROUTES = {
   home: "/",
   centros: "/centros",
+  crearCentro: "/centros/nuevo",
   miCentro: "/mi-centro",
   inventario: "/inventario",
   scanning: "/scanning",

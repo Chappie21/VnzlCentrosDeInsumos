@@ -33,3 +33,25 @@ export function onboard(body: OnboardBody) {
 export function getMe() {
   return apiFetch("/usuarios/me");
 }
+
+export type CreateCentroBody = {
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud?: number;
+  longitud?: number;
+};
+
+export type CreatedCentro = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  recibiendoAhora: boolean;
+};
+
+export function createCentro(body: CreateCentroBody) {
+  return apiFetch("/centros", { method: "POST", body: JSON.stringify(body) });
+}

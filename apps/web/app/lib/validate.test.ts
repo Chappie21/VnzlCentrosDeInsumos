@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { normalizeCedula, normalizeTelefono, validateOnboarding } from "./validate";
+import {
+  normalizeCedula,
+  normalizeTelefono,
+  validateOnboarding,
+  validateCentro,
+} from "./validate";
 
 describe("normalize", () => {
   it("cédula: dígitos solos -> prefijo V", () => {
@@ -32,5 +37,38 @@ describe("validateOnboarding", () => {
     expect(e.nombre).toBeDefined();
     expect(e.cedula).toBeDefined();
     expect(e.telefono).toBeDefined();
+  });
+});
+
+describe("validateCentro", () => {
+  const ok = {
+    nombre: "Centro Deportivo Municipal",
+    ciudad: "Maracaibo",
+    estado: "Zulia",
+    direccion: "Av. 5 de Julio, C.P. 4001",
+  };
+
+  it("acepta un centro válido (sin errores)", () => {
+    expect(validateCentro(ok)).toEqual({});
+  });
+
+  it("acepta coordenadas dentro de rango", () => {
+    expect(validateCentro({ ...ok, latitud: 10.5, longitud: -71.6 })).toEqual({});
+  });
+
+  it("rechaza nombre faltante", () => {
+    const e = validateCentro({ ...ok, nombre: "" });
+    expect(e.nombre).toBeDefined();
+  });
+
+  it("rechaza dirección corta", () => {
+    const e = validateCentro({ ...ok, direccion: "Av." });
+    expect(e.direccion).toBeDefined();
+  });
+
+  it("rechaza coordenadas fuera de rango", () => {
+    const e = validateCentro({ ...ok, latitud: 120, longitud: -500 });
+    expect(e.latitud).toBeDefined();
+    expect(e.longitud).toBeDefined();
   });
 });

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     centro: { findMany: vi.fn(), count: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -130,6 +131,35 @@ describe("CentrosService.list — con coordenadas (proximidad)", () => {
     expect(items.find((i) => i.id === "lejos")).toBeUndefined(); // fuera del radio
     expect(total).toBe(1);
     expect(items[0].distanciaKm).not.toBe(null);
+  });
+});
+
+describe("CentrosService.create — escritura transaccional", () => {
+  it("crea el Centro + Voluntario en la misma tx, invalida cache y devuelve la fila", async () => {
+    const fingerprint = "fp-123";
+    const dto = {
+      nombre: "Centro Nuevo",
+      estado: "DC",
+      ciudad: "Caracas",
+      direccion: "Av 2",
+    } as any;
+    const creado = { ...centroBase, id: "new-id", nombre: "Centro Nuevo", recibiendoAhora: true };
+
+    // tx expone los mismos modelos que usa create(); centro.create resuelve la fila.
+    const txMock = {
+      centro: { create: vi.fn().mockResolvedValue(creado) },
+      voluntario: { create: vi.fn().mockResolvedValue({}) },
+    };
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+    const res = await service.create(fingerprint, dto);
+
+    expect(txMock.centro.create).toHaveBeenCalledWith({ data: dto });
+    expect(txMock.voluntario.create).toHaveBeenCalledWith({
+      data: { usuarioId: fingerprint, centroId: creado.id },
+    });
+    expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
+    expect(res).toBe(creado);
   });
 });
 
