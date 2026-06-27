@@ -55,3 +55,34 @@ export type CreatedCentro = {
 export function createCentro(body: CreateCentroBody) {
   return apiFetch("/centros", { method: "POST", body: JSON.stringify(body) });
 }
+
+// Rol del usuario en un centro: JEFE = dueño, VOLUNTARIO = ayudante.
+export type RolCentro = "JEFE" | "VOLUNTARIO";
+
+export type MiInsumo = {
+  id: string;
+  nombre: string;
+  nivel: string;
+  categoria: string | null;
+  cantidadTotal: number;
+};
+
+export type MiCentro = {
+  id: string;
+  nombre: string;
+  ciudad: string;
+  estado: string;
+  direccion: string;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  insumos: MiInsumo[];
+  rol: RolCentro;
+};
+
+// Centros del usuario actual (dueño + voluntario). Fingerprint en header (apiFetch).
+export async function getMisCentros(): Promise<MiCentro[]> {
+  const res = await apiFetch("/centros/mios");
+  if (!res.ok) throw new Error("No se pudieron cargar tus centros");
+  return res.json();
+}

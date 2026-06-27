@@ -3,7 +3,7 @@ export const ROUTES = {
   donar: "/donar",
   centros: "/centros",
   crearCentro: "/centros/nuevo",
-  miCentro: "/mi-centro",
+  misCentros: "/mis-centros",
   inventario: "/inventario",
   scanning: "/scanning",
 } as const;

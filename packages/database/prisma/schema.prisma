@@ -40,10 +40,11 @@ model Centro {
 }
 
 model Voluntario {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   usuarioId  String
   centroId   String
-  asignadoEn DateTime @default(now())
+  rol        RolVoluntario @default(VOLUNTARIO)
+  asignadoEn DateTime      @default(now())
 
   usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])
   centro  Centro  @relation(fields: [centroId], references: [id])
@@ -78,6 +79,11 @@ enum CategoriaInsumo {
   ROPA
   ALIMENTOS
   HERRAMIENTAS
+}
+
+enum RolVoluntario {
+  JEFE        // creador del centro (dueño)
+  VOLUNTARIO  // agregado vía invitación
 }
 
 model Historial {

@@ -24,7 +24,7 @@ import {
   type ValidationArguments,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
-import { prisma, Prisma, NivelInsumo, CategoriaInsumo } from "@vnzl/database";
+import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario } from "@vnzl/database";
 import { ESTADOS, municipiosDe } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
 import { RateLimitGuard, IdentidadGuard, fingerprintOf } from "./guards";
@@ -159,21 +159,26 @@ function toCard(c: CentroRow, distanciaKm: number | null): CentroCard {
 // Proyección para el dashboard "Mi Centro": incluye id + cantidadTotal de cada
 // insumo (necesarios para registrar movimientos) y el conteo de voluntarios.
 // Sin coords ni PII.
-const miCentroSelect = {
-  id: true,
-  nombre: true,
-  ciudad: true,
-  estado: true,
-  direccion: true,
-  recibiendoAhora: true,
-  horarioCierre: true,
-  insumos: {
-    select: { id: true, nombre: true, nivel: true, categoria: true, cantidadTotal: true },
-  },
-  _count: { select: { voluntarios: true } },
-} satisfies Prisma.CentroSelect;
+// Función del fingerprint: el select filtra la relación `voluntarios` al usuario
+// actual (take 1) para exponer su `rol`, mientras `_count.voluntarios` mantiene el
+// total. Son keys distintas: `voluntarios` (select) vs `_count.voluntarios`.
+const miCentroSelect = (fingerprint: string) =>
+  ({
+    id: true,
+    nombre: true,
+    ciudad: true,
+    estado: true,
+    direccion: true,
+    recibiendoAhora: true,
+    horarioCierre: true,
+    insumos: {
+      select: { id: true, nombre: true, nivel: true, categoria: true, cantidadTotal: true },
+    },
+    _count: { select: { voluntarios: true } },
+    voluntarios: { where: { usuarioId: fingerprint }, select: { rol: true }, take: 1 },
+  }) satisfies Prisma.CentroSelect;
 
-type MiCentroRow = Prisma.CentroGetPayload<{ select: typeof miCentroSelect }>;
+type MiCentroRow = Prisma.CentroGetPayload<{ select: ReturnType<typeof miCentroSelect> }>;
 
 export type MiInsumo = {
   id: string;
@@ -192,6 +197,7 @@ export type MiCentro = {
   recibiendoAhora: boolean;
   horarioCierre: string | null;
   voluntarios: number;
+  rol: RolVoluntario;
   insumos: MiInsumo[];
 };
 
@@ -205,6 +211,7 @@ function toMiCentro(c: MiCentroRow): MiCentro {
     recibiendoAhora: c.recibiendoAhora,
     horarioCierre: c.horarioCierre,
     voluntarios: c._count.voluntarios,
+    rol: c.voluntarios[0]?.rol ?? RolVoluntario.VOLUNTARIO,
     insumos: c.insumos,
   };
 }
@@ -315,7 +322,7 @@ export class CentrosService {
     const centro = await prisma.$transaction(async (tx) => {
       const c = await tx.centro.create({ data: dto });
       await tx.voluntario.create({
-        data: { usuarioId: fingerprint, centroId: c.id },
+        data: { usuarioId: fingerprint, centroId: c.id, rol: RolVoluntario.JEFE },
       });
       return c;
     });
@@ -329,7 +336,7 @@ export class CentrosService {
   async mias(fingerprint: string): Promise<MiCentro[]> {
     const rows = await prisma.centro.findMany({
       where: { voluntarios: { some: { usuarioId: fingerprint } } },
-      select: miCentroSelect,
+      select: miCentroSelect(fingerprint),
       orderBy: { creadoEn: "desc" },
     });
     return rows.map(toMiCentro);
