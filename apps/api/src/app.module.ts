@@ -5,6 +5,7 @@ import { RateLimitGuard, VoluntarioGuard, IdentidadGuard } from "./guards";
 import { CentrosController, CentrosService } from "./centros";
 import { HistorialController, HistorialService } from "./historial";
 import { UsuariosController, UsuariosService } from "./usuarios";
+import { EnviosController, EnviosService } from "./envios";
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { UsuariosController, UsuariosService } from "./usuarios";
       secret: process.env.JWT_SECRET || "dev-only-change-me",
     }),
   ],
-  controllers: [CentrosController, HistorialController, UsuariosController],
+  controllers: [CentrosController, HistorialController, UsuariosController, EnviosController],
   providers: [
     RedisService,
     RateLimitGuard,
@@ -22,6 +23,7 @@ import { UsuariosController, UsuariosService } from "./usuarios";
     CentrosService,
     HistorialService,
     UsuariosService,
+    EnviosService,
   ],
 })
 export class AppModule {}

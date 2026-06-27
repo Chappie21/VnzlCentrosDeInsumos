@@ -14,8 +14,9 @@ model Usuario {
   cedula      String?
   telefono    String?
 
-  centros     Voluntario[]
-  movimientos Historial[]
+  centros       Voluntario[]
+  movimientos   Historial[]
+  enviosCreados Envio[]
 }
 
 model Centro {
@@ -32,8 +33,10 @@ model Centro {
   horarioCierre   String? // "20:00" — solo display, nunca se filtra por él
   creadoEn    DateTime     @default(now())
 
-  voluntarios Voluntario[]
-  insumos     Insumo[]
+  voluntarios   Voluntario[]
+  insumos       Insumo[]
+  enviosOrigen  Envio[] @relation("EnviosOrigen")
+  enviosDestino Envio[] @relation("EnviosDestino")
 
   @@index([estado, ciudad])
   @@index([recibiendoAhora])
@@ -91,10 +94,33 @@ model Historial {
   insumoId  String
   usuarioId String
   cantidad  Int // Positivo (entrada) o negativo (salida)
+  envioId   String? // set si el movimiento (-) es parte de un despacho
   fecha     DateTime @default(now())
 
   insumo  Insumo  @relation(fields: [insumoId], references: [id])
   usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])
+  envio   Envio?  @relation(fields: [envioId], references: [id])
 
   @@index([insumoId])
+  @@index([envioId])
+}
+
+// Despacho de insumos de un centro a otro destino (centro de la red o albergue
+// de texto libre). "Solo despacho": descuenta el origen vía Historial(-); el
+// destino NO suma automático. Ver CEN-16.
+model Envio {
+  id              String   @id @default(uuid())
+  centroOrigenId  String
+  centroDestinoId String? // FK a Centro si el destino está en la red
+  destinoTexto    String? // albergue / destino libre (si no es un Centro)
+  transporte      String // chofer / coordinador (texto)
+  creadoPorId     String // voluntario que despachó (registro de quién lo hizo)
+  creadoEn        DateTime @default(now())
+
+  origen      Centro      @relation("EnviosOrigen", fields: [centroOrigenId], references: [id])
+  destino     Centro?     @relation("EnviosDestino", fields: [centroDestinoId], references: [id])
+  creadoPor   Usuario     @relation(fields: [creadoPorId], references: [fingerprint])
+  movimientos Historial[]
+
+  @@index([centroOrigenId])
 }
