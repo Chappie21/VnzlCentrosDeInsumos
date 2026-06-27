@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
 
 // Mock del cliente compartido: evita conectar a Postgres y nos deja espiar queries.
 const { prismaMock } = vi.hoisted(() => ({
@@ -15,7 +17,7 @@ vi.mock("@vnzl/database", () => ({
   CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
 }));
 
-import { CentrosService, CentrosController } from "./centros";
+import { CentrosService, CentrosController, CreateCentroDto } from "./centros";
 
 // redis fake: cached() ejecuta el fn directo; version fija.
 const redis = {
@@ -170,5 +172,30 @@ describe("CentrosController", () => {
     const query = { q: "x", page: 2 };
     expect(ctrl.list(query as any)).toBe("ok");
     expect(svc.list).toHaveBeenCalledWith(query);
+  });
+});
+
+describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => {
+  const base = { nombre: "Centro X", direccion: "Av Principal 123" };
+  const errores = async (data: Record<string, unknown>) =>
+    (await validate(plainToInstance(CreateCentroDto, data))).flatMap((e) =>
+      Object.keys(e.constraints ?? {}),
+    );
+
+  it("acepta estado real + ciudad de ese estado", async () => {
+    const errs = await validate(
+      plainToInstance(CreateCentroDto, { ...base, estado: "Miranda", ciudad: "Baruta" }),
+    );
+    expect(errs).toHaveLength(0);
+  });
+
+  it("rechaza estado fuera de la lista", async () => {
+    const e = await errores({ ...base, estado: "Narnia", ciudad: "Baruta" });
+    expect(e).toContain("isIn");
+  });
+
+  it("rechaza ciudad que no pertenece al estado", async () => {
+    const e = await errores({ ...base, estado: "Miranda", ciudad: "Maracaibo" });
+    expect(e).toContain("isCiudadDeEstado");
   });
 });
