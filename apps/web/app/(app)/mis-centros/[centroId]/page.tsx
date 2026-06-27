@@ -46,6 +46,25 @@ export default function CentroDetallePage() {
         </Link>
       )}
       <OperativoToggle centro={data} />
+
+      {/* Acciones del centro: recibir (escaneo, entrante) y despachar (envío, saliente). */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          href={ROUTES.escanearDonacion(data.id)}
+          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#1d4ed8] active:scale-[0.98]"
+        >
+          <Icon name="qr_code_scanner" />
+          Escanear donación
+        </Link>
+        <Link
+          href={ROUTES.nuevoEnvio(data.id)}
+          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98]"
+        >
+          <Icon name="local_shipping" />
+          Nuevo Envío
+        </Link>
+      </div>
+
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant">
           Resumen de inventario
