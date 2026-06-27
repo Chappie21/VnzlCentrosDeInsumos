@@ -141,3 +141,60 @@ export async function getGuia(id: string): Promise<Guia> {
   if (!res.ok) throw new Error("Guía no encontrada");
   return res.json();
 }
+
+// ---- Detalle de un centro (solo miembros) ----
+
+export type NivelInsumo = "URGENTE" | "NORMAL" | "SUFICIENTE";
+
+export type InsumoDetalle = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  nivel: NivelInsumo;
+  categoria: string | null;
+  cantidadTotal: number;
+};
+
+export type CentroDetalle = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  rol: RolCentro;
+  insumos: InsumoDetalle[];
+};
+
+export async function getCentroDetalle(id: string): Promise<CentroDetalle> {
+  const res = await apiFetch(`/centros/${id}`);
+  if (!res.ok) throw new Error("No se pudo cargar el centro");
+  return res.json();
+}
+
+// Datos principales (solo JEFE). Devuelve el Response para que el caller maneje !ok.
+export type UpdateCentroBody = Partial<CreateCentroBody>;
+export function updateCentro(id: string, body: UpdateCentroBody) {
+  return apiFetch(`/centros/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// Estado operativo (cualquier voluntario).
+export type UpdateOperativoBody = { recibiendoAhora?: boolean; horarioCierre?: string };
+export function updateOperativo(id: string, body: UpdateOperativoBody) {
+  return apiFetch(`/centros/${id}/operativo`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// Metadata de un insumo (cualquier voluntario). Nunca cantidadTotal.
+export type UpdateInsumoBody = {
+  nombre?: string;
+  descripcion?: string;
+  nivel?: NivelInsumo;
+  categoria?: string;
+};
+export function updateInsumo(id: string, body: UpdateInsumoBody) {
+  return apiFetch(`/insumos/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}

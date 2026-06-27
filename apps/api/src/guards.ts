@@ -7,7 +7,7 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { prisma } from "@vnzl/database";
+import { prisma, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { RATE_LIMIT } from "./constants";
 
@@ -50,6 +50,26 @@ export class VoluntarioGuard implements CanActivate {
       where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
     });
     if (!link) throw new ForbiddenException("No eres voluntario de este centro");
+    return true;
+  }
+}
+
+// Solo el JEFE (dueño) del centro puede editar los datos principales (nombre,
+// ubicación). Espeja VoluntarioGuard pero exige rol === JEFE.
+@Injectable()
+export class JefeGuard implements CanActivate {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest();
+    const fingerprint = fingerprintOf(req);
+    const centroId = req.params?.centroId ?? req.body?.centroId;
+    if (!centroId) throw new BadRequestException("centroId requerido");
+
+    const link = await prisma.voluntario.findUnique({
+      where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
+    });
+    if (!link) throw new ForbiddenException("No eres voluntario de este centro");
+    if (link.rol !== RolVoluntario.JEFE)
+      throw new ForbiddenException("Solo el jefe del centro puede hacer esto");
     return true;
   }
 }

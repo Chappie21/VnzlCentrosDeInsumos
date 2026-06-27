@@ -12,4 +12,5 @@ export type CentrosFilters = {
 export const centrosKeys = {
   list: (filters: CentrosFilters) => [QK.centros, "list", filters] as const,
   mios: () => [QK.centros, "mios"] as const,
+  detalle: (id: string) => [QK.centros, "detalle", id] as const,
 };
