@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { Field, Icon, Qr } from "../../../_components";
 import { CATEGORIAS, type Categoria } from "../../../constants/categorias";
 import {
@@ -9,27 +10,39 @@ import {
   type DonationItem,
 } from "../../../lib/donation";
 
-const blank = (): DonationItem => ({ nombre: "", categoria: null, cantidad: 1 });
+// El form maneja categoria como "" (placeholder del select); se mapea a null al donar.
+type FormItem = { nombre: string; categoria: Categoria | ""; cantidad: number };
+type FormValues = { items: FormItem[] };
 
-function validItems(items: DonationItem[]): DonationItem[] {
+const blank = (): FormItem => ({ nombre: "", categoria: "", cantidad: 1 });
+
+function validItems(items: FormItem[]): FormItem[] {
   return items
     .map((i) => ({ ...i, nombre: i.nombre.trim() }))
     .filter((i) => i.nombre && i.cantidad >= 1);
 }
 
+function toDonation(items: FormItem[]): DonationItem[] {
+  return items.map((i) => ({
+    nombre: i.nombre.trim(),
+    categoria: i.categoria || null,
+    cantidad: i.cantidad,
+  }));
+}
+
 export default function DonacionForm() {
-  const [items, setItems] = useState<DonationItem[]>([blank()]);
+  // react-hook-form gestiona el carrito (consistencia con el onboarding). El
+  // "submit" no va al server: genera el QR en cliente, así que se dispara por
+  // botón (no handleSubmit) y se habilita según los ítems válidos.
+  const { control, register, watch } = useForm<FormValues>({
+    defaultValues: { items: [blank()] },
+  });
+  const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const [qr, setQr] = useState<string | null>(null);
 
+  const items = watch("items");
   const valid = validItems(items);
-  const total = totalUnidades(valid);
-
-  function patch(idx: number, p: Partial<DonationItem>) {
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...p } : it)));
-  }
-  function remove(idx: number) {
-    setItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
-  }
+  const total = totalUnidades(toDonation(valid));
 
   // Pantalla "Listo para entregar" (img 3): el donante muestra este QR al voluntario.
   if (qr) {
@@ -84,12 +97,12 @@ export default function DonacionForm() {
       </div>
 
       <div className="space-y-4">
-        {items.map((it, idx) => (
+        {fields.map((field, idx) => (
           <div
-            key={idx}
+            key={field.id}
             className="relative space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
           >
-            {items.length > 1 && (
+            {fields.length > 1 && (
               <button
                 type="button"
                 aria-label="Quitar insumo"
@@ -104,8 +117,7 @@ export default function DonacionForm() {
               label="Nombre del Insumo"
               icon="inventory_2"
               placeholder="Ej. Agua embotellada"
-              value={it.nombre}
-              onChange={(e) => patch(idx, { nombre: e.target.value })}
+              {...register(`items.${idx}.nombre`)}
             />
 
             <div>
@@ -114,10 +126,7 @@ export default function DonacionForm() {
               </label>
               <select
                 aria-label="Categoría"
-                value={it.categoria ?? ""}
-                onChange={(e) =>
-                  patch(idx, { categoria: (e.target.value || null) as Categoria | null })
-                }
+                {...register(`items.${idx}.categoria`)}
                 className="block w-full rounded-lg border-2 border-outline-variant bg-surface px-3 py-3 text-base text-on-surface focus:border-safety focus:outline-none"
               >
                 <option value="">Seleccionar…</option>
@@ -133,34 +142,42 @@ export default function DonacionForm() {
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Cantidad
               </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label="Restar"
-                  onClick={() => patch(idx, { cantidad: Math.max(1, it.cantidad - 1) })}
-                  className="flex h-12 w-12 items-center justify-center rounded-lg border border-outline-variant bg-surface-container text-on-surface hover:bg-surface-container-high"
-                >
-                  <Icon name="remove" />
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  aria-label="Cantidad"
-                  value={it.cantidad}
-                  onChange={(e) =>
-                    patch(idx, { cantidad: Math.max(1, Math.floor(Number(e.target.value) || 1)) })
-                  }
-                  className="h-12 w-full rounded-lg border-2 border-outline-variant bg-surface text-center text-base text-on-surface focus:border-safety focus:outline-none"
-                />
-                <button
-                  type="button"
-                  aria-label="Sumar"
-                  onClick={() => patch(idx, { cantidad: it.cantidad + 1 })}
-                  className="flex h-12 w-12 items-center justify-center rounded-lg border border-outline-variant bg-surface-container text-on-surface hover:bg-surface-container-high"
-                >
-                  <Icon name="add" />
-                </button>
-              </div>
+              <Controller
+                control={control}
+                name={`items.${idx}.cantidad`}
+                render={({ field: f }) => (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Restar"
+                      onClick={() => f.onChange(Math.max(1, f.value - 1))}
+                      className="flex h-12 w-12 items-center justify-center rounded-lg border border-outline-variant bg-surface-container text-on-surface hover:bg-surface-container-high"
+                    >
+                      <Icon name="remove" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      aria-label="Cantidad"
+                      value={f.value}
+                      onBlur={f.onBlur}
+                      ref={f.ref}
+                      onChange={(e) =>
+                        f.onChange(Math.max(1, Math.floor(Number(e.target.value) || 1)))
+                      }
+                      className="h-12 w-full rounded-lg border-2 border-outline-variant bg-surface text-center text-base text-on-surface focus:border-safety focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Sumar"
+                      onClick={() => f.onChange(f.value + 1)}
+                      className="flex h-12 w-12 items-center justify-center rounded-lg border border-outline-variant bg-surface-container text-on-surface hover:bg-surface-container-high"
+                    >
+                      <Icon name="add" />
+                    </button>
+                  </div>
+                )}
+              />
             </div>
           </div>
         ))}
@@ -168,7 +185,7 @@ export default function DonacionForm() {
 
       <button
         type="button"
-        onClick={() => setItems((prev) => [...prev, blank()])}
+        onClick={() => append(blank())}
         className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant py-3 text-on-surface-variant hover:bg-surface-container"
       >
         <Icon name="add" />
@@ -187,7 +204,7 @@ export default function DonacionForm() {
       <button
         type="button"
         disabled={valid.length === 0}
-        onClick={() => setQr(encodeDonation(valid))}
+        onClick={() => setQr(encodeDonation(toDonation(valid)))}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon name="qr_code_2" />

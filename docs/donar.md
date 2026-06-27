@@ -19,6 +19,9 @@ los insumos. Debe ser visible en cualquier dispositivo.
   para no bundlear el cliente Prisma en el front.
 - **Es un flujo enfocado**: oculta el `BottomNav` (no es una tab). Ver `NAV_HIDDEN_PREFIXES`.
 - **QR generado con `qrcode.react`** (SVG, reusable por invitar/envíos).
+- **Form con react-hook-form** (`useForm` + `useFieldArray` + `Controller` para el stepper),
+  por consistencia con el onboarding. La generación del QR es client-side, así que se dispara
+  por botón (no `handleSubmit`) y se habilita según los ítems válidos (`watch`).
 
 ## 3. Diseño técnico
 - **Frontend**
