@@ -52,7 +52,7 @@ export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
         )}
       </div>
 
-      <h1 className="text-xl font-bold uppercase tracking-tight text-emergency">
+      <h1 className="min-w-0 flex-1 truncate text-center text-xl font-bold uppercase tracking-tight text-emergency">
         RESPONSE CORE
       </h1>
       <span
