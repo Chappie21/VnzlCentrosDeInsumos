@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
 
 // Mock del cliente compartido: evita conectar a Postgres y nos deja espiar queries.
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     centro: { findMany: vi.fn(), count: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -14,7 +17,7 @@ vi.mock("@vnzl/database", () => ({
   CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
 }));
 
-import { CentrosService, CentrosController } from "./centros";
+import { CentrosService, CentrosController, CreateCentroDto } from "./centros";
 
 // redis fake: cached() ejecuta el fn directo; version fija.
 const redis = {
@@ -133,6 +136,35 @@ describe("CentrosService.list — con coordenadas (proximidad)", () => {
   });
 });
 
+describe("CentrosService.create — escritura transaccional", () => {
+  it("crea el Centro + Voluntario en la misma tx, invalida cache y devuelve la fila", async () => {
+    const fingerprint = "fp-123";
+    const dto = {
+      nombre: "Centro Nuevo",
+      estado: "DC",
+      ciudad: "Caracas",
+      direccion: "Av 2",
+    } as any;
+    const creado = { ...centroBase, id: "new-id", nombre: "Centro Nuevo", recibiendoAhora: true };
+
+    // tx expone los mismos modelos que usa create(); centro.create resuelve la fila.
+    const txMock = {
+      centro: { create: vi.fn().mockResolvedValue(creado) },
+      voluntario: { create: vi.fn().mockResolvedValue({}) },
+    };
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+    const res = await service.create(fingerprint, dto);
+
+    expect(txMock.centro.create).toHaveBeenCalledWith({ data: dto });
+    expect(txMock.voluntario.create).toHaveBeenCalledWith({
+      data: { usuarioId: fingerprint, centroId: creado.id },
+    });
+    expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
+    expect(res).toBe(creado);
+  });
+});
+
 describe("CentrosService.mias — centros del voluntario", () => {
   it("filtra por el usuarioId del fingerprint", async () => {
     prismaMock.centro.findMany.mockResolvedValue([]);
@@ -186,5 +218,30 @@ describe("CentrosController", () => {
     const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-9" : undefined) };
     expect(ctrl.mias(req as any)).toBe("ok");
     expect(svc.mias).toHaveBeenCalledWith("fp-9");
+  });
+});
+
+describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => {
+  const base = { nombre: "Centro X", direccion: "Av Principal 123" };
+  const errores = async (data: Record<string, unknown>) =>
+    (await validate(plainToInstance(CreateCentroDto, data))).flatMap((e) =>
+      Object.keys(e.constraints ?? {}),
+    );
+
+  it("acepta estado real + ciudad de ese estado", async () => {
+    const errs = await validate(
+      plainToInstance(CreateCentroDto, { ...base, estado: "Miranda", ciudad: "Baruta" }),
+    );
+    expect(errs).toHaveLength(0);
+  });
+
+  it("rechaza estado fuera de la lista", async () => {
+    const e = await errores({ ...base, estado: "Narnia", ciudad: "Baruta" });
+    expect(e).toContain("isIn");
+  });
+
+  it("rechaza ciudad que no pertenece al estado", async () => {
+    const e = await errores({ ...base, estado: "Miranda", ciudad: "Maracaibo" });
+    expect(e).toContain("isCiudadDeEstado");
   });
 });

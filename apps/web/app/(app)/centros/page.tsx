@@ -118,10 +118,10 @@ export default function DirectorioCentros() {
       <Fab
         icon="add"
         label="Agregar centro de acopio"
-        // ponytail: el flujo de crear centro aún no existe; gateamos y mandamos a
-        // "Mi Centro" (placeholder). Reapuntar cuando exista /centros/nuevo.
         onClick={() =>
-          requireHelp(router, ROUTES.centros, () => router.push(ROUTES.miCentro))
+          requireHelp(router, ROUTES.crearCentro, () =>
+            router.push(ROUTES.crearCentro),
+          )
         }
       />
     </>

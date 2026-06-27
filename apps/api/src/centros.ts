@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -19,9 +20,12 @@ import {
   Max,
   MaxLength,
   Min,
+  registerDecorator,
+  type ValidationArguments,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo } from "@vnzl/database";
+import { ESTADOS, municipiosDe } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
 import { RateLimitGuard, IdentidadGuard, fingerprintOf } from "./guards";
 import { boundingBox, sortByProximity } from "./geo";
@@ -33,10 +37,32 @@ const toOptionalBool = () =>
     value === undefined ? undefined : value === true || value === "true" || value === "1",
   );
 
-class CreateCentroDto {
+// Valida que la ciudad pertenezca al estado enviado (whitelist @vnzl/venezuela).
+// Cross-field: lee el sibling `estado` del objeto en validación.
+function IsCiudadDeEstado() {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: "isCiudadDeEstado",
+      target: object.constructor,
+      propertyName,
+      validator: {
+        validate(value: unknown, args: ValidationArguments) {
+          const estado = (args.object as { estado?: string }).estado ?? "";
+          return typeof value === "string" && municipiosDe(estado).includes(value);
+        },
+        defaultMessage(args: ValidationArguments) {
+          const estado = (args.object as { estado?: string }).estado ?? "";
+          return `ciudad no pertenece al estado "${estado}"`;
+        },
+      },
+    });
+  };
+}
+
+export class CreateCentroDto {
   @IsString() nombre: string;
-  @IsString() estado: string;
-  @IsString() ciudad: string;
+  @IsString() @IsIn([...ESTADOS]) estado: string;
+  @IsString() @IsCiudadDeEstado() ciudad: string;
   @IsString() direccion: string;
   @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
   @IsOptional() @Type(() => Number) @IsLongitude() longitud?: number;
