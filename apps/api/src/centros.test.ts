@@ -15,6 +15,7 @@ vi.mock("@vnzl/database", () => ({
   Prisma: {},
   NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
   CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
+  RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
 }));
 
 import { CentrosService, CentrosController, CreateCentroDto } from "./centros";
@@ -158,7 +159,7 @@ describe("CentrosService.create — escritura transaccional", () => {
 
     expect(txMock.centro.create).toHaveBeenCalledWith({ data: dto });
     expect(txMock.voluntario.create).toHaveBeenCalledWith({
-      data: { usuarioId: fingerprint, centroId: creado.id },
+      data: { usuarioId: fingerprint, centroId: creado.id, rol: "JEFE" },
     });
     expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
     expect(res).toBe(creado);
@@ -184,6 +185,7 @@ describe("CentrosService.mias — centros del voluntario", () => {
           { id: "i1", nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
         ],
         _count: { voluntarios: 3 },
+        voluntarios: [{ rol: "JEFE" }],
       },
     ]);
 
@@ -191,6 +193,7 @@ describe("CentrosService.mias — centros del voluntario", () => {
 
     expect(res).toHaveLength(1);
     expect(res[0].voluntarios).toBe(3);
+    expect(res[0].rol).toBe("JEFE");
     expect(res[0].insumos[0]).toEqual({
       id: "i1",
       nombre: "Agua",

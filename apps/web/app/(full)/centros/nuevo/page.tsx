@@ -134,7 +134,7 @@ export default function NuevoCentro() {
       <div className="min-h-dvh bg-surface text-on-surface">
         <SuccessView
           centroNombre={createdNombre}
-          onVerCentro={() => router.push(ROUTES.miCentro)}
+          onVerCentro={() => router.push(ROUTES.misCentros)}
           // ponytail: invitar ayudantes aún no existe; no-op hasta que haya flujo.
           onInvitar={() => {}}
         />
