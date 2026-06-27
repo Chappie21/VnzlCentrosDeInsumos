@@ -124,3 +124,20 @@ export async function crearEnvio(body: EnvioBody): Promise<{ id: string }> {
   }
   return res.json();
 }
+
+// Guía pública de un envío (a la que apunta el QR). CEN-18.
+export type GuiaDestino = { nombre: string; ciudad: string } | { texto: string | null };
+export type Guia = {
+  id: string;
+  creadoEn: string;
+  transporte: string;
+  despachadoPor: string | null;
+  origen: { nombre: string; ciudad: string; estado: string };
+  destino: GuiaDestino;
+  items: { nombre: string; cantidad: number }[];
+};
+export async function getGuia(id: string): Promise<Guia> {
+  const res = await apiFetch(`/envios/${id}`);
+  if (!res.ok) throw new Error("Guía no encontrada");
+  return res.json();
+}
