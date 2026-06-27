@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import { requireHelp, syncIdentity } from "../lib/identity";
 import Icon from "../_components/Icon";
@@ -19,7 +20,6 @@ type Centro = {
 
 export default function Centros() {
   const router = useRouter();
-  const [centros, setCentros] = useState<Centro[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Rehydrate identity from the device's backend record if localStorage was cleared.
@@ -35,13 +35,14 @@ export default function Centros() {
     );
   }, []);
 
-  useEffect(() => {
-    const q = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
-    apiFetch(`/centros${q}`)
-      .then((r) => r.json())
-      .then((d) => setCentros(Array.isArray(d) ? d : []))
-      .catch(() => setCentros([]));
-  }, [coords]);
+  const { data: centros = [], isLoading } = useQuery<Centro[]>({
+    queryKey: ["centros", coords],
+    queryFn: async () => {
+      const q = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
+      const d = await apiFetch(`/centros${q}`).then((r) => r.json());
+      return Array.isArray(d) ? d : [];
+    },
+  });
 
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -85,7 +86,9 @@ export default function Centros() {
             </ul>
           </li>
         ))}
-        {centros.length === 0 && <p className="text-outline">No hay centros todavía.</p>}
+        {centros.length === 0 && (
+          <p className="text-outline">{isLoading ? "Cargando…" : "No hay centros todavía."}</p>
+        )}
       </ul>
     </main>
   );

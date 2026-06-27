@@ -1,27 +1,17 @@
-import { useId } from "react";
+import { forwardRef, useId } from "react";
+import type { InputHTMLAttributes } from "react";
 import Icon from "./Icon";
 
 type FieldProps = {
   label: string;
   icon: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
   error?: string;
-  type?: string;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-};
+} & InputHTMLAttributes<HTMLInputElement>;
 
-export default function Field({
-  label,
-  icon,
-  value,
-  onChange,
-  placeholder,
-  error,
-  type = "text",
-  inputMode,
-}: FieldProps) {
+const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
+  { label, icon, error, type = "text", ...rest },
+  ref,
+) {
   const id = useId();
   const errorId = `${id}-error`;
 
@@ -40,15 +30,13 @@ export default function Field({
         <input
           id={id}
           type={type}
-          inputMode={inputMode}
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
+          ref={ref}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={`block w-full rounded-lg border-2 bg-surface py-3 pl-10 pr-3 text-base text-on-surface transition-colors placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-safety focus:border-safety ${
             error ? "border-emergency" : "border-outline-variant"
           }`}
+          {...rest}
         />
       </div>
       {error && (
@@ -58,4 +46,6 @@ export default function Field({
       )}
     </div>
   );
-}
+});
+
+export default Field;

@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { RedisService } from "./redis.service";
-import { AuthGuard, RateLimitGuard, VoluntarioGuard, IdentidadGuard } from "./guards";
+import { RateLimitGuard, VoluntarioGuard, IdentidadGuard } from "./guards";
 import { CentrosController, CentrosService } from "./centros";
 import { HistorialController, HistorialService } from "./historial";
 import { UsuariosController, UsuariosService } from "./usuarios";
@@ -16,7 +16,6 @@ import { UsuariosController, UsuariosService } from "./usuarios";
   controllers: [CentrosController, HistorialController, UsuariosController],
   providers: [
     RedisService,
-    AuthGuard,
     RateLimitGuard,
     VoluntarioGuard,
     IdentidadGuard,

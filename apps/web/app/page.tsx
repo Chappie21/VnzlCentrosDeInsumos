@@ -1,14 +1,16 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "./_components/Icon";
 import Field from "./_components/Field";
-import { onboard, setToken } from "./lib/api";
+import { onboard } from "./lib/api";
 import {
   normalizeCedula,
   normalizeTelefono,
   validateOnboarding,
+  type OnboardingInput,
 } from "./lib/validate";
 import {
   getIdentity,
@@ -180,50 +182,54 @@ function OnboardingForm({
   onDone: (id: Identity) => void;
   onObserve: () => void;
 }) {
-  const [nombre, setNombre] = useState("");
-  const [cedula, setCedula] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const errors = validateOnboarding({ nombre, cedula, telefono });
-  const hasErrors = Object.keys(errors).length > 0;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<OnboardingInput>({
+    mode: "onChange",
+    defaultValues: { nombre: "", cedula: "", telefono: "" },
+    // Reutiliza las mismas reglas que el backend mapeándolas al formato de RHF.
+    resolver: (values) => {
+      const fieldErrors = validateOnboarding(values);
+      const hasErrors = Object.keys(fieldErrors).length > 0;
+      return {
+        values: hasErrors ? {} : values,
+        errors: Object.fromEntries(
+          Object.entries(fieldErrors).map(([name, message]) => [
+            name,
+            { type: "validate", message },
+          ]),
+        ),
+      };
+    },
+  });
 
-  // Error visible solo si el campo fue tocado (tiene texto) o ya se intentó enviar.
-  const show = (field: keyof typeof errors, value: string) =>
-    submitted || value.length > 0 ? errors[field] : undefined;
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitted(true);
+  async function onValid(values: OnboardingInput) {
     setApiError(null);
-    if (hasErrors) return;
 
     const body = {
-      nombre: nombre.trim(),
-      cedula: normalizeCedula(cedula),
-      telefono: normalizeTelefono(telefono),
+      nombre: values.nombre.trim(),
+      cedula: normalizeCedula(values.cedula),
+      telefono: normalizeTelefono(values.telefono),
     };
 
-    setSubmitting(true);
     try {
       const res = await onboard(body);
-      const data = await res.json().catch(() => null);
       if (!res.ok) {
+        const data = await res.json().catch(() => null);
         const msg = Array.isArray(data?.message)
           ? data.message.join(" ")
           : data?.message;
         setApiError(msg || "No se pudo guardar. Inténtalo de nuevo.");
         return;
       }
-      if (data?.token) setToken(data.token); // JWT: queda autenticado
       setIdentity(body);
-      onDone(body); // la vista pasa a perfil
+      onDone(body); // queda autenticado: la vista pasa a perfil
     } catch {
       setApiError("Error de conexión. Inténtalo de nuevo.");
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -239,23 +245,21 @@ function OnboardingForm({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit(onValid)} className="space-y-6">
         <div className="space-y-4">
           <Field
             label="Nombre completo"
             icon="person"
             placeholder="Ingresa tu nombre"
-            value={nombre}
-            onChange={setNombre}
-            error={show("nombre", nombre)}
+            error={errors.nombre?.message}
+            {...register("nombre")}
           />
           <Field
             label="Cédula de identidad"
             icon="badge"
             placeholder="V12345678"
-            value={cedula}
-            onChange={setCedula}
-            error={show("cedula", cedula)}
+            error={errors.cedula?.message}
+            {...register("cedula")}
           />
           <Field
             label="Teléfono"
@@ -263,9 +267,8 @@ function OnboardingForm({
             type="tel"
             inputMode="tel"
             placeholder="04141234567"
-            value={telefono}
-            onChange={setTelefono}
-            error={show("telefono", telefono)}
+            error={errors.telefono?.message}
+            {...register("telefono")}
           />
         </div>
 
@@ -274,11 +277,11 @@ function OnboardingForm({
         <div className="space-y-4 pt-2">
           <button
             type="submit"
-            disabled={hasErrors || submitting}
+            disabled={!isValid || isSubmitting}
             className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="login" />
-            {submitting ? "Entrando…" : "Entrar y Ayudar"}
+            {isSubmitting ? "Entrando…" : "Entrar y Ayudar"}
           </button>
 
           <button

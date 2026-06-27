@@ -13,7 +13,6 @@ import { IsNotEmpty, IsString, Matches } from "class-validator";
 import { Transform } from "class-transformer";
 import { prisma } from "@vnzl/database";
 import {
-  AuthGuard,
   IdentidadGuard,
   VoluntarioGuard,
   fingerprintOf,
@@ -49,36 +48,25 @@ class OnboardDto {
 export class UsuariosService {
   constructor(private readonly jwt: JwtService) {}
 
-  // Long-lived user token: identity is the device fingerprint, kept "forever".
-  // ponytail: 365d expiry, refreshed on each /me. Rotate JWT_SECRET to revoke all.
-  private signUser(fingerprint: string): string {
-    return this.jwt.sign({ sub: fingerprint }, { expiresIn: "365d" });
-  }
-
   // Public profile of the current device (spec §3). Anonymous observers get nulls, never 404.
-  // Reissues the JWT when the identity is complete (rehydration on app open).
   async me(fingerprint: string) {
     const u = await prisma.usuario.findUnique({ where: { fingerprint } });
-    const completa = identidadCompleta(u);
     return {
       fingerprint,
       nombre: u?.nombre ?? null,
       cedula: u?.cedula ?? null,
       telefono: u?.telefono ?? null,
-      identidadCompleta: completa,
-      token: completa ? this.signUser(fingerprint) : null,
+      identidadCompleta: identidadCompleta(u),
     };
   }
 
   // Onboarding (spec §3): name/cedula/phone required before contributing.
-  // Returns the user + a JWT so the device stays authenticated.
-  async onboard(fingerprint: string, dto: OnboardDto) {
-    const usuario = await prisma.usuario.upsert({
+  onboard(fingerprint: string, dto: OnboardDto) {
+    return prisma.usuario.upsert({
       where: { fingerprint },
       update: dto,
       create: { fingerprint, ...dto },
     });
-    return { ...usuario, token: this.signUser(fingerprint) };
   }
 
   // Volunteer invite link/QR = short-lived JWT bound to a centro (spec §4.3).
@@ -119,13 +107,13 @@ export class UsuariosController {
 
   // Only an existing volunteer of the centro can mint invites.
   @Post("invitaciones")
-  @UseGuards(AuthGuard, VoluntarioGuard)
+  @UseGuards(VoluntarioGuard)
   invite(@Body() body: { centroId: string }) {
     return this.service.invite(body.centroId);
   }
 
   @Post("invitaciones/aceptar")
-  @UseGuards(AuthGuard, IdentidadGuard)
+  @UseGuards(IdentidadGuard)
   accept(@Req() req: any, @Body() body: { token: string }) {
     return this.service.accept(fingerprintOf(req), body.token);
   }
