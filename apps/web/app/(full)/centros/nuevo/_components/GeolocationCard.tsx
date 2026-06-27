@@ -1,10 +1,24 @@
+"use client";
+
+import dynamic from "next/dynamic";
 import { Field, Icon } from "../../../../_components";
 import type { Coords } from "../../../../_hooks";
+
+// Mapa Leaflet: solo en cliente (usa window). El wrapper ssr:false vive acá,
+// detrás del boundary "use client".
+const Map = dynamic(() => import("./Map"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 w-full animate-pulse rounded-lg bg-surface-container" />
+  ),
+});
 
 type GeolocationCardProps = {
   coords: Coords | null;
   denied: boolean;
   onRequest: () => void;
+  onPick: (p: Coords) => void;
+  recenterKey?: number;
   lat: string;
   lng: string;
 };
@@ -13,6 +27,8 @@ export default function GeolocationCard({
   coords,
   denied,
   onRequest,
+  onPick,
+  recenterKey,
   lat,
   lng,
 }: GeolocationCardProps) {
@@ -38,10 +54,16 @@ export default function GeolocationCard({
 
       {denied && (
         <p className="text-xs text-emergency">
-          Permiso de ubicación denegado. Podés ingresar las coordenadas o
-          intentarlo de nuevo desde los ajustes del navegador.
+          Permiso de ubicación denegado. Tocá el mapa para marcar la ubicación o
+          intentá de nuevo desde los ajustes del navegador.
         </p>
       )}
+
+      {/* Mapa interactivo: tocar o arrastrar el marcador fija lat/lng. */}
+      <Map value={coords} onChange={onPick} recenterKey={recenterKey} />
+      <p className="text-xs text-on-surface-variant">
+        Tocá el mapa o arrastrá el marcador para fijar la ubicación.
+      </p>
 
       <div className="grid grid-cols-2 gap-4">
         <Field
@@ -58,21 +80,6 @@ export default function GeolocationCard({
           placeholder="00.000000"
           value={lng}
         />
-      </div>
-
-      {/* ponytail: vista previa estática; mejorar a imagen de static-map más adelante. */}
-      <div className="flex h-32 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-outline-variant text-on-surface-variant">
-        <span className="text-3xl">
-          <Icon name="map" />
-        </span>
-        <span className="text-xs font-bold uppercase tracking-wider">
-          Vista Previa
-        </span>
-        {coords && (
-          <span className="text-xs">
-            {lat}, {lng}
-          </span>
-        )}
       </div>
     </div>
   );

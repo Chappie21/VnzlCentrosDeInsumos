@@ -10,6 +10,7 @@ describe("GeolocationCard", () => {
         coords={null}
         denied={false}
         onRequest={onRequest}
+        onPick={vi.fn()}
         lat=""
         lng=""
       />,
@@ -24,6 +25,7 @@ describe("GeolocationCard", () => {
         coords={{ lat: 10.5, lng: -71.6 }}
         denied={false}
         onRequest={vi.fn()}
+        onPick={vi.fn()}
         lat="10.500000"
         lng="-71.600000"
       />,

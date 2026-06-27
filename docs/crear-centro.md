@@ -27,8 +27,12 @@ para usuarios **autenticados** (identidad completa: nombre + cédula + teléfono
   (rehidrata desde backend si se limpió localStorage); si sigue sin identidad,
   `router.replace('/?next=/centros/nuevo')`. Se usa `replace` para que el back no
   regrese a la vista gateada.
-- **Vista previa de mapa = placeholder estático** (`ponytail`): sin dependencia de
-  mapa para el MVP. Upgrade a imagen de static-map más adelante.
+- **Mapa interactivo = Leaflet + OpenStreetMap** (sin Google Maps): elegir lat/lng
+  tocando el mapa o arrastrando el marcador, sin API key ni billing. `react-leaflet@5`
+  + `leaflet@1.9.4`, cargado client-only (`next/dynamic` `ssr:false`) porque Leaflet
+  usa `window`. Fix de íconos del marker para Turbopack (PNG → `StaticImageData.src`).
+  Tiles de OSM (`ponytail`: uso directo del tile server público; mover a un proveedor
+  con SLA/clave si el tráfico crece).
 - **"Invitar Ayudantes" = no-op** (`ponytail`): el flujo de invitación no existe aún.
 - **Éxito sin navegar.** El submit togglea estado local `screen` form→success en la
   misma ruta (mantiene el nombre creado en memoria). "Ver mi Centro" → `/mi-centro`.
@@ -42,7 +46,8 @@ para usuarios **autenticados** (identidad completa: nombre + cédula + teléfono
   (`createCentro`) con manejo de respuesta no-ok igual que onboarding, invalida
   `[QK.centros]` en éxito (prefijo de `centrosKeys.list` → el directorio refetchea).
 - `app/(full)/centros/nuevo/_components/` (barrel): `GeolocationCard` (presentacional:
-  botón pedir ubicación, lat/lng readonly, placeholder de mapa, mensaje si `denied`),
+  botón pedir ubicación, lat/lng readonly, mapa interactivo Leaflet, mensaje si `denied`),
+  `Map` (Leaflet client-only: marcador draggable + click-to-place + recenter),
   `SuccessView` (check verde, card nombre + badge ACTIVO, dos acciones).
 - `app/_components/TextAreaField.tsx`: `forwardRef<HTMLTextAreaElement>` reusando el
   estilo de `Field` (que es input-only) para la dirección.
@@ -72,7 +77,7 @@ para usuarios **autenticados** (identidad completa: nombre + cédula + teléfono
 - **Build**: `pnpm --filter @vnzl/web build` → rutas `/centros` y `/centros/nuevo`.
 
 ## 6. Pendientes / deuda
-- Vista previa de mapa real (hoy placeholder estático).
+- Tiles OSM vía servidor público (sin clave): mover a un proveedor con SLA si escala.
 - Flujo "Invitar Ayudantes" (hoy no-op): endpoint de invitación/unión + vista.
 - Proyección allowlist en `create` (hoy retorna fila cruda; no es fuga, solo simetría
   con el `cardSelect` del listado).

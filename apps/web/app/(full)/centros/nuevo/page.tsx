@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Field, Icon, SelectField, TextAreaField } from "../../../_components";
 import { useGeolocation } from "../../../_hooks";
+import type { Coords } from "../../../_hooks";
 import { createCentro } from "../../../lib/api";
 import { hasFullIdentity, syncIdentity } from "../../../lib/identity";
 import { validateCentro, type CentroInput } from "../../../lib/validate";
@@ -61,12 +62,23 @@ export default function NuevoCentro() {
   });
 
   const { coords, denied, request } = useGeolocation();
+  // Punto seleccionado: lo fija la geolocalización o un toque/arrastre en el mapa.
+  const [point, setPoint] = useState<Coords | null>(null);
+  const [recenterKey, setRecenterKey] = useState(0);
 
+  // Geolocalización -> mueve el punto y recentra el mapa.
   useEffect(() => {
     if (!coords) return;
-    setValue("latitud", coords.lat, { shouldValidate: true });
-    setValue("longitud", coords.lng, { shouldValidate: true });
-  }, [coords, setValue]);
+    setPoint(coords);
+    setRecenterKey((k) => k + 1);
+  }, [coords]);
+
+  // El punto (venga del mapa o del GPS) alimenta el form.
+  useEffect(() => {
+    if (!point) return;
+    setValue("latitud", point.lat, { shouldValidate: true });
+    setValue("longitud", point.lng, { shouldValidate: true });
+  }, [point, setValue]);
 
   // Cascada: al cambiar el estado, la ciudad seleccionada deja de ser válida.
   const estado = watch("estado");
@@ -89,7 +101,7 @@ export default function NuevoCentro() {
       ciudad: values.ciudad.trim(),
       estado: values.estado.trim(),
       direccion: values.direccion.trim(),
-      ...(coords ? { latitud: coords.lat, longitud: coords.lng } : {}),
+      ...(point ? { latitud: point.lat, longitud: point.lng } : {}),
     };
 
     try {
@@ -192,11 +204,13 @@ export default function NuevoCentro() {
           />
 
           <GeolocationCard
-            coords={coords}
+            coords={point}
             denied={denied}
             onRequest={request}
-            lat={coords ? fmt(coords.lat) : ""}
-            lng={coords ? fmt(coords.lng) : ""}
+            onPick={setPoint}
+            recenterKey={recenterKey}
+            lat={point ? fmt(point.lat) : ""}
+            lng={point ? fmt(point.lng) : ""}
           />
 
           {apiError && <p className="text-sm text-emergency">{apiError}</p>}
