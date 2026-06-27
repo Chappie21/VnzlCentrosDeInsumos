@@ -130,6 +130,59 @@ function toCard(c: CentroRow, distanciaKm: number | null): CentroCard {
   };
 }
 
+// Proyección para el dashboard "Mi Centro": incluye id + cantidadTotal de cada
+// insumo (necesarios para registrar movimientos) y el conteo de voluntarios.
+// Sin coords ni PII.
+const miCentroSelect = {
+  id: true,
+  nombre: true,
+  ciudad: true,
+  estado: true,
+  direccion: true,
+  recibiendoAhora: true,
+  horarioCierre: true,
+  insumos: {
+    select: { id: true, nombre: true, nivel: true, categoria: true, cantidadTotal: true },
+  },
+  _count: { select: { voluntarios: true } },
+} satisfies Prisma.CentroSelect;
+
+type MiCentroRow = Prisma.CentroGetPayload<{ select: typeof miCentroSelect }>;
+
+export type MiInsumo = {
+  id: string;
+  nombre: string;
+  nivel: NivelInsumo;
+  categoria: CategoriaInsumo | null;
+  cantidadTotal: number;
+};
+
+export type MiCentro = {
+  id: string;
+  nombre: string;
+  ciudad: string;
+  estado: string;
+  direccion: string;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  insumos: MiInsumo[];
+};
+
+function toMiCentro(c: MiCentroRow): MiCentro {
+  return {
+    id: c.id,
+    nombre: c.nombre,
+    ciudad: c.ciudad,
+    estado: c.estado,
+    direccion: c.direccion,
+    recibiendoAhora: c.recibiendoAhora,
+    horarioCierre: c.horarioCierre,
+    voluntarios: c._count.voluntarios,
+    insumos: c.insumos,
+  };
+}
+
 @Injectable()
 export class CentrosService {
   constructor(private readonly redis: RedisService) {}
@@ -243,6 +296,18 @@ export class CentrosService {
     await this.redis.bumpCentros();
     return centro;
   }
+
+  // Centros donde el usuario es voluntario. Alimenta el dashboard "Mi Centro"
+  // (inventario completo + conteo de voluntarios). Sin cache: data personal y poco
+  // voluminosa; debe reflejar movimientos al instante.
+  async mias(fingerprint: string): Promise<MiCentro[]> {
+    const rows = await prisma.centro.findMany({
+      where: { voluntarios: { some: { usuarioId: fingerprint } } },
+      select: miCentroSelect,
+      orderBy: { creadoEn: "desc" },
+    });
+    return rows.map(toMiCentro);
+  }
 }
 
 @Controller("centros")
@@ -253,6 +318,13 @@ export class CentrosController {
   @Get()
   list(@Query() query: ListCentrosQueryDto) {
     return this.service.list(query);
+  }
+
+  // Centros del usuario identificado (dashboard "Mi Centro"). GET /centros/mios.
+  @Get("mios")
+  @UseGuards(IdentidadGuard)
+  mias(@Req() req: any) {
+    return this.service.mias(fingerprintOf(req));
   }
 
   // Identified users only (fingerprint header). Rate-limited (spec §6.5).
