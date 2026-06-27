@@ -142,6 +142,30 @@ export async function getGuia(id: string): Promise<Guia> {
   return res.json();
 }
 
+// ---- Invitación de voluntarios (JWT 1h, QR + link) ----
+
+// Crear invitación (solo JEFE). Devuelve el token y su expiración en minutos.
+export type Invitacion = { token: string; expiresInMin: number };
+export async function crearInvitacion(centroId: string): Promise<Invitacion> {
+  const res = await apiFetch("/invitaciones", {
+    method: "POST",
+    body: JSON.stringify({ centroId }),
+  });
+  if (!res.ok) throw new Error("No se pudo generar la invitación");
+  return res.json();
+}
+
+// Aceptar invitación (requiere identidad completa). Devuelve el centro al que se unió.
+export type InvitacionAceptada = { centroId: string; nombre: string };
+export async function aceptarInvitacion(token: string): Promise<InvitacionAceptada> {
+  const res = await apiFetch("/invitaciones/aceptar", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) throw new Error("Invitación inválida o expirada");
+  return res.json();
+}
+
 // ---- Detalle de un centro (solo miembros) ----
 
 export type NivelInsumo = "URGENTE" | "NORMAL" | "SUFICIENTE";

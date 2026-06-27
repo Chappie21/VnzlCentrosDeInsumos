@@ -1,6 +1,13 @@
 # Flujo: Invitación de Voluntarios (QR + link JWT 1h)
 
-> Estado: planificado · Última actualización: 2026-06-27 · Branch: feat/invitar-voluntarios
+> Estado: implementado · Última actualización: 2026-06-27 · Branch: feat/invitar-voluntarios
+
+> **Listo** (backend + frontend). Backend (`apps/api`): `invite` 1h → `{token, expiresInMin}`,
+> `POST /invitaciones` con `RateLimitGuard` + `JefeGuard`, `accept` retorna `{centroId, nombre}`
+> con `RateLimitGuard` + `IdentidadGuard`, `usuarios.test.ts`. Frontend (`apps/web`): rutas
+> `invitarVoluntarios`/`unirse`, helpers `crearInvitacion`/`aceptarInvitacion`, vista
+> `(app)/mis-centros/[centroId]/invitar`, página `(full)/unirse/[token]`, acción "Invitar
+> voluntarios" en el detalle (solo JEFE) y wiring de `SuccessView.onInvitar`.
 
 ## 1. Requerimientos
 
