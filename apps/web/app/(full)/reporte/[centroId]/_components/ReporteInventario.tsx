@@ -108,10 +108,11 @@ export default function ReporteInventario({
               <tr key={d.categoria}>
                 <td className="border border-gray-300 px-2 py-1">
                   {d.label}
-                  {/* Barra CSS simple (sin librería de gráficos) */}
-                  <span className="mt-1 block h-1.5 w-full bg-gray-200">
+                  {/* Barra CSS simple (sin librería de gráficos). print-color-adjust:
+                      exact fuerza al navegador a imprimir los fondos (si no, se omiten). */}
+                  <span className="mt-1 block h-1.5 w-full bg-gray-200 [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
                     <span
-                      className="block h-full bg-gray-700"
+                      className="block h-full bg-gray-700 [print-color-adjust:exact] [-webkit-print-color-adjust:exact]"
                       style={{ width: `${d.pct}%` }}
                     />
                   </span>
