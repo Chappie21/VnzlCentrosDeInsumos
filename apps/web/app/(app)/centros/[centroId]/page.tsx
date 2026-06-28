@@ -2,8 +2,18 @@
 
 import { useParams } from "next/navigation";
 import { EmptyState, Icon } from "../../../_components";
-import { NIVEL_BADGE, NIVEL_LABEL, STATS } from "../../../constants";
+import {
+  CATEGORIA_ICON,
+  CATEGORIA_ICON_FALLBACK,
+  CATEGORIAS,
+  NIVEL_BADGE,
+  NIVEL_LABEL,
+  STATS,
+} from "../../../constants";
 import { useCentroPublico } from "../../../_hooks";
+
+const catLabel = (c: string) =>
+  CATEGORIAS.find((x) => x.value === c)?.label ?? c;
 
 function Stat({ icon, valor, label }: { icon: string; valor: number; label: string }) {
   return (
@@ -95,6 +105,15 @@ export default function CentroDetallePublico() {
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-on-surface">{n.nombre}</p>
+                  {n.categoria && (
+                    <p className="flex items-center gap-1 text-xs text-on-surface-variant">
+                      <Icon
+                        name={CATEGORIA_ICON[n.categoria] ?? CATEGORIA_ICON_FALLBACK}
+                        className="text-[14px]"
+                      />
+                      {catLabel(n.categoria)}
+                    </p>
+                  )}
                   <p className="text-sm text-on-surface-variant">{n.cantidad} en stock</p>
                 </div>
                 <span
