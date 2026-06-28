@@ -6,6 +6,7 @@ export type CentrosFilters = {
   urgenciaAlta: boolean;
   lat: number | null;
   lng: number | null;
+  cerca: boolean;
 };
 
 // Factory de query-keys: la key incluye los filtros (sin fingerprint, jamás).
