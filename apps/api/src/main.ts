@@ -21,6 +21,7 @@ async function bootstrap() {
   // Servir las fotos subidas (ponytail: disco local; object storage para prod).
   app.use("/uploads", express.static(join(process.cwd(), "uploads")));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  await app.listen(Number(process.env.API_PORT) || 3001);
+  // PORT lo inyectan las plataformas (Render/Railway/Cloud Run); API_PORT para dev local.
+  await app.listen(Number(process.env.PORT) || Number(process.env.API_PORT) || 3001, "0.0.0.0");
 }
 bootstrap();

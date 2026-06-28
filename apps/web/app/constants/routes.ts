@@ -15,4 +15,5 @@ export const ROUTES = {
   escanearDonacion: (centroId: string) => `/scanning?centro=${centroId}`,
   mapa: "/mapa",
   scanning: "/scanning",
+  faq: "/faq",
 } as const;
