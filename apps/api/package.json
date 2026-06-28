@@ -5,7 +5,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "test": "tsx --test src/geo.test.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.27",
@@ -13,9 +13,12 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.1.27",
     "@vnzl/database": "workspace:*",
+    "@vnzl/venezuela": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^17.4.2",
+    "express": "^5.1.0",
     "ioredis": "^5.11.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
@@ -23,9 +26,11 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.23",
     "@nestjs/schematics": "^11.1.0",
+    "@types/bcryptjs": "^3.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+.git
+.env
+**/.env
+**/coverage
+**/*.test.ts
+**/*.test.tsx
+uploads

@@ -6,6 +6,7 @@
   "scripts": {
     "generate": "prisma generate",
     "push": "prisma db push",
+    "seed": "tsx prisma/seed.ts",
     "build": "prisma generate && tsc",
     "prepare": "prisma generate && tsc"
   },
@@ -17,6 +18,7 @@
     "@types/node": "^26.0.1",
     "dotenv": "^17.4.2",
     "prisma": "^7.8.0",
+    "tsx": "^4.20.0",
     "typescript": "^6.0.3"
   }
 }

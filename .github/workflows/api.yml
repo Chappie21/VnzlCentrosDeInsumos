@@ -1,0 +1,57 @@
+name: API
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "apps/api/**"
+      - "packages/database/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/api.yml"
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "apps/api/**"
+      - "packages/database/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/api.yml"
+
+concurrency:
+  group: api-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test API
+    runs-on: ubuntu-latest
+    env:
+      # Prisma 7 valida el config al hacer `generate` aunque no conecte.
+      # dotenv (prisma.config.ts) NO sobreescribe variables ya presentes.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @vnzl/database run generate
+
+      - name: Test API
+        run: pnpm --filter @vnzl/api test
+
+      - name: Build API
+        run: pnpm --filter @vnzl/api build

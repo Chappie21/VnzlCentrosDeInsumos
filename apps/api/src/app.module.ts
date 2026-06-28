@@ -1,10 +1,14 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { RedisService } from "./redis.service";
-import { RateLimitGuard, VoluntarioGuard } from "./guards";
+import { RateLimitGuard, VoluntarioGuard, JefeGuard, IdentidadGuard, AdminGuard } from "./guards";
 import { CentrosController, CentrosService } from "./centros";
 import { HistorialController, HistorialService } from "./historial";
+import { InsumosController, InsumosService } from "./insumos";
 import { UsuariosController, UsuariosService } from "./usuarios";
+import { EnviosController, EnviosService } from "./envios";
+import { AdminController, AdminService } from "./admin";
+import { CedulaService } from "./cedula";
 
 @Module({
   imports: [
@@ -13,14 +17,28 @@ import { UsuariosController, UsuariosService } from "./usuarios";
       secret: process.env.JWT_SECRET || "dev-only-change-me",
     }),
   ],
-  controllers: [CentrosController, HistorialController, UsuariosController],
+  controllers: [
+    CentrosController,
+    HistorialController,
+    InsumosController,
+    UsuariosController,
+    EnviosController,
+    AdminController,
+  ],
   providers: [
     RedisService,
     RateLimitGuard,
     VoluntarioGuard,
+    JefeGuard,
+    IdentidadGuard,
+    AdminGuard,
     CentrosService,
     HistorialService,
+    InsumosService,
     UsuariosService,
+    EnviosService,
+    AdminService,
+    CedulaService,
   ],
 })
 export class AppModule {}
