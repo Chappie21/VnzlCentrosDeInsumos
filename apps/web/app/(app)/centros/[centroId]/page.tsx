@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { EmptyState, Icon } from "../../../_components";
 import {
   CATEGORIA_ICON,
@@ -29,6 +29,7 @@ function Stat({ icon, valor, label }: { icon: string; valor: number; label: stri
 
 export default function CentroDetallePublico() {
   const { centroId } = useParams<{ centroId: string }>();
+  const router = useRouter();
   const { data: centro, isLoading, isError } = useCentroPublico(centroId);
 
   if (isLoading)
@@ -54,6 +55,15 @@ export default function CentroDetallePublico() {
 
   return (
     <div className="flex flex-col gap-6 py-2">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="flex items-center gap-1 self-start text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
+      >
+        <Icon name="arrow_back" className="text-[18px]" />
+        Volver
+      </button>
+
       <header className="border-b border-outline-variant pb-4">
         <h1 className="text-2xl font-bold text-on-surface">{centro.nombre}</h1>
 
