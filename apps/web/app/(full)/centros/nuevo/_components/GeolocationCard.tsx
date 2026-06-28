@@ -46,7 +46,7 @@ export default function GeolocationCard({
       <button
         type="button"
         onClick={onRequest}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#1d4ed8] active:scale-[0.98]"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#3d6649] active:scale-[0.98]"
       >
         <Icon name="my_location" />
         Obtener Ubicación Actual

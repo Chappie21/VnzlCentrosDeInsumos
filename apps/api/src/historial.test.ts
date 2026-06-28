@@ -147,6 +147,26 @@ describe("HistorialService.ajuste — corrección manual (JEFE)", () => {
   });
 });
 
+describe("HistorialService.addOne — movimiento simple", () => {
+  it("aplica el movimiento si el insumo pertenece al centro", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1" });
+    prismaMock.$transaction.mockResolvedValue(["hist"]);
+    const res = await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 });
+    expect(res).toBe("hist");
+    expect(prismaMock.insumo.findUnique).toHaveBeenCalledWith({
+      where: { id: "i1" },
+      select: { centroId: true },
+    });
+  });
+
+  it("rechaza si el insumo es de otro centro", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c2" });
+    await expect(
+      service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 })
+    ).rejects.toThrow(/no pertenece al centro/i);
+  });
+});
+
 describe("HistorialController.recibir", () => {
   it("usa el fingerprint del header y delega al service", () => {
     const svc = { recibir: vi.fn().mockReturnValue("ok") } as any;

@@ -16,7 +16,7 @@ export default function Fab({
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-emergency px-5 py-3 text-white shadow-lg transition-transform hover:bg-[#b70011] active:scale-95"
+      className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-action px-5 py-3 text-white shadow-lg transition-transform hover:bg-[#5a4a26] active:scale-95"
     >
       <Icon name={icon} />
       <span className="text-xs font-bold uppercase tracking-wider">{label}</span>

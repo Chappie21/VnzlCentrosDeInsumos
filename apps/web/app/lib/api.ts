@@ -212,6 +212,35 @@ export async function getCentroDetalle(id: string): Promise<CentroDetalle> {
   return res.json();
 }
 
+// ---- Detalle PÚBLICO de un centro (directorio, sin identidad) ----
+
+export type NecesidadPublica = {
+  nombre: string;
+  nivel: NivelInsumo;
+  categoria: string | null;
+  cantidad: number;
+};
+
+export type CentroPublico = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  necesidades: NecesidadPublica[];
+};
+
+export async function getCentroPublico(id: string): Promise<CentroPublico> {
+  const res = await apiFetch(`/centros/${id}/publico`);
+  if (!res.ok) throw new Error("No se pudo cargar el centro");
+  return res.json();
+}
+
 // Datos principales (solo JEFE). Devuelve el Response para que el caller maneje !ok.
 export type UpdateCentroBody = Partial<CreateCentroBody>;
 export function updateCentro(id: string, body: UpdateCentroBody) {

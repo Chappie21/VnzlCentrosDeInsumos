@@ -27,6 +27,10 @@ class MovimientoDto {
   @IsInt() cantidad: number; // + entrada, - salida
 }
 
+class AddDto extends MovimientoDto {
+  @IsString() centroId: string;
+}
+
 class BatchDto {
   @IsString() centroId: string;
   @ValidateNested({ each: true })
@@ -106,7 +110,15 @@ export class HistorialService {
     return hist;
   }
 
-  async addOne(usuarioId: string, m: MovimientoDto) {
+  async addOne(usuarioId: string, m: AddDto) {
+    const insumo = await prisma.insumo.findUnique({
+      where: { id: m.insumoId },
+      select: { centroId: true },
+    });
+    if (!insumo || insumo.centroId !== m.centroId) {
+      throw new BadRequestException("Insumo no pertenece al centro");
+    }
+
     const [hist] = await prisma.$transaction(this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad));
     await this.redis.bumpCentros();
     return hist;
@@ -183,7 +195,7 @@ export class HistorialController {
   // ponytail: VoluntarioGuard checks body.centroId, so the single route also carries it.
   @Post()
   @UseGuards(IdentidadGuard, VoluntarioGuard)
-  add(@Req() req: any, @Body() body: { centroId: string } & MovimientoDto) {
+  add(@Req() req: any, @Body() body: AddDto) {
     return this.service.addOne(fingerprintOf(req), body);
   }
 

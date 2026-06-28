@@ -121,7 +121,7 @@ function Scanning() {
           <button
             type="button"
             onClick={() => setPhase("scan")}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011] active:scale-[0.98]"
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white hover:bg-[#5a4a26] active:scale-[0.98]"
           >
             <Icon name="qr_code_scanner" />
             Escanear otra donación

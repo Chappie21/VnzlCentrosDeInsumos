@@ -85,7 +85,7 @@ function AjustePanel({ centroId, insumo }: { centroId: string; insumo: InsumoDet
         type="button"
         disabled={delta === 0 || mutation.isPending}
         onClick={() => mutation.mutate()}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#1d4ed8] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#3d6649] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {mutation.isPending ? "Aplicando…" : "Aplicar ajuste"}
       </button>
