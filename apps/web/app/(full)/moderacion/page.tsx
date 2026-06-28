@@ -21,6 +21,12 @@ function distancia(m: number | null): string | null {
   return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
+const MOTIVO_LABEL: Record<string, string> = {
+  NO_EXISTE: "Ya no está",
+  INFO_INCORRECTA: "Info incorrecta",
+  ENGANOSO: "Engañoso",
+};
+
 // ¿El nombre cargado coincide con el del registro de cédula? Tolerante a orden/acentos.
 function nombreCoincide(a: string | null, b: string | null): boolean | null {
   if (!a || !b) return null;
@@ -172,7 +178,9 @@ export default function Moderacion() {
         return (
           <article
             key={c.id}
-            className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
+            className={`space-y-3 rounded-xl border bg-surface-container-lowest p-4 ${
+              c.reportado ? "border-emergency" : "border-outline-variant"
+            }`}
           >
             <div>
               <h2 className="text-lg font-semibold text-on-surface">{c.nombre}</h2>
@@ -180,6 +188,18 @@ export default function Moderacion() {
                 {c.direccion} · {c.ciudad}, {c.estado}
               </p>
             </div>
+
+            {c.reportesCount > 0 && (
+              <div
+                className={`rounded-lg p-2 text-sm ${
+                  c.reportado ? "bg-emergency/10 text-emergency" : "bg-surface-container text-on-surface-variant"
+                }`}
+              >
+                <span className="font-bold">🚩 {c.reportesCount} reporte{c.reportesCount === 1 ? "" : "s"}</span>
+                {": "}
+                {c.reportes.map((r) => MOTIVO_LABEL[r.motivo] ?? r.motivo).join(" · ")}
+              </div>
+            )}
 
             {c.fotoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
