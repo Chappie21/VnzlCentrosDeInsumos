@@ -5,8 +5,8 @@ import {
   Injectable,
   Post,
   Req,
-  UseGuards,
   UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { IsNotEmpty, IsString, Matches } from "class-validator";
@@ -16,10 +16,10 @@ import {
   IdentidadGuard,
   JefeGuard,
   RateLimitGuard,
+  SesionGuard,
   userIdOf,
   identidadCompleta,
 } from "./guards";
-import { verifyUserToken } from "./auth/jwt-session";
 import { INVITACION } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -130,31 +130,19 @@ export class UsuariosService {
 
 @Controller()
 export class UsuariosController {
-  constructor(
-    private readonly service: UsuariosService,
-    private readonly jwt: JwtService,
-  ) {}
-
-  // Extract userId from Bearer JWT without requiring complete identity.
-  // Used by endpoints that need authentication but not a fully completed profile.
-  private async jwtUserId(req: any): Promise<string> {
-    const auth: string = req.header("authorization") || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-    if (!token) throw new UnauthorizedException("Sesión requerida");
-    return verifyUserToken(this.jwt, token);
-  }
+  constructor(private readonly service: UsuariosService) {}
 
   // Current user identity. JWT required; any authenticated user can access.
   @Get("usuarios/me")
-  async me(@Req() req: any) {
-    const userId = await this.jwtUserId(req);
-    return this.service.me(userId);
+  @UseGuards(SesionGuard)
+  me(@Req() req: any) {
+    return this.service.me(userIdOf(req));
   }
 
   @Post("usuarios/onboard")
-  async onboard(@Req() req: any, @Body() dto: OnboardDto) {
-    const userId = await this.jwtUserId(req);
-    return this.service.onboard(userId, dto);
+  @UseGuards(SesionGuard)
+  onboard(@Req() req: any, @Body() dto: OnboardDto) {
+    return this.service.onboard(userIdOf(req), dto);
   }
 
   // Solo el JEFE del centro puede mintear invitaciones (con rate-limit anti-abuso).

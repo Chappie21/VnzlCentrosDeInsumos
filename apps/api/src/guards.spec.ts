@@ -1,6 +1,6 @@
 import { UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { VoluntarioGuard } from "./guards";
+import { SesionGuard, VoluntarioGuard } from "./guards";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -21,6 +21,19 @@ function ctx(headers: Record<string, string>, body: any = {}) {
   const req: any = { headers, body, header: (h: string) => headers[h.toLowerCase()] };
   return { switchToHttp: () => ({ getRequest: () => req }), _req: req } as any;
 }
+
+it("SesionGuard rechaza sin Bearer", async () => {
+  const g = new SesionGuard(jwt);
+  await expect(g.canActivate(ctx({}))).rejects.toBeInstanceOf(UnauthorizedException);
+});
+
+it("SesionGuard permite con token válido y pone userId en req", async () => {
+  const token = await new JwtService({ secret: "test-secret" }).signAsync({ sub: "user-z", typ: "user" });
+  const context = ctx({ authorization: `Bearer ${token}` });
+  const g = new SesionGuard(jwt);
+  await expect(g.canActivate(context)).resolves.toBe(true);
+  expect(context._req.userId).toBe("user-z");
+});
 
 it("VoluntarioGuard rechaza sin Bearer", async () => {
   const g = new VoluntarioGuard(jwt);

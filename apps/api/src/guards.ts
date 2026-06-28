@@ -32,6 +32,17 @@ export function userIdOf(req: any): string {
 export const identidadCompleta = (u: any) =>
   Boolean(u?.nombre && u?.cedula && u?.telefono);
 
+// Allow any authenticated user (complete or incomplete profile). Used by onboard/me.
+@Injectable()
+export class SesionGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest();
+    req.userId = await verifyUserToken(this.jwt, bearer(req));
+    return true;
+  }
+}
+
 // Gate contribution endpoints behind a complete identity.
 @Injectable()
 export class IdentidadGuard implements CanActivate {
