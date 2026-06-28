@@ -5,8 +5,8 @@ import {
   Injectable,
   Post,
   Req,
-  UseGuards,
   UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { IsNotEmpty, IsString, Matches } from "class-validator";
@@ -16,10 +16,27 @@ import {
   IdentidadGuard,
   JefeGuard,
   RateLimitGuard,
-  fingerprintOf,
+  SesionGuard,
+  userIdOf,
   identidadCompleta,
 } from "./guards";
 import { INVITACION } from "./constants";
+
+// ---------------------------------------------------------------------------
+// Normalizers (exported so AuthService can reuse them — DRY).
+// ---------------------------------------------------------------------------
+
+/** Uppercase, strip dots/spaces/dashes; bare digit string → prefix V. */
+export function normalizarCedula(value: string): string {
+  let v = value.toUpperCase().replace(/[.\s-]/g, "");
+  if (/^\d+$/.test(v)) v = "V" + v;
+  return v;
+}
+
+/** Strip spaces and dashes from a phone number string. */
+export function normalizarTelefono(value: string): string {
+  return value.replace(/[\s-]/g, "");
+}
 
 class OnboardDto {
   @IsString()
@@ -28,18 +45,11 @@ class OnboardDto {
   nombre: string;
 
   // Normalize: uppercase, strip dots/spaces/dashes; bare digits -> prefix V.
-  @Transform(({ value }) => {
-    if (typeof value !== "string") return value;
-    let v = value.toUpperCase().replace(/[.\s-]/g, "");
-    if (/^\d+$/.test(v)) v = "V" + v;
-    return v;
-  })
+  @Transform(({ value }) => (typeof value === "string" ? normalizarCedula(value) : value))
   @Matches(/^[VE]\d{6,9}$/, { message: "Cédula inválida (ej: V12345678)" })
   cedula: string;
 
-  @Transform(({ value }) =>
-    typeof value === "string" ? value.replace(/[\s-]/g, "") : value,
-  )
+  @Transform(({ value }) => (typeof value === "string" ? normalizarTelefono(value) : value))
   @Matches(/^(?:\+?58|0)?4(?:12|14|16|24|26)\d{7}$/, {
     message: "Teléfono móvil venezolano inválido",
   })
@@ -64,11 +74,11 @@ class AceptarInvitacionDto {
 export class UsuariosService {
   constructor(private readonly jwt: JwtService) {}
 
-  // Public profile of the current device (spec §3). Anonymous observers get nulls, never 404.
-  async me(fingerprint: string) {
-    const u = await prisma.usuario.findUnique({ where: { fingerprint } });
+  // Public profile of the current user (spec §3). Returns nulls for incomplete identity.
+  async me(userId: string) {
+    const u = await prisma.usuario.findUnique({ where: { id: userId } });
     return {
-      fingerprint,
+      id: userId,
       nombre: u?.nombre ?? null,
       cedula: u?.cedula ?? null,
       telefono: u?.telefono ?? null,
@@ -77,32 +87,38 @@ export class UsuariosService {
   }
 
   // Onboarding (spec §3): name/cedula/phone required before contributing.
-  onboard(fingerprint: string, dto: OnboardDto) {
-    return prisma.usuario.upsert({
-      where: { fingerprint },
-      update: dto,
-      create: { fingerprint, ...dto },
+  onboard(userId: string, dto: OnboardDto) {
+    // el JWT de sesión solo se emite tras crear el Usuario, así que la fila siempre existe
+    return prisma.usuario.update({
+      where: { id: userId },
+      data: dto,
     });
   }
 
   // Invitación = JWT corto ligado a un centro (spec §4). El front arma la URL absoluta.
   invite(centroId: string) {
-    const token = this.jwt.sign({ centroId }, { expiresIn: INVITACION.expiresIn });
+    const token = this.jwt.sign(
+      { centroId, typ: "invite" },
+      { expiresIn: INVITACION.expiresIn },
+    );
     return { token, expiresInMin: INVITACION.ttlMin };
   }
 
   // Canje del token: une al device como VOLUNTARIO (idempotente, no degrada al JEFE).
-  async accept(fingerprint: string, token: string) {
-    let centroId: string;
+  async accept(userId: string, token: string) {
+    let payload: any;
     try {
-      centroId = this.jwt.verify(token).centroId;
+      payload = this.jwt.verify(token);
     } catch {
       throw new UnauthorizedException("Invitación inválida o expirada");
     }
+    if (payload?.typ !== "invite" || !payload?.centroId)
+      throw new UnauthorizedException("Token no es una invitación");
+    const centroId: string = payload.centroId;
     await prisma.voluntario.upsert({
-      where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
+      where: { usuarioId_centroId: { usuarioId: userId, centroId } },
       update: {}, // re-aceptar no toca el rol existente
-      create: { usuarioId: fingerprint, centroId },
+      create: { usuarioId: userId, centroId },
     });
     const centro = await prisma.centro.findUnique({
       where: { id: centroId },
@@ -116,15 +132,17 @@ export class UsuariosService {
 export class UsuariosController {
   constructor(private readonly service: UsuariosService) {}
 
-  // Public: current device identity. No guard, just the fingerprint header.
+  // Current user identity. JWT required; any authenticated user can access.
   @Get("usuarios/me")
+  @UseGuards(SesionGuard)
   me(@Req() req: any) {
-    return this.service.me(fingerprintOf(req));
+    return this.service.me(userIdOf(req));
   }
 
   @Post("usuarios/onboard")
+  @UseGuards(SesionGuard)
   onboard(@Req() req: any, @Body() dto: OnboardDto) {
-    return this.service.onboard(fingerprintOf(req), dto);
+    return this.service.onboard(userIdOf(req), dto);
   }
 
   // Solo el JEFE del centro puede mintear invitaciones (con rate-limit anti-abuso).
@@ -138,6 +156,6 @@ export class UsuariosController {
   @Post("invitaciones/aceptar")
   @UseGuards(RateLimitGuard, IdentidadGuard)
   accept(@Req() req: any, @Body() dto: AceptarInvitacionDto) {
-    return this.service.accept(fingerprintOf(req), dto.token);
+    return this.service.accept(userIdOf(req), dto.token);
   }
 }

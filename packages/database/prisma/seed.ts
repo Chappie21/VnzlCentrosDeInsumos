@@ -1,3 +1,4 @@
+import { hash } from "bcryptjs";
 import { config } from "dotenv";
 
 // Cargar env ANTES de importar el cliente (src/index.ts lee DATABASE_URL al evaluarse).
@@ -112,14 +113,19 @@ async function main() {
     });
   }
 
-  // un Usuario para smoke-test del header x-fingerprint
-  await prisma.usuario.upsert({
-    where: { fingerprint: "seed-fingerprint" },
-    create: { fingerprint: "seed-fingerprint", nombre: "Seed Tester", cedula: "V12345678", telefono: "04141234567" },
+  const seedUser = await prisma.usuario.upsert({
+    where: { cedula: "V0000000" },
     update: {},
+    create: {
+      nombre: "Usuario Semilla",
+      cedula: "V0000000",
+      telefono: "04140000000",
+      // contraseña "seed1234" hasheada — solo dev
+      passwordHash: await hash("seed1234", 10),
+    },
   });
 
-  console.log(`Seed OK: ${CENTROS.length} centros`);
+  console.log(`Seed OK: ${CENTROS.length} centros, seedUser.id=${seedUser.id}`);
   await prisma.$disconnect();
 }
 
