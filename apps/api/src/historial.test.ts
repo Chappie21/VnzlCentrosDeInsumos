@@ -6,7 +6,14 @@ const { tx, prismaMock } = vi.hoisted(() => {
     insumo: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     historial: { create: vi.fn() },
   };
-  return { tx, prismaMock: { $transaction: vi.fn() } };
+  return {
+    tx,
+    prismaMock: {
+      $transaction: vi.fn(),
+      insumo: { findUnique: vi.fn(), update: vi.fn() },
+      historial: { create: vi.fn() },
+    },
+  };
 });
 
 vi.mock("@vnzl/database", () => ({
@@ -20,6 +27,7 @@ vi.mock("@vnzl/database", () => ({
     ALIMENTOS: "ALIMENTOS",
     HERRAMIENTAS: "HERRAMIENTAS",
   },
+  TipoMovimiento: { DONACION: "DONACION", CARGA_INICIAL: "CARGA_INICIAL", AJUSTE: "AJUSTE", SALIDA: "SALIDA" },
 }));
 
 import { HistorialService, HistorialController } from "./historial";
@@ -93,6 +101,49 @@ describe("HistorialService.recibir — donación por nombre", () => {
     expect(tx.insumo.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { cantidadTotal: { increment: 5 } } }),
     );
+  });
+});
+
+describe("HistorialService.ajuste — corrección manual (JEFE)", () => {
+  beforeEach(() => {
+    // forma array de $transaction (ajuste usa moveOps(prisma, ...))
+    prismaMock.$transaction.mockImplementation(async (ops: any) => Promise.all(ops));
+  });
+
+  it("aplica el ajuste como Historial tipo AJUSTE y mueve cantidadTotal", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1", cantidadTotal: 5 });
+
+    await service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: 3 });
+
+    expect(prismaMock.historial.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ insumoId: "i1", cantidad: 3, tipo: "AJUSTE" }) }),
+    );
+    expect(prismaMock.insumo.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "i1" }, data: { cantidadTotal: { increment: 3 } } }),
+    );
+    expect(redis.bumpCentros).toHaveBeenCalled();
+  });
+
+  it("rechaza un ajuste que dejaría el stock negativo", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1", cantidadTotal: 2 });
+    await expect(
+      service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: -5 }),
+    ).rejects.toThrow(/negativo/i);
+    expect(prismaMock.historial.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza cantidad 0", async () => {
+    await expect(
+      service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: 0 }),
+    ).rejects.toThrow(/0/);
+  });
+
+  it("rechaza si el insumo es de otro centro", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "otro", cantidadTotal: 5 });
+    await expect(
+      service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: 1 }),
+    ).rejects.toThrow(/no pertenece/i);
+    expect(prismaMock.historial.create).not.toHaveBeenCalled();
   });
 });
 

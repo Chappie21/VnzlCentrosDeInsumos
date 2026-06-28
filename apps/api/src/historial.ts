@@ -13,13 +13,14 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { prisma, Prisma, CategoriaInsumo } from "@vnzl/database";
+import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
+import { IdentidadGuard, VoluntarioGuard, JefeGuard, fingerprintOf } from "./guards";
 
 class MovimientoDto {
   @IsString() insumoId: string;
@@ -50,20 +51,59 @@ class RecibirDto {
   items: RecibirItemDto[];
 }
 
+// Ajuste manual de stock (solo JEFE): corrige el conteo de un insumo. `cantidad`
+// es el delta (+/-), nunca 0 (se valida en el service). `motivo` no se persiste
+// (no hay columna). ponytail: si se quiere auditar el motivo, agregar
+// `Historial.motivo String?` y guardarlo en moveOps.
+class AjusteDto {
+  @IsString() centroId: string;
+  @IsString() insumoId: string;
+  @IsInt() cantidad: number; // delta +/- (≠ 0)
+  @IsOptional() @IsString() @MaxLength(200) motivo?: string;
+}
+
 // "Regla de oro": cantidadTotal is never set directly — only moved via Historial.
 // The create + increment run in ONE transaction so inventory can't drift (spec §6.2).
 @Injectable()
 export class HistorialService {
   constructor(private readonly redis: RedisService) {}
 
-  private moveOps(tx: Prisma.TransactionClient, insumoId: string, usuarioId: string, cantidad: number) {
+  private moveOps(
+    tx: Prisma.TransactionClient,
+    insumoId: string,
+    usuarioId: string,
+    cantidad: number,
+    tipo: TipoMovimiento = TipoMovimiento.DONACION,
+  ) {
     return [
-      tx.historial.create({ data: { insumoId, usuarioId, cantidad } }),
+      tx.historial.create({ data: { insumoId, usuarioId, cantidad, tipo } }),
       tx.insumo.update({
         where: { id: insumoId },
         data: { cantidadTotal: { increment: cantidad } },
       }),
     ];
+  }
+
+  // Ajuste manual (solo JEFE). Valida pertenencia al centro y que el stock no
+  // quede negativo. Movimiento etiquetado AJUSTE (no cuenta como donación).
+  async ajuste(usuarioId: string, dto: AjusteDto) {
+    if (dto.cantidad === 0)
+      throw new BadRequestException("El ajuste no puede ser 0");
+
+    const insumo = await prisma.insumo.findUnique({
+      where: { id: dto.insumoId },
+      select: { centroId: true, cantidadTotal: true },
+    });
+    if (!insumo || insumo.centroId !== dto.centroId)
+      throw new BadRequestException("Insumo no pertenece al centro");
+    if (insumo.cantidadTotal + dto.cantidad < 0)
+      throw new BadRequestException("El stock no puede quedar negativo");
+
+    const [hist] = await prisma.$transaction(
+      this.moveOps(prisma, dto.insumoId, usuarioId, dto.cantidad, TipoMovimiento.AJUSTE),
+    );
+    await this.redis.bumpCentros();
+    return hist;
   }
 
   async addOne(usuarioId: string, m: MovimientoDto) {
@@ -159,5 +199,12 @@ export class HistorialController {
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   recibir(@Req() req: any, @Body() dto: RecibirDto) {
     return this.service.recibir(fingerprintOf(req), dto);
+  }
+
+  // Ajuste manual de stock. Solo el JEFE del centro (JefeGuard lee body.centroId).
+  @Post("ajuste")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  ajuste(@Req() req: any, @Body() dto: AjusteDto) {
+    return this.service.ajuste(fingerprintOf(req), dto);
   }
 }

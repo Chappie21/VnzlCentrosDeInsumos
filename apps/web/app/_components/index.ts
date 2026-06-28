@@ -7,3 +7,5 @@ export { default as BottomNav } from "./BottomNav";
 export { default as Fab } from "./Fab";
 export { default as EmptyState } from "./EmptyState";
 export { default as Qr } from "./Qr";
+export { default as InsumoRows } from "./InsumoRows";
+export type { InsumoRowsValues, InsumoRowItem } from "./InsumoRows";

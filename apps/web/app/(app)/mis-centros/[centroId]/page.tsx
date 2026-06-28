@@ -79,7 +79,7 @@ export default function CentroDetallePage() {
         <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant">
           Resumen de inventario
         </h2>
-        <InventarioResumen insumos={data.insumos} />
+        <InventarioResumen insumos={data.insumos} rol={data.rol} centroId={data.id} />
       </section>
     </div>
   );

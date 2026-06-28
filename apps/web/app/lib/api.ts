@@ -1,5 +1,6 @@
 import { getFingerprint } from "../fingerprint";
 import type { DonationItem } from "./donation";
+import type { Categoria } from "../constants/categorias";
 
 export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -35,6 +36,9 @@ export function getMe() {
   return apiFetch("/usuarios/me");
 }
 
+// Insumo sembrado al crear el centro (carga inicial). cantidad >= 0 (B3: permite 0).
+export type InsumoInicial = { nombre: string; categoria?: Categoria; cantidad: number };
+
 export type CreateCentroBody = {
   nombre: string;
   estado: string;
@@ -42,6 +46,7 @@ export type CreateCentroBody = {
   direccion: string;
   latitud?: number;
   longitud?: number;
+  insumos?: InsumoInicial[];
 };
 
 export type CreatedCentro = {
@@ -222,6 +227,15 @@ export type UpdateInsumoBody = {
 };
 export function updateInsumo(id: string, body: UpdateInsumoBody) {
   return apiFetch(`/insumos/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// Ajuste manual de stock (solo JEFE). cantidad ≠ 0 (+/-). Devuelve el Response para
+// que el caller maneje !ok (400 si dejaría el stock negativo).
+export function ajustarStock(centroId: string, insumoId: string, cantidad: number, motivo?: string) {
+  return apiFetch("/historial/ajuste", {
+    method: "POST",
+    body: JSON.stringify({ centroId, insumoId, cantidad, motivo }),
+  });
 }
 
 // ---- Gestión de voluntarios (solo JEFE) ----
