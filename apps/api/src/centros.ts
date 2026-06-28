@@ -592,21 +592,25 @@ export class CentrosService {
   }
 
   // Todos los centros con coordenadas, para el mapa público. Payload mínimo.
-  // ponytail: scan full-table con cap 1000; cachear/paginar si crece mucho.
+  // Cacheado (versionado): es público y de alto tráfico → evita pegarle a la DB
+  // en cada carga del mapa. ponytail: scan full-table con cap 1000.
   async mapaCoords(): Promise<MapaPunto[]> {
-    const rows = await prisma.centro.findMany({
-      where: { latitud: { not: null }, longitud: { not: null } },
-      select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
-      take: 1000,
+    const version = await this.redis.centrosVersion();
+    return this.redis.cached(`${CACHE.centrosMapaPrefix}:v${version}`, TTL.centrosMapa, async () => {
+      const rows = await prisma.centro.findMany({
+        where: { latitud: { not: null }, longitud: { not: null } },
+        select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
+        take: 1000,
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        nombre: r.nombre,
+        ciudad: r.ciudad,
+        latitud: r.latitud!,
+        longitud: r.longitud!,
+        recibiendoAhora: r.recibiendoAhora,
+      }));
     });
-    return rows.map((r) => ({
-      id: r.id,
-      nombre: r.nombre,
-      ciudad: r.ciudad,
-      latitud: r.latitud!,
-      longitud: r.longitud!,
-      recibiendoAhora: r.recibiendoAhora,
-    }));
   }
 
   private async query(
@@ -742,13 +746,22 @@ export class CentrosService {
   }
 
   // Detalle público (sin guard): cualquiera puede ver un centro del directorio.
+  // Cacheado por id (versionado): página pública → evita una query por vista.
+  // Los 404 no se cachean (el throw corta antes del set).
   async detallePublico(centroId: string): Promise<CentroDetallePublico> {
-    const row = await prisma.centro.findUnique({
-      where: { id: centroId },
-      select: publicoSelect,
-    });
-    if (!row) throw new NotFoundException("Centro no encontrado");
-    return toDetallePublico(row);
+    const version = await this.redis.centrosVersion();
+    return this.redis.cached(
+      `${CACHE.centrosPublicoPrefix}:v${version}:${centroId}`,
+      TTL.centrosPublico,
+      async () => {
+        const row = await prisma.centro.findUnique({
+          where: { id: centroId },
+          select: publicoSelect,
+        });
+        if (!row) throw new NotFoundException("Centro no encontrado");
+        return toDetallePublico(row);
+      },
+    );
   }
 
   // Datos principales (solo JEFE, garantizado por JefeGuard). Actualiza solo los
@@ -919,9 +932,10 @@ export class CentrosController {
     return this.service.verificar(centroId, dto.estado, req.adminId);
   }
 
-  // Subir la foto del local/cartel: solo el JEFE del centro.
+  // Subir la foto del local/cartel: solo el JEFE del centro. Rate-limited: la
+  // imagen va en base64 (hasta 3 MB) → frena spam de uploads en disco/CPU.
   @Post(":centroId/foto")
-  @UseGuards(IdentidadGuard, JefeGuard)
+  @UseGuards(RateLimitGuard, IdentidadGuard, JefeGuard)
   subirFoto(@Param("centroId") centroId: string, @Body() dto: FotoDto) {
     return this.service.setFoto(centroId, dto.foto);
   }
