@@ -175,7 +175,7 @@ export default function ImportarExcel({ sheets, onImport, onCancel }: Props) {
           type="button"
           disabled={!puedeImportar || items.length === 0}
           onClick={() => onImport(items)}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Icon name="download" />
           Importar {items.length} insumos

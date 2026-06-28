@@ -115,7 +115,7 @@ export default function InvitarPage() {
             <button
               type="button"
               onClick={descargarQr}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#9a2a28] active:scale-[0.98]"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white hover:bg-[#5a4a26] active:scale-[0.98]"
             >
               <Icon name="download" />
               {INVITAR.descargar}

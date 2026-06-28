@@ -75,7 +75,7 @@ export default function CentroDetallePage() {
         </Link>
         <Link
           href={ROUTES.nuevoEnvio(data.id)}
-          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98]"
+          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98]"
         >
           <Icon name="local_shipping" />
           Nuevo Envío

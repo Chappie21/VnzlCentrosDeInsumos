@@ -10,6 +10,7 @@
    - surfaces/outline/on-surface -> paleta Terra (crema cálido). */
 @theme {
   --color-emergency: #b83230;
+  --color-action: #705c30;
   --color-safety: #4a7c59;
   --color-success: #2a6038;
   --color-warning: #705c30;

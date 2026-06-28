@@ -153,7 +153,7 @@ function ProfileView({
         <button
           type="button"
           onClick={onDonate}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98]"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98]"
         >
           <Icon name="volunteer_activism" />
           Quiero Donar
@@ -284,7 +284,7 @@ function OnboardingForm({
             type="submit"
             onClick={() => (intent.current = "donate")}
             disabled={!isValid || isSubmitting}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="volunteer_activism" />
             Quiero Donar
@@ -294,7 +294,7 @@ function OnboardingForm({
             type="submit"
             onClick={() => (intent.current = "help")}
             disabled={!isValid || isSubmitting}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="login" />
             {isSubmitting ? "Entrando…" : "Entrar y Ayudar"}
