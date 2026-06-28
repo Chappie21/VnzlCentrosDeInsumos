@@ -9,15 +9,17 @@ datasource db {
 }
 
 model Usuario {
-  fingerprint String       @id
-  nombre      String?
-  cedula      String?
-  telefono    String?
+  id           String  @id @default(uuid())
+  nombre       String?
+  cedula       String? @unique // identificador de login; null hasta completar perfil (Google)
+  telefono     String?
+  passwordHash String? // null para usuarios solo-Google que no fijaron contraseña
+  googleId     String? @unique // sub del ID token de Google
+  email        String? @unique // email verificado de Google
 
-  // Validación de cédula contra api.cedula.com.ve (CEN-23). Se valida una vez,
-  // al crear el primer centro. null = no chequeada; true/false = existe en registro.
+  // Validación de cédula contra api.cedula.com.ve (CEN-23).
   cedulaVerificada   Boolean?
-  cedulaNombre       String? // nombre oficial del registro (para comparar con `nombre`)
+  cedulaNombre       String?
   cedulaVerificadaEn DateTime?
 
   centros       Voluntario[]
@@ -79,7 +81,7 @@ model Voluntario {
   rol        RolVoluntario @default(VOLUNTARIO)
   asignadoEn DateTime      @default(now())
 
-  usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
   centro  Centro  @relation(fields: [centroId], references: [id])
 
   @@unique([usuarioId, centroId])
@@ -165,7 +167,7 @@ model Historial {
   fecha     DateTime       @default(now())
 
   insumo  Insumo  @relation(fields: [insumoId], references: [id])
-  usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
   envio   Envio?  @relation(fields: [envioId], references: [id])
 
   @@index([insumoId])
@@ -186,7 +188,7 @@ model Envio {
 
   origen      Centro      @relation("EnviosOrigen", fields: [centroOrigenId], references: [id])
   destino     Centro?     @relation("EnviosDestino", fields: [centroDestinoId], references: [id])
-  creadoPor   Usuario     @relation(fields: [creadoPorId], references: [fingerprint])
+  creadoPor   Usuario     @relation(fields: [creadoPorId], references: [id])
   movimientos Historial[]
 
   @@index([centroOrigenId])
