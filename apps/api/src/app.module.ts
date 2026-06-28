@@ -8,6 +8,7 @@ import { InsumosController, InsumosService } from "./insumos";
 import { UsuariosController, UsuariosService } from "./usuarios";
 import { EnviosController, EnviosService } from "./envios";
 import { AdminController, AdminService } from "./admin";
+import { CedulaService } from "./cedula";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AdminController, AdminService } from "./admin";
     UsuariosService,
     EnviosService,
     AdminService,
+    CedulaService,
   ],
 })
 export class AppModule {}

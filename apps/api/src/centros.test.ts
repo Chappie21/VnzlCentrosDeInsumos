@@ -18,6 +18,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
+    usuario: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -51,7 +52,8 @@ const redis = {
   bumpCentros: vi.fn(),
 } as any;
 
-const service = new CentrosService(redis);
+const cedula = { verificar: vi.fn().mockResolvedValue(null) } as any;
+const service = new CentrosService(redis, cedula);
 
 const centroBase = {
   id: "c1",

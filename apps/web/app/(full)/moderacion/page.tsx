@@ -21,6 +21,18 @@ function distancia(m: number | null): string | null {
   return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
+// ¿El nombre cargado coincide con el del registro de cédula? Tolerante a orden/acentos.
+function nombreCoincide(a: string | null, b: string | null): boolean | null {
+  if (!a || !b) return null;
+  const norm = (s: string) =>
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const ta = norm(a).split(/\s+/).filter((t) => t.length >= 3);
+  const tb = new Set(norm(b).split(/\s+/).filter(Boolean));
+  if (!ta.length) return null;
+  const hits = ta.filter((t) => tb.has(t)).length;
+  return hits >= Math.ceil(ta.length / 2);
+}
+
 export default function Moderacion() {
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -155,6 +167,8 @@ export default function Moderacion() {
             : c.latitud != null && c.longitud != null
               ? { lat: c.latitud, lng: c.longitud, tipo: "Dirección" }
               : null;
+        const ced = c.responsable?.cedulaVerificada ?? null;
+        const cedMatch = nombreCoincide(c.responsable?.nombre ?? null, c.responsable?.cedulaNombre ?? null);
         return (
           <article
             key={c.id}
@@ -185,6 +199,24 @@ export default function Moderacion() {
                   ? `${c.responsable.nombre ?? "—"} (${c.responsable.cedula ?? "s/c"}, ${c.responsable.telefono ?? "s/t"})`
                   : "—"}
               </div>
+              {c.responsable && (
+                <div>
+                  <span className="font-semibold text-on-surface">Cédula: </span>
+                  {ced === true && cedMatch === false ? (
+                    <span className="text-emergency">
+                      ⚠️ existe pero el nombre no coincide — registro: {c.responsable.cedulaNombre}
+                    </span>
+                  ) : ced === true ? (
+                    <span className="text-safety">
+                      ✓ verificada{c.responsable.cedulaNombre ? ` — ${c.responsable.cedulaNombre}` : ""}
+                    </span>
+                  ) : ced === false ? (
+                    <span className="text-emergency">⚠️ no encontrada en el registro</span>
+                  ) : (
+                    <span>sin verificar</span>
+                  )}
+                </div>
+              )}
               {dist && (
                 <div>
                   <span className="font-semibold text-on-surface">Distancia: </span>

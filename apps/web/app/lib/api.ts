@@ -308,7 +308,13 @@ export type CentroModeracion = {
   geoLat: number | null;
   geoLng: number | null;
   distanciaGeoM: number | null;
-  responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+  responsable: {
+    nombre: string | null;
+    cedula: string | null;
+    telefono: string | null;
+    cedulaVerificada: boolean | null;
+    cedulaNombre: string | null;
+  } | null;
 };
 
 // Login de moderador (opción C): email + password → sesión JWT (8h).

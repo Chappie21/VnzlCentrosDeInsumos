@@ -14,6 +14,12 @@ model Usuario {
   cedula      String?
   telefono    String?
 
+  // Validación de cédula contra api.cedula.com.ve (CEN-23). Se valida una vez,
+  // al crear el primer centro. null = no chequeada; true/false = existe en registro.
+  cedulaVerificada   Boolean?
+  cedulaNombre       String? // nombre oficial del registro (para comparar con `nombre`)
+  cedulaVerificadaEn DateTime?
+
   centros       Voluntario[]
   movimientos   Historial[]
   enviosCreados Envio[]

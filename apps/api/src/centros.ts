@@ -36,8 +36,9 @@ import { Transform, Type } from "class-transformer";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento } from "@vnzl/database";
-import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
+import { ESTADOS, municipiosDe, distanciaMetros, parseCedula } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
+import { CedulaService } from "./cedula";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, fingerprintOf } from "./guards";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
@@ -412,7 +413,11 @@ const moderacionSelect = {
   geoLng: true,
   voluntarios: {
     where: { rol: RolVoluntario.JEFE },
-    select: { usuario: { select: { nombre: true, cedula: true, telefono: true } } },
+    select: {
+      usuario: {
+        select: { nombre: true, cedula: true, telefono: true, cedulaVerificada: true, cedulaNombre: true },
+      },
+    },
     take: 1,
   },
 } satisfies Prisma.CentroSelect;
@@ -434,7 +439,13 @@ export type CentroModeracion = {
   geoLat: number | null;
   geoLng: number | null;
   distanciaGeoM: number | null; // entre dirección (mapa) y geo de registro
-  responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+  responsable: {
+    nombre: string | null;
+    cedula: string | null;
+    telefono: string | null;
+    cedulaVerificada: boolean | null;
+    cedulaNombre: string | null;
+  } | null;
 };
 
 function toModeracion(c: ModeracionRow): CentroModeracion {
@@ -463,7 +474,32 @@ function toModeracion(c: ModeracionRow): CentroModeracion {
 
 @Injectable()
 export class CentrosService {
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    private readonly cedula: CedulaService,
+  ) {}
+
+  // Valida la cédula del creador UNA sola vez y la cachea en Usuario (CEN-23).
+  // Best-effort y fire-and-forget: no bloquea ni demora la creación del centro.
+  private async validarCedulaCreador(fingerprint: string): Promise<void> {
+    try {
+      const u = await prisma.usuario.findUnique({
+        where: { fingerprint },
+        select: { cedula: true, cedulaVerificada: true },
+      });
+      if (!u?.cedula || u.cedulaVerificada != null) return; // ya validada o sin cédula
+      const parsed = parseCedula(u.cedula);
+      if (!parsed.valid || !parsed.data) return;
+      const r = await this.cedula.verificar(parsed.data.tipo, parsed.data.numero);
+      if (!r) return; // API caída/sin config → reintenta en el próximo centro
+      await prisma.usuario.update({
+        where: { fingerprint },
+        data: { cedulaVerificada: r.existe, cedulaNombre: r.nombre, cedulaVerificadaEn: new Date() },
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
 
   private buildWhere(q: ListCentrosQueryDto): Prisma.CentroWhereInput {
     return {
@@ -619,6 +655,7 @@ export class CentrosService {
       return c;
     });
     await this.redis.bumpCentros();
+    void this.validarCedulaCreador(fingerprint); // CEN-23: en segundo plano
     return centro;
   }
 
