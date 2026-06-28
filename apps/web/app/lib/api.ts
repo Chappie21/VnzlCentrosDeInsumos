@@ -212,6 +212,7 @@ export type NecesidadPublica = {
   nombre: string;
   nivel: NivelInsumo;
   categoria: string | null;
+  cantidad: number;
 };
 
 export type CentroPublico = {
@@ -224,6 +225,7 @@ export type CentroPublico = {
   longitud: number | null;
   recibiendoAhora: boolean;
   horarioCierre: string | null;
+  voluntarios: number;
   necesidades: NecesidadPublica[];
 };
 

@@ -520,21 +520,22 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => 
 describe("CentrosService.detallePublico", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("proyecta payload público (sin PII), ordena necesidades URGENTE primero", async () => {
+  it("proyecta payload público: cantidad + voluntarios, ordena URGENTE primero, sin PII", async () => {
     prismaMock.centro.findUnique.mockResolvedValue({
       id: "c1", nombre: "Uno", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
       latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
       insumos: [
-        { nombre: "Ropa", nivel: "SUFICIENTE", categoria: "ROPA" },
-        { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" },
+        { nombre: "Ropa", nivel: "SUFICIENTE", categoria: "ROPA", cantidadTotal: 5 },
+        { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
       ],
+      _count: { voluntarios: 3 },
     });
 
     const r = await service.detallePublico("c1");
 
     expect(r.necesidades[0].nivel).toBe("URGENTE");
-    expect(r.necesidades[0]).not.toHaveProperty("cantidadTotal");
-    expect(r).not.toHaveProperty("voluntarios");
+    expect(r.necesidades[0].cantidad).toBe(12);
+    expect(r.voluntarios).toBe(3);
     expect(r).not.toHaveProperty("rol");
   });
 

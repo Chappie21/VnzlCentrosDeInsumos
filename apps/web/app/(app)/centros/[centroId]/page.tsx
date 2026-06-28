@@ -39,6 +39,11 @@ export default function CentroDetallePublico() {
         </p>
         <p className="mt-0.5 text-sm text-on-surface-variant">{centro.direccion}</p>
 
+        <p className="mt-2 flex items-center gap-1 text-sm text-on-surface-variant">
+          <Icon name="group" className="text-[16px]" />
+          {centro.voluntarios} {centro.voluntarios === 1 ? "voluntario" : "voluntarios"}
+        </p>
+
         {centro.recibiendoAhora ? (
           <span className="mt-3 inline-flex items-center gap-1 rounded-badge bg-emergency/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-emergency">
             <span className="h-2 w-2 animate-pulse rounded-full bg-emergency" aria-hidden />
@@ -56,7 +61,7 @@ export default function CentroDetallePublico() {
         href={mapsUrl}
         target="_blank"
         rel="noreferrer"
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-on-primary transition-colors hover:bg-primary/90"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emergency px-4 py-3 font-semibold text-white transition-colors hover:bg-[#b70011]"
       >
         <Icon name="directions" />
         Cómo llegar
@@ -65,11 +70,19 @@ export default function CentroDetallePublico() {
       <section>
         <h2 className="mb-3 text-lg font-semibold text-on-surface">Necesidades</h2>
         {centro.necesidades.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <ul className="space-y-2">
             {centro.necesidades.map((n) => (
-              <NeedBadge key={`${n.nombre}-${n.nivel}`} necesidad={n} />
+              <li
+                key={`${n.nombre}-${n.nivel}`}
+                className="flex items-center justify-between gap-3"
+              >
+                <NeedBadge necesidad={n} />
+                <span className="shrink-0 text-sm font-semibold text-on-surface">
+                  {n.cantidad} uds.
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
           <p className="text-sm text-on-surface-variant">
             Este centro no tiene necesidades registradas.
