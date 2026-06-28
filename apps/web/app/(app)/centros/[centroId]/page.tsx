@@ -96,7 +96,7 @@ export default function CentroDetallePublico() {
         href={mapsUrl}
         target="_blank"
         rel="noreferrer"
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emergency px-4 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emergency px-4 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98]"
       >
         <Icon name="directions" />
         Cómo llegar

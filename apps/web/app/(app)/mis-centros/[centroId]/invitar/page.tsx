@@ -101,7 +101,7 @@ export default function InvitarPage() {
               <button
                 type="button"
                 onClick={copiar}
-                className="flex shrink-0 items-center gap-1 rounded-lg bg-safety px-3 py-2 text-sm font-semibold text-white hover:bg-[#1d4ed8]"
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-safety px-3 py-2 text-sm font-semibold text-white hover:bg-[#3d6649]"
               >
                 <Icon name={copiado ? "check" : "content_copy"} className="text-[18px]" />
                 {copiado ? INVITAR.copiado : INVITAR.copiar}
@@ -115,7 +115,7 @@ export default function InvitarPage() {
             <button
               type="button"
               onClick={descargarQr}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011] active:scale-[0.98]"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#9a2a28] active:scale-[0.98]"
             >
               <Icon name="download" />
               {INVITAR.descargar}

@@ -68,14 +68,14 @@ export default function CentroDetallePage() {
       <div className="grid grid-cols-2 gap-3">
         <Link
           href={ROUTES.escanearDonacion(data.id)}
-          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#1d4ed8] active:scale-[0.98]"
+          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#3d6649] active:scale-[0.98]"
         >
           <Icon name="qr_code_scanner" />
           Escanear donación
         </Link>
         <Link
           href={ROUTES.nuevoEnvio(data.id)}
-          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98]"
+          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98]"
         >
           <Icon name="local_shipping" />
           Nuevo Envío

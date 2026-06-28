@@ -5,5 +5,5 @@ export const SITE_URL =
 export const SITE_NAME = "Red Acopio Venezuela";
 export const SITE_DESCRIPTION =
   "Red Acopio Venezuela — directorio de centros de acopio y donaciones de emergencia en Venezuela.";
-// Rojo de emergencia de la marca (--color-primary-container).
-export const THEME_COLOR = "#dc2626";
+// Verde de marca Terra (--color-primary-container).
+export const THEME_COLOR = "#4a7c59";

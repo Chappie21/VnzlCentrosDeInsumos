@@ -119,7 +119,7 @@ export default function DonacionForm() {
         type="button"
         disabled={valid.length === 0}
         onClick={() => setQr(encodeDonation(toDonation(valid)))}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#9a2a28] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon name="qr_code_2" />
         Generar QR y Donar

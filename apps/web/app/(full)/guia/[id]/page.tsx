@@ -60,7 +60,7 @@ export default function GuiaPage() {
         <button
           type="button"
           onClick={() => window.print()}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011] active:scale-[0.98]"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#9a2a28] active:scale-[0.98]"
         >
           <Icon name="picture_as_pdf" />
           Exportar a PDF
