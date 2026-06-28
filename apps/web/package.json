@@ -8,6 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
     "@sentry/nextjs": "^10.62.0",
     "@tanstack/react-query": "^5.101.1",
     "@vnzl/venezuela": "workspace:*",
