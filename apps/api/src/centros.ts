@@ -707,11 +707,16 @@ export class CentrosService {
     return rows.map(toModeracion);
   }
 
-  // Marcar verificado/rechazado (solo equipo). bumpCentros: el badge viaja en el directorio.
-  async verificar(centroId: string, estado: EstadoVerificacion): Promise<{ ok: true }> {
+  // Marcar verificado/rechazado (solo equipo). Registra qué admin lo hizo
+  // (accountability). bumpCentros: el badge viaja en el directorio.
+  async verificar(
+    centroId: string,
+    estado: EstadoVerificacion,
+    adminId?: string,
+  ): Promise<{ ok: true }> {
     await prisma.centro.update({
       where: { id: centroId },
-      data: { verificacion: estado, verificadoEn: new Date() },
+      data: { verificacion: estado, verificadoEn: new Date(), verificadoPorId: adminId ?? null },
     });
     await this.redis.bumpCentros();
     return { ok: true };
@@ -801,11 +806,11 @@ export class CentrosController {
     return this.service.actualizarOperativo(centroId, dto);
   }
 
-  // Verificar / rechazar un centro: solo el equipo (token admin).
+  // Verificar / rechazar un centro: solo el equipo (sesión JWT de admin).
   @Patch(":centroId/verificacion")
   @UseGuards(AdminGuard)
-  verificar(@Param("centroId") centroId: string, @Body() dto: VerificarDto) {
-    return this.service.verificar(centroId, dto.estado);
+  verificar(@Req() req: any, @Param("centroId") centroId: string, @Body() dto: VerificarDto) {
+    return this.service.verificar(centroId, dto.estado, req.adminId);
   }
 
   // Subir la foto del local/cartel: solo el JEFE del centro.

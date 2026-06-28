@@ -522,13 +522,14 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => 
 });
 
 describe("CentrosService.verificar", () => {
-  it("setea estado + verificadoEn y bumpea el directorio", async () => {
+  it("setea estado + verificadoEn + verificadoPorId y bumpea el directorio", async () => {
     prismaMock.centro.update.mockResolvedValue({});
-    await service.verificar("c1", "VERIFICADO" as any);
+    await service.verificar("c1", "VERIFICADO" as any, "admin-1");
     const arg = prismaMock.centro.update.mock.calls[0][0];
     expect(arg.where).toEqual({ id: "c1" });
     expect(arg.data.verificacion).toBe("VERIFICADO");
     expect(arg.data.verificadoEn).toBeInstanceOf(Date);
+    expect(arg.data.verificadoPorId).toBe("admin-1");
     expect(redis.bumpCentros).toHaveBeenCalled();
   });
 });

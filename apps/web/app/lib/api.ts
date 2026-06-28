@@ -311,15 +311,29 @@ export type CentroModeracion = {
   responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
 };
 
+// Login de moderador (opción C): email + password → sesión JWT (8h).
+export async function adminLogin(
+  email: string,
+  password: string,
+): Promise<{ token: string; nombre: string }> {
+  const res = await apiFetch("/admin/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  if (res.status === 401) throw new Error("Credenciales inválidas");
+  if (!res.ok) throw new Error("No se pudo iniciar sesión");
+  return res.json();
+}
+
 export async function getModeracion(
   token: string,
   estado?: EstadoVerificacion,
 ): Promise<CentroModeracion[]> {
   const qs = estado ? `?estado=${estado}` : "";
   const res = await apiFetch(`/centros/moderacion${qs}`, {
-    headers: { "x-admin-token": token },
+    headers: { authorization: `Bearer ${token}` },
   });
-  if (res.status === 403) throw new Error("Token de moderación inválido");
+  if (res.status === 401 || res.status === 403) throw new Error("Sesión inválida o expirada");
   if (!res.ok) throw new Error("No se pudo cargar la moderación");
   return res.json();
 }
@@ -331,7 +345,7 @@ export async function verificarCentro(
 ): Promise<void> {
   const res = await apiFetch(`/centros/${centroId}/verificacion`, {
     method: "PATCH",
-    headers: { "x-admin-token": token },
+    headers: { authorization: `Bearer ${token}` },
     body: JSON.stringify({ estado }),
   });
   if (!res.ok) throw new Error("No se pudo actualizar la verificación");

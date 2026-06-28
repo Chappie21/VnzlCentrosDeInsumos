@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../../_components";
 import {
   API,
+  adminLogin,
   getModeracion,
   verificarCentro,
   type CentroModeracion,
@@ -18,7 +19,9 @@ function distancia(m: number | null): string | null {
 
 export default function Moderacion() {
   const [token, setToken] = useState<string | null>(null);
-  const [input, setInput] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [entrando, setEntrando] = useState(false);
   const [items, setItems] = useState<CentroModeracion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -32,7 +35,7 @@ export default function Moderacion() {
       const msg = e instanceof Error ? e.message : "Error";
       setError(msg);
       setItems(null);
-      if (/inválido/i.test(msg)) {
+      if (/inválid|expirad|sesión/i.test(msg)) {
         localStorage.removeItem(TOKEN_KEY);
         setToken(null);
       }
@@ -40,6 +43,21 @@ export default function Moderacion() {
       setCargando(false);
     }
   }, []);
+
+  async function login() {
+    setEntrando(true);
+    setError(null);
+    try {
+      const { token: t } = await adminLogin(email.trim(), password);
+      localStorage.setItem(TOKEN_KEY, t);
+      setToken(t);
+      setPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo iniciar sesión");
+    } finally {
+      setEntrando(false);
+    }
+  }
 
   useEffect(() => {
     const t = localStorage.getItem(TOKEN_KEY);
@@ -60,32 +78,43 @@ export default function Moderacion() {
     }
   }
 
-  // --- Token gate ---
+  // --- Login gate (sesión de moderador) ---
   if (!token) {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 px-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          login();
+        }}
+        className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 px-4"
+      >
         <h1 className="text-2xl font-bold text-on-surface">Moderación</h1>
-        <p className="text-on-surface-variant">Ingresá el token del equipo para verificar centros.</p>
+        <p className="text-on-surface-variant">Iniciá sesión para verificar centros.</p>
+        <input
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          className="h-12 rounded-lg border-2 border-outline-variant bg-surface px-3 text-on-surface focus:border-safety focus:outline-none"
+        />
         <input
           type="password"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Token de moderación"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Contraseña"
           className="h-12 rounded-lg border-2 border-outline-variant bg-surface px-3 text-on-surface focus:border-safety focus:outline-none"
         />
         {error && <p className="text-sm text-emergency">{error}</p>}
         <button
-          type="button"
-          disabled={!input.trim()}
-          onClick={() => {
-            localStorage.setItem(TOKEN_KEY, input.trim());
-            setToken(input.trim());
-          }}
+          type="submit"
+          disabled={!email.trim() || !password || entrando}
           className="flex h-12 items-center justify-center rounded-lg bg-emergency font-semibold text-white disabled:opacity-50"
         >
-          Entrar
+          {entrando ? "Entrando…" : "Entrar"}
         </button>
-      </div>
+      </form>
     );
   }
 
