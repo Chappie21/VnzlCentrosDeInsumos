@@ -53,6 +53,13 @@ export default function CentroDetallePage() {
             <Icon name="group_add" />
             Invitar voluntarios
           </Link>
+          <Link
+            href={ROUTES.reporteInventario(data.id)}
+            className="flex h-12 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high"
+          >
+            <Icon name="picture_as_pdf" />
+            Descargar reporte PDF
+          </Link>
         </div>
       )}
       <OperativoToggle centro={data} />
