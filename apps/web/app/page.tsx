@@ -36,7 +36,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      <footer className="mx-auto w-full max-w-[1024px] px-4 pb-16 text-center text-sm text-on-surface-variant">
+      <footer className="mx-auto mt-6 w-full max-w-[1024px] px-4 pb-28 text-center text-sm text-on-surface-variant">
         <p>
           Hecho por:{" "}
           <a
