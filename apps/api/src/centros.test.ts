@@ -27,12 +27,14 @@ vi.mock("@vnzl/database", () => ({
   NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
   CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
+  TipoMovimiento: { DONACION: "DONACION", CARGA_INICIAL: "CARGA_INICIAL", AJUSTE: "AJUSTE", SALIDA: "SALIDA" },
 }));
 
 import {
   CentrosService,
   CentrosController,
   CreateCentroDto,
+  InsumoInicialDto,
   UpdateCentroDto,
   UpdateOperativoDto,
 } from "./centros";
@@ -180,6 +182,51 @@ describe("CentrosService.create — escritura transaccional", () => {
     });
     expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
     expect(res).toBe(creado);
+  });
+
+  it("siembra el inventario inicial como Historial tipo CARGA_INICIAL en la misma tx", async () => {
+    const creado = { ...centroBase, id: "new-id" };
+    const txMock = {
+      centro: { create: vi.fn().mockResolvedValue(creado) },
+      voluntario: { create: vi.fn().mockResolvedValue({}) },
+      insumo: { create: vi.fn().mockResolvedValue({ id: "i-1" }), update: vi.fn() },
+      historial: { create: vi.fn() },
+    };
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+    const dto = {
+      nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
+      insumos: [{ nombre: "Agua", categoria: "AGUA", cantidad: 10 }],
+    } as any;
+    await service.create("fp-1", dto);
+
+    // el centro se crea sin el campo insumos (no es columna de Centro)
+    expect(txMock.centro.create).toHaveBeenCalledWith({
+      data: { nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av" },
+    });
+    expect(txMock.insumo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ centroId: "new-id", nombre: "Agua", cantidadTotal: 0 }) }),
+    );
+    expect(txMock.historial.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ insumoId: "i-1", cantidad: 10, tipo: "CARGA_INICIAL" }) }),
+    );
+    expect(txMock.insumo.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "i-1" }, data: { cantidadTotal: { increment: 10 } } }),
+    );
+  });
+
+  it("admite insumo inicial con cantidad 0 (decisión B3)", async () => {
+    const errs = await validate(
+      plainToInstance(InsumoInicialDto, { nombre: "Agua", cantidad: 0 }),
+    );
+    expect(errs).toHaveLength(0);
+  });
+
+  it("rechaza cantidad inicial negativa", async () => {
+    const errs = await validate(
+      plainToInstance(InsumoInicialDto, { nombre: "Agua", cantidad: -1 }),
+    );
+    expect(errs.flatMap((e) => Object.keys(e.constraints ?? {}))).toContain("min");
   });
 });
 
@@ -341,9 +388,9 @@ describe("CentrosService.detalle — dashboard de miembros", () => {
     expect(arg.where).toEqual({ id: "c1" });
     expect(arg.select.voluntarios.where).toEqual({ usuarioId: "fp-123" });
 
-    // donaciones = entradas de Historial (cantidad > 0) de los insumos del centro
+    // donaciones = solo movimientos tipo DONACION (carga inicial/ajuste no cuentan)
     expect(prismaMock.historial.count).toHaveBeenCalledWith({
-      where: { cantidad: { gt: 0 }, insumo: { centroId: "c1" } },
+      where: { tipo: "DONACION", insumo: { centroId: "c1" } },
     });
 
     expect(res.latitud).toBe(10.5);
