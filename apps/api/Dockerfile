@@ -20,8 +20,7 @@ COPY apps/api/package.json apps/api/
 COPY packages/database/package.json packages/database/
 COPY packages/venezuela/package.json packages/venezuela/
 # --ignore-scripts: evita prepare/postinstall (prisma generate corre luego, con el schema ya copiado).
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 # Orden explícito (sin turbo: su binario se baja en postinstall, saltado arriba).
