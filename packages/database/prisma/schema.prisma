@@ -102,22 +102,21 @@ enum EstadoVerificacion {
   RECHAZADO   // el equipo lo marcó como no legítimo
 }
 
-// Origen de un movimiento de Historial (para auditoría).
 enum TipoMovimiento {
-  INICIAL    // carga de inventario al crear el centro (una sola vez)
-  DONACION   // recepción de una donación (escaneo o carga)
-  ENVIO      // salida por despacho a otro destino
-  AJUSTE     // movimiento manual (+/-)
+  DONACION // escaneo de voluntario (default; lo que ya existía)
+  CARGA_INICIAL // siembra al crear el centro (autoridad: JEFE creador)
+  AJUSTE // corrección manual del JEFE (+/-)
+  SALIDA // despacho (envío)
 }
 
 model Historial {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
   insumoId  String
   usuarioId String
   cantidad  Int // Positivo (entrada) o negativo (salida)
   tipo      TipoMovimiento @default(DONACION)
   envioId   String? // set si el movimiento (-) es parte de un despacho
-  fecha     DateTime @default(now())
+  fecha     DateTime       @default(now())
 
   insumo  Insumo  @relation(fields: [insumoId], references: [id])
   usuario Usuario @relation(fields: [usuarioId], references: [fingerprint])

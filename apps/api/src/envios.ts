@@ -86,7 +86,7 @@ export class EnviosService {
       for (const it of items) {
         // Regla de oro: cantidadTotal solo se mueve creando Historial.
         await tx.historial.create({
-          data: { insumoId: it.insumoId, usuarioId, cantidad: -it.cantidad, envioId: e.id, tipo: TipoMovimiento.ENVIO },
+          data: { insumoId: it.insumoId, usuarioId, cantidad: -it.cantidad, envioId: e.id, tipo: TipoMovimiento.SALIDA },
         });
         await tx.insumo.update({
           where: { id: it.insumoId },

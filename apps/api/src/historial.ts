@@ -13,13 +13,14 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
+import { IdentidadGuard, VoluntarioGuard, JefeGuard, fingerprintOf } from "./guards";
 
 class MovimientoDto {
   @IsString() insumoId: string;
@@ -44,11 +45,21 @@ class RecibirItemDto {
 
 class RecibirDto {
   @IsString() centroId: string;
-  @IsOptional() @IsEnum(TipoMovimiento) tipo?: TipoMovimiento; // default DONACION; INICIAL = carga al crear
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
   @Type(() => RecibirItemDto)
   items: RecibirItemDto[];
+}
+
+// Ajuste manual de stock (solo JEFE): corrige el conteo de un insumo. `cantidad`
+// es el delta (+/-), nunca 0 (se valida en el service). `motivo` no se persiste
+// (no hay columna). ponytail: si se quiere auditar el motivo, agregar
+// `Historial.motivo String?` y guardarlo en moveOps.
+class AjusteDto {
+  @IsString() centroId: string;
+  @IsString() insumoId: string;
+  @IsInt() cantidad: number; // delta +/- (≠ 0)
+  @IsOptional() @IsString() @MaxLength(200) motivo?: string;
 }
 
 // "Regla de oro": cantidadTotal is never set directly — only moved via Historial.
@@ -62,7 +73,7 @@ export class HistorialService {
     insumoId: string,
     usuarioId: string,
     cantidad: number,
-    tipo: TipoMovimiento = TipoMovimiento.AJUSTE,
+    tipo: TipoMovimiento = TipoMovimiento.DONACION,
   ) {
     return [
       tx.historial.create({ data: { insumoId, usuarioId, cantidad, tipo } }),
@@ -71,6 +82,28 @@ export class HistorialService {
         data: { cantidadTotal: { increment: cantidad } },
       }),
     ];
+  }
+
+  // Ajuste manual (solo JEFE). Valida pertenencia al centro y que el stock no
+  // quede negativo. Movimiento etiquetado AJUSTE (no cuenta como donación).
+  async ajuste(usuarioId: string, dto: AjusteDto) {
+    if (dto.cantidad === 0)
+      throw new BadRequestException("El ajuste no puede ser 0");
+
+    const insumo = await prisma.insumo.findUnique({
+      where: { id: dto.insumoId },
+      select: { centroId: true, cantidadTotal: true },
+    });
+    if (!insumo || insumo.centroId !== dto.centroId)
+      throw new BadRequestException("Insumo no pertenece al centro");
+    if (insumo.cantidadTotal + dto.cantidad < 0)
+      throw new BadRequestException("El stock no puede quedar negativo");
+
+    const [hist] = await prisma.$transaction(
+      this.moveOps(prisma, dto.insumoId, usuarioId, dto.cantidad, TipoMovimiento.AJUSTE),
+    );
+    await this.redis.bumpCentros();
+    return hist;
   }
 
   async addOne(usuarioId: string, m: MovimientoDto) {
@@ -110,16 +143,6 @@ export class HistorialService {
     }
     const items = [...byKey.values()];
 
-    const tipo = dto.tipo ?? TipoMovimiento.DONACION;
-    // INICIAL es una carga de una sola vez: solo si el centro no tiene movimientos aún.
-    if (tipo === TipoMovimiento.INICIAL) {
-      const previos = await prisma.historial.count({ where: { insumo: { centroId: dto.centroId } } });
-      if (previos > 0)
-        throw new BadRequestException(
-          "El inventario inicial solo se carga al crear el centro; este centro ya tiene movimientos.",
-        );
-    }
-
     await prisma.$transaction(async (tx) => {
       for (const it of items) {
         let insumo = await tx.insumo.findFirst({
@@ -139,7 +162,7 @@ export class HistorialService {
         }
         // Regla de oro: cantidadTotal solo se mueve creando Historial dentro de la tx.
         await tx.historial.create({
-          data: { insumoId: insumo.id, usuarioId, cantidad: it.cantidad, tipo },
+          data: { insumoId: insumo.id, usuarioId, cantidad: it.cantidad },
         });
         await tx.insumo.update({
           where: { id: insumo.id },
@@ -176,5 +199,12 @@ export class HistorialController {
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   recibir(@Req() req: any, @Body() dto: RecibirDto) {
     return this.service.recibir(fingerprintOf(req), dto);
+  }
+
+  // Ajuste manual de stock. Solo el JEFE del centro (JefeGuard lee body.centroId).
+  @Post("ajuste")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  ajuste(@Req() req: any, @Body() dto: AjusteDto) {
+    return this.service.ajuste(fingerprintOf(req), dto);
   }
 }

@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsIn,
@@ -27,13 +28,14 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
   registerDecorator,
   type ValidationArguments,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion } from "@vnzl/database";
+import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento } from "@vnzl/database";
 import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, fingerprintOf } from "./guards";
@@ -68,6 +70,14 @@ function IsCiudadDeEstado() {
   };
 }
 
+// Inventario inicial (carga de un acopio que se digitaliza). cantidad admite 0
+// (decisión B3: registrar un insumo sin stock todavía). Solo en la creación.
+export class InsumoInicialDto {
+  @IsString() @MaxLength(80) nombre: string;
+  @IsOptional() @IsEnum(CategoriaInsumo) categoria?: CategoriaInsumo;
+  @IsInt() @Min(0) cantidad: number;
+}
+
 export class CreateCentroDto {
   @IsString() nombre: string;
   @IsString() @IsIn([...ESTADOS]) estado: string;
@@ -78,6 +88,8 @@ export class CreateCentroDto {
   // Geo del dispositivo al registrar (anti-fraude: se compara con la dirección).
   @IsOptional() @Type(() => Number) @IsLatitude() geoLat?: number;
   @IsOptional() @Type(() => Number) @IsLongitude() geoLng?: number;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => InsumoInicialDto)
+  insumos?: InsumoInicialDto[];
 }
 
 // Moderación (solo equipo): marcar un centro verificado o rechazado.
@@ -544,11 +556,38 @@ export class CentrosService {
 
   async create(fingerprint: string, dto: CreateCentroDto) {
     // IdentidadGuard already guarantees the Usuario exists with a complete identity.
+    const { insumos, ...datos } = dto;
+    // Agrupa el inventario inicial por nombre (case-insensitive) para no duplicar
+    // insumos en un mismo payload; mismo criterio que `recibir`.
+    const seed = new Map<string, { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }>();
+    for (const it of insumos ?? []) {
+      const nombre = it.nombre.trim();
+      const prev = seed.get(nombre.toLowerCase());
+      if (prev) prev.cantidad += it.cantidad;
+      else seed.set(nombre.toLowerCase(), { nombre, categoria: it.categoria ?? null, cantidad: it.cantidad });
+    }
+
     const centro = await prisma.$transaction(async (tx) => {
-      const c = await tx.centro.create({ data: dto });
+      const c = await tx.centro.create({ data: datos });
       await tx.voluntario.create({
         data: { usuarioId: fingerprint, centroId: c.id, rol: RolVoluntario.JEFE },
       });
+      // Carga inicial: cada insumo se crea en 0 y se mueve vía Historial (regla de
+      // oro). tipo CARGA_INICIAL para no contarlo como donación. cantidad 0 igual
+      // crea el insumo y su movimiento (registro de que existe sin stock).
+      for (const it of seed.values()) {
+        const insumo = await tx.insumo.create({
+          data: { centroId: c.id, nombre: it.nombre, categoria: it.categoria, cantidadTotal: 0 },
+          select: { id: true },
+        });
+        await tx.historial.create({
+          data: { insumoId: insumo.id, usuarioId: fingerprint, cantidad: it.cantidad, tipo: TipoMovimiento.CARGA_INICIAL },
+        });
+        await tx.insumo.update({
+          where: { id: insumo.id },
+          data: { cantidadTotal: { increment: it.cantidad } },
+        });
+      }
       return c;
     });
     await this.redis.bumpCentros();
@@ -570,15 +609,15 @@ export class CentrosService {
   // Detalle de un centro (solo miembros, garantizado por VoluntarioGuard). Sin
   // cache: refleja inventario al instante. `cantidadTotal` se expone para lectura.
   async detalle(fingerprint: string, centroId: string): Promise<CentroDetalle> {
-    // Donaciones recibidas = entradas de Historial (cantidad > 0) de los insumos
-    // del centro. Las salidas (cantidad < 0) no cuentan.
+    // Donaciones recibidas = movimientos tipo DONACION de los insumos del centro.
+    // La carga inicial (CARGA_INICIAL) y ajustes (AJUSTE) no cuentan como donación.
     const [row, donaciones] = await Promise.all([
       prisma.centro.findUniqueOrThrow({
         where: { id: centroId },
         select: detalleSelect(fingerprint),
       }),
       prisma.historial.count({
-        where: { cantidad: { gt: 0 }, insumo: { centroId } },
+        where: { tipo: TipoMovimiento.DONACION, insumo: { centroId } },
       }),
     ]);
     return toCentroDetalle(row, donaciones);

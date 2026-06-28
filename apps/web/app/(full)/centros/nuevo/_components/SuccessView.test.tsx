@@ -7,7 +7,6 @@ describe("SuccessView", () => {
     render(
       <SuccessView
         centroNombre="Centro Deportivo Municipal"
-        onCargarInicial={vi.fn()}
         onVerCentro={vi.fn()}
         onInvitar={vi.fn()}
       />,
@@ -16,22 +15,18 @@ describe("SuccessView", () => {
     expect(screen.getByText("Activo")).toBeTruthy();
   });
 
-  it("los tres botones disparan sus callbacks", () => {
-    const onCargarInicial = vi.fn();
+  it("ambos botones disparan sus callbacks", () => {
     const onVerCentro = vi.fn();
     const onInvitar = vi.fn();
     render(
       <SuccessView
         centroNombre="Centro Deportivo Municipal"
-        onCargarInicial={onCargarInicial}
         onVerCentro={onVerCentro}
         onInvitar={onInvitar}
       />,
     );
-    fireEvent.click(screen.getByText("Cargar inventario inicial"));
     fireEvent.click(screen.getByText("Ver mi Centro de Acopio"));
     fireEvent.click(screen.getByText("Invitar Ayudantes"));
-    expect(onCargarInicial).toHaveBeenCalledOnce();
     expect(onVerCentro).toHaveBeenCalledOnce();
     expect(onInvitar).toHaveBeenCalledOnce();
   });
