@@ -2,6 +2,7 @@ export const ROUTES = {
   home: "/",
   donar: "/donar",
   centros: "/centros",
+  centroDetalle: (id: string) => `/centros/${id}`,
   crearCentro: "/centros/nuevo",
   misCentros: "/mis-centros",
   misCentroDetalle: (id: string) => `/mis-centros/${id}`,

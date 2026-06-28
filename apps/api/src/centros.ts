@@ -324,6 +324,54 @@ function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
   };
 }
 
+// Detalle PÚBLICO de un centro (sin guard): allowlist segura, sin PII ni datos
+// operativos. Insumos sin cantidadTotal (solo nombre/nivel/categoria = necesidades).
+const publicoSelect = {
+  id: true,
+  nombre: true,
+  estado: true,
+  ciudad: true,
+  direccion: true,
+  latitud: true,
+  longitud: true,
+  recibiendoAhora: true,
+  horarioCierre: true,
+  insumos: { select: { nombre: true, nivel: true, categoria: true } },
+} satisfies Prisma.CentroSelect;
+
+type PublicoRow = Prisma.CentroGetPayload<{ select: typeof publicoSelect }>;
+
+export type CentroDetallePublico = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  necesidades: Necesidad[];
+};
+
+function toDetallePublico(c: PublicoRow): CentroDetallePublico {
+  const necesidades = [...c.insumos]
+    .sort((a, b) => NIVEL_ORDER[a.nivel] - NIVEL_ORDER[b.nivel])
+    .map((i) => ({ nombre: i.nombre, nivel: i.nivel, categoria: i.categoria }));
+  return {
+    id: c.id,
+    nombre: c.nombre,
+    estado: c.estado,
+    ciudad: c.ciudad,
+    direccion: c.direccion,
+    latitud: c.latitud,
+    longitud: c.longitud,
+    recibiendoAhora: c.recibiendoAhora,
+    horarioCierre: c.horarioCierre,
+    necesidades,
+  };
+}
+
 // Listado de miembros para la pantalla de gestión (solo JEFE). Allowlist explícita:
 // expone el id de la fila Voluntario (clave de remoción) + PII mínima de contacto del
 // usuario. NUNCA `usuarioId` (= fingerprint, regla AGENTS.md).
@@ -526,6 +574,16 @@ export class CentrosService {
     return toCentroDetalle(row, donaciones);
   }
 
+  // Detalle público (sin guard): cualquiera puede ver un centro del directorio.
+  async detallePublico(centroId: string): Promise<CentroDetallePublico> {
+    const row = await prisma.centro.findUnique({
+      where: { id: centroId },
+      select: publicoSelect,
+    });
+    if (!row) throw new NotFoundException("Centro no encontrado");
+    return toDetallePublico(row);
+  }
+
   // Datos principales (solo JEFE, garantizado por JefeGuard). Actualiza solo los
   // campos enviados; bumpCentros porque nombre/ciudad/estado/direccion aparecen en
   // el directorio. Nunca toca cantidadTotal (regla de oro).
@@ -595,6 +653,12 @@ export class CentrosController {
   @UseGuards(RateLimitGuard, IdentidadGuard)
   create(@Req() req: any, @Body() dto: CreateCentroDto) {
     return this.service.create(fingerprintOf(req), dto);
+  }
+
+  // Detalle público (directorio). Sin guard: ruta distinta a la de miembros.
+  @Get(":centroId/publico")
+  detallePublico(@Param("centroId") centroId: string) {
+    return this.service.detallePublico(centroId);
   }
 
   // Detalle del centro (dashboard de miembros). DEBE declararse después de "mios"
