@@ -42,6 +42,8 @@ function buildQuery(filters: CentrosFilters, page: number): string {
   if (filters.lat != null && filters.lng != null) {
     p.set("lat", String(filters.lat));
     p.set("lng", String(filters.lng));
+    // Con GPS siempre mandamos lat/lng (devuelve distancias); el radio solo filtra si "Cerca de mí".
+    if (filters.cerca) p.set("radiusKm", "5"); // ponytail: radio fijo 5km
   }
   return p.toString();
 }
