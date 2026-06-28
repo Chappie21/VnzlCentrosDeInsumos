@@ -35,6 +35,41 @@ function Shell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <footer className="mx-auto w-full max-w-[1024px] px-4 pb-4 text-center text-sm text-on-surface-variant">
+        <p>
+          Hecho por:{" "}
+          <a
+            href="https://www.linkedin.com/in/andr%C3%A9s-chaparro/"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary-container underline hover:no-underline"
+          >
+            Andres Chaparro
+          </a>{" "}
+          y{" "}
+          <a
+            href="https://www.linkedin.com/in/victor-atencio/"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary-container underline hover:no-underline"
+          >
+            Victor Atencio
+          </a>
+        </p>
+        <p className="mt-1">
+          Iniciativa por{" "}
+          <a
+            href="https://build4venezuela.com/es"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary-container underline hover:no-underline"
+          >
+            Build4Venezuela
+          </a>
+        </p>
+        <p className="mt-2 text-base font-medium">🇻🇪 Dios bendiga a Venezuela 🙏</p>
+      </footer>
     </div>
   );
 }
