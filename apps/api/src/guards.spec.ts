@@ -1,11 +1,16 @@
+import { UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { VoluntarioGuard } from "./guards";
 
-vi.mock("@vnzl/database", () => ({
-  prisma: {
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
     voluntario: { findUnique: vi.fn() },
     usuario: { findUnique: vi.fn() },
   },
+}));
+
+vi.mock("@vnzl/database", () => ({
+  prisma: prismaMock,
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
   NivelInsumo: {},
   CategoriaInsumo: {},
@@ -19,5 +24,16 @@ function ctx(headers: Record<string, string>, body: any = {}) {
 
 it("VoluntarioGuard rechaza sin Bearer", async () => {
   const g = new VoluntarioGuard(jwt);
-  await expect(g.canActivate(ctx({}))).rejects.toThrow();
+  await expect(g.canActivate(ctx({}))).rejects.toBeInstanceOf(UnauthorizedException);
+});
+
+it("VoluntarioGuard permite al voluntario del centro (positive path)", async () => {
+  const token = await new JwtService({ secret: "test-secret" }).signAsync({ sub: "user-x", typ: "user" });
+  prismaMock.voluntario.findUnique.mockResolvedValue({ usuarioId: "user-x", centroId: "c1" });
+
+  const context = ctx({ authorization: `Bearer ${token}` }, { centroId: "c1" });
+  const g = new VoluntarioGuard(jwt);
+
+  await expect(g.canActivate(context)).resolves.toBe(true);
+  expect(context._req.userId).toBe("user-x");
 });

@@ -79,6 +79,7 @@ export class UsuariosService {
 
   // Onboarding (spec §3): name/cedula/phone required before contributing.
   onboard(userId: string, dto: OnboardDto) {
+    // el JWT de sesión solo se emite tras crear el Usuario, así que la fila siempre existe
     return prisma.usuario.update({
       where: { id: userId },
       data: dto,
