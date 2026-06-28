@@ -87,22 +87,28 @@ export class UsuariosService {
 
   // Invitación = JWT corto ligado a un centro (spec §4). El front arma la URL absoluta.
   invite(centroId: string) {
-    const token = this.jwt.sign({ centroId }, { expiresIn: INVITACION.expiresIn });
+    const token = this.jwt.sign(
+      { centroId, typ: "invite" },
+      { expiresIn: INVITACION.expiresIn },
+    );
     return { token, expiresInMin: INVITACION.ttlMin };
   }
 
   // Canje del token: une al device como VOLUNTARIO (idempotente, no degrada al JEFE).
-  async accept(fingerprint: string, token: string) {
-    let centroId: string;
+  async accept(userId: string, token: string) {
+    let payload: any;
     try {
-      centroId = this.jwt.verify(token).centroId;
+      payload = this.jwt.verify(token);
     } catch {
       throw new UnauthorizedException("Invitación inválida o expirada");
     }
+    if (payload?.typ !== "invite" || !payload?.centroId)
+      throw new UnauthorizedException("Token no es una invitación");
+    const centroId: string = payload.centroId;
     await prisma.voluntario.upsert({
-      where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
+      where: { usuarioId_centroId: { usuarioId: userId, centroId } },
       update: {}, // re-aceptar no toca el rol existente
-      create: { usuarioId: fingerprint, centroId },
+      create: { usuarioId: userId, centroId },
     });
     const centro = await prisma.centro.findUnique({
       where: { id: centroId },

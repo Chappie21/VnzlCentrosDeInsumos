@@ -32,10 +32,10 @@ beforeEach(() => {
 });
 
 describe("UsuariosService.invite", () => {
-  it("firma { centroId } con expiresIn 1h y devuelve expiresInMin 60", () => {
+  it("firma { centroId, typ:'invite' } con expiresIn 1h y devuelve expiresInMin 60", () => {
     const res = service.invite("c1");
 
-    expect(jwt.sign).toHaveBeenCalledWith({ centroId: "c1" }, { expiresIn: "1h" });
+    expect(jwt.sign).toHaveBeenCalledWith({ centroId: "c1", typ: "invite" }, { expiresIn: "1h" });
     expect(res).toEqual({ token: "tok-123", expiresInMin: 60 });
     expect(INVITACION.ttlMin).toBe(60);
   });
@@ -43,7 +43,7 @@ describe("UsuariosService.invite", () => {
 
 describe("UsuariosService.accept", () => {
   it("token válido: upsert VOLUNTARIO por default y devuelve { centroId, nombre }", async () => {
-    jwt.verify.mockReturnValue({ centroId: "c1" });
+    jwt.verify.mockReturnValue({ centroId: "c1", typ: "invite" });
     prismaMock.voluntario.upsert.mockResolvedValue({});
     prismaMock.centro.findUnique.mockResolvedValue({ nombre: "Centro Uno" });
 
@@ -72,8 +72,17 @@ describe("UsuariosService.accept", () => {
     expect(prismaMock.voluntario.upsert).not.toHaveBeenCalled();
   });
 
+  it("token sin typ:invite → UnauthorizedException", async () => {
+    jwt.verify.mockReturnValue({ centroId: "c1", typ: "user" });
+
+    await expect(service.accept("fp-1", "tok-user")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(prismaMock.voluntario.upsert).not.toHaveBeenCalled();
+  });
+
   it("JEFE re-acepta: update es {} → no se sobreescribe el rol", async () => {
-    jwt.verify.mockReturnValue({ centroId: "c1" });
+    jwt.verify.mockReturnValue({ centroId: "c1", typ: "invite" });
     prismaMock.voluntario.upsert.mockResolvedValue({});
     prismaMock.centro.findUnique.mockResolvedValue({ nombre: "Centro Uno" });
 
