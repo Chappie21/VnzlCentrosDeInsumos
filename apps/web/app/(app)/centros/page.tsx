@@ -30,27 +30,25 @@ export default function DirectorioCentros() {
     [FILTERS.urgencia]: false,
   });
 
-  const { coords, request, clear } = useGeolocation();
+  // Pide GPS al montar. Si hay coords, mostramos distancias siempre; el chip "Cerca de mí" filtra a 5km.
+  const { coords, request } = useGeolocation();
+  useEffect(() => request(), [request]);
 
   function toggle(id: FilterId) {
-    setActive((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
-      if (id === FILTERS.cerca) (next[id] ? request : clear)();
-      return next;
-    });
+    setActive((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  // lat/lng solo cuando "Cerca de mí" está activo y hay coords; redondeadas (anti-jitter).
-  const usandoCerca = active[FILTERS.cerca] && coords != null;
+  // lat/lng siempre que haya coords (GPS aceptado); redondeadas (anti-jitter).
   const filters = useMemo(
     () => ({
       q: debouncedQ.trim(),
       soloAbiertos: active[FILTERS.abiertos],
       urgenciaAlta: active[FILTERS.urgencia],
-      lat: usandoCerca ? round(coords!.lat) : null,
-      lng: usandoCerca ? round(coords!.lng) : null,
+      lat: coords ? round(coords.lat) : null,
+      lng: coords ? round(coords.lng) : null,
+      cerca: active[FILTERS.cerca] && coords != null,
     }),
-    [debouncedQ, active, usandoCerca, coords],
+    [debouncedQ, active, coords],
   );
 
   const {

@@ -13,6 +13,6 @@ export const ROUTES = {
   unirse: (token: string) => `/unirse/${token}`,
   nuevoEnvio: (centroId: string) => `/envios/nuevo?centro=${centroId}`,
   escanearDonacion: (centroId: string) => `/scanning?centro=${centroId}`,
-  inventario: "/inventario",
+  mapa: "/mapa",
   scanning: "/scanning",
 } as const;

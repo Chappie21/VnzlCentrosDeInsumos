@@ -156,6 +156,16 @@ type CentrosPage = {
   hasNext: boolean;
 };
 
+// Punto para el mapa público: lo mínimo para pintar un marker. Sin PII.
+export type MapaPunto = {
+  id: string;
+  nombre: string;
+  ciudad: string;
+  latitud: number;
+  longitud: number;
+  recibiendoAhora: boolean;
+};
+
 // allowlist de campos (Prisma `select`): garantiza que no se filtre PII
 const cardSelect = {
   id: true,
@@ -448,6 +458,24 @@ export class CentrosService {
     );
   }
 
+  // Todos los centros con coordenadas, para el mapa público. Payload mínimo.
+  // ponytail: scan full-table con cap 1000; cachear/paginar si crece mucho.
+  async mapaCoords(): Promise<MapaPunto[]> {
+    const rows = await prisma.centro.findMany({
+      where: { latitud: { not: null }, longitud: { not: null } },
+      select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
+      take: 1000,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      nombre: r.nombre,
+      ciudad: r.ciudad,
+      latitud: r.latitud!,
+      longitud: r.longitud!,
+      recibiendoAhora: r.recibiendoAhora,
+    }));
+  }
+
   private async query(
     q: ListCentrosQueryDto,
     page: number,
@@ -651,6 +679,12 @@ export class CentrosController {
   @UseGuards(IdentidadGuard)
   mias(@Req() req: any) {
     return this.service.mias(fingerprintOf(req));
+  }
+
+  // Mapa público de centros con coordenadas. Literal antes de ":centroId".
+  @Get("mapa")
+  mapa() {
+    return this.service.mapaCoords();
   }
 
   // Identified users only (fingerprint header). Rate-limited (spec §6.5).

@@ -23,7 +23,7 @@ describe("BottomNav", () => {
   it("oculta tabs de operador (Mi Centro, Escanear) para anónimo", () => {
     render(<BottomNav />);
     expect(screen.getByText("Centros")).toBeTruthy();
-    expect(screen.getByText("Inventario")).toBeTruthy();
+    expect(screen.getByText("Mapa")).toBeTruthy();
     expect(screen.queryByText("Mi Centro")).toBeNull();
     expect(screen.queryByText("Escanear")).toBeNull();
   });
