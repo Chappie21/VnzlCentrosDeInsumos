@@ -14,6 +14,12 @@ model Usuario {
   cedula      String?
   telefono    String?
 
+  // Validación de cédula contra api.cedula.com.ve (CEN-23). Se valida una vez,
+  // al crear el primer centro. null = no chequeada; true/false = existe en registro.
+  cedulaVerificada   Boolean?
+  cedulaNombre       String? // nombre oficial del registro (para comparar con `nombre`)
+  cedulaVerificadaEn DateTime?
+
   centros       Voluntario[]
   movimientos   Historial[]
   enviosCreados Envio[]
@@ -45,6 +51,7 @@ model Centro {
   insumos       Insumo[]
   enviosOrigen  Envio[] @relation("EnviosOrigen")
   enviosDestino Envio[] @relation("EnviosDestino")
+  reportes      Reporte[]
   verificadoPor Admin? @relation(fields: [verificadoPorId], references: [id])
 
   @@index([estado, ciudad])
@@ -116,6 +123,29 @@ enum EstadoVerificacion {
   PENDIENTE   // recién creado, sin revisar (igual opera)
   VERIFICADO  // el equipo confirmó que existe
   RECHAZADO   // el equipo lo marcó como no legítimo
+}
+
+// Motivo por el que un usuario reporta un centro (CEN-22).
+enum MotivoReporte {
+  NO_EXISTE       // "Ya no está"
+  INFO_INCORRECTA // datos incorrectos
+  ENGANOSO        // engañoso / falso
+}
+
+// Reporte comunitario de un centro inválido. Anónimo: `fingerprint` es el
+// dispositivo, SIN FK a Usuario (no exige identidad). 1 por dispositivo por centro.
+model Reporte {
+  id          String        @id @default(uuid())
+  centroId    String
+  fingerprint String
+  motivo      MotivoReporte
+  comentario  String?
+  creadoEn    DateTime      @default(now())
+
+  centro Centro @relation(fields: [centroId], references: [id])
+
+  @@unique([centroId, fingerprint])
+  @@index([centroId])
 }
 
 enum TipoMovimiento {

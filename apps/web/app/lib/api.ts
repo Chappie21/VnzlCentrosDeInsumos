@@ -212,6 +212,35 @@ export async function getCentroDetalle(id: string): Promise<CentroDetalle> {
   return res.json();
 }
 
+// ---- Detalle PÚBLICO de un centro (directorio, sin identidad) ----
+
+export type NecesidadPublica = {
+  nombre: string;
+  nivel: NivelInsumo;
+  categoria: string | null;
+  cantidad: number;
+};
+
+export type CentroPublico = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  necesidades: NecesidadPublica[];
+};
+
+export async function getCentroPublico(id: string): Promise<CentroPublico> {
+  const res = await apiFetch(`/centros/${id}/publico`);
+  if (!res.ok) throw new Error("No se pudo cargar el centro");
+  return res.json();
+}
+
 // Datos principales (solo JEFE). Devuelve el Response para que el caller maneje !ok.
 export type UpdateCentroBody = Partial<CreateCentroBody>;
 export function updateCentro(id: string, body: UpdateCentroBody) {
@@ -308,7 +337,16 @@ export type CentroModeracion = {
   geoLat: number | null;
   geoLng: number | null;
   distanciaGeoM: number | null;
-  responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+  responsable: {
+    nombre: string | null;
+    cedula: string | null;
+    telefono: string | null;
+    cedulaVerificada: boolean | null;
+    cedulaNombre: string | null;
+  } | null;
+  reportesCount: number;
+  reportado: boolean;
+  reportes: { motivo: MotivoReporte; comentario: string | null; creadoEn: string }[];
 };
 
 // Login de moderador (opción C): email + password → sesión JWT (8h).
@@ -349,4 +387,21 @@ export async function verificarCentro(
     body: JSON.stringify({ estado }),
   });
   if (!res.ok) throw new Error("No se pudo actualizar la verificación");
+}
+
+// ---- Reporte comunitario (CEN-22) ----
+
+export type MotivoReporte = "NO_EXISTE" | "INFO_INCORRECTA" | "ENGANOSO";
+
+// Reportar un centro inválido. Anónimo (fingerprint en el header, vía apiFetch).
+export async function reportarCentro(
+  centroId: string,
+  motivo: MotivoReporte,
+  comentario?: string,
+): Promise<void> {
+  const res = await apiFetch(`/centros/${centroId}/reportes`, {
+    method: "POST",
+    body: JSON.stringify({ motivo, ...(comentario ? { comentario } : {}) }),
+  });
+  if (!res.ok) throw new Error("No se pudo enviar el reporte");
 }

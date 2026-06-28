@@ -9,6 +9,7 @@ const { prismaMock } = vi.hoisted(() => ({
     centro: {
       findMany: vi.fn(),
       count: vi.fn(),
+      findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
@@ -18,6 +19,8 @@ const { prismaMock } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
+    reporte: { upsert: vi.fn() },
+    usuario: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -30,6 +33,7 @@ vi.mock("@vnzl/database", () => ({
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
   EstadoVerificacion: { PENDIENTE: "PENDIENTE", VERIFICADO: "VERIFICADO", RECHAZADO: "RECHAZADO" },
   TipoMovimiento: { DONACION: "DONACION", CARGA_INICIAL: "CARGA_INICIAL", AJUSTE: "AJUSTE", SALIDA: "SALIDA" },
+  MotivoReporte: { NO_EXISTE: "NO_EXISTE", INFO_INCORRECTA: "INFO_INCORRECTA", ENGANOSO: "ENGANOSO" },
 }));
 
 // No tocar disco al subir fotos en los tests.
@@ -51,7 +55,8 @@ const redis = {
   bumpCentros: vi.fn(),
 } as any;
 
-const service = new CentrosService(redis);
+const cedula = { verificar: vi.fn().mockResolvedValue(null) } as any;
+const service = new CentrosService(redis, cedula);
 
 const centroBase = {
   id: "c1",
@@ -534,25 +539,21 @@ describe("CentrosService.verificar", () => {
   });
 });
 
+const modRow = (over: Record<string, any> = {}) => ({
+  id: "c1", nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
+  verificacion: "PENDIENTE", verificadoEn: null, creadoEn: new Date(),
+  fotoUrl: null, latitud: null, longitud: null, geoLat: null, geoLng: null,
+  voluntarios: [], _count: { reportes: 0 }, reportes: [],
+  ...over,
+});
+
 describe("CentrosService.moderacion", () => {
   it("calcula distanciaGeoM (haversine) y mapea al responsable", async () => {
     prismaMock.centro.findMany.mockResolvedValue([
-      {
-        id: "c1",
-        nombre: "Centro",
-        estado: "DC",
-        ciudad: "Caracas",
-        direccion: "Av 1",
-        verificacion: "PENDIENTE",
-        verificadoEn: null,
-        creadoEn: new Date(),
-        fotoUrl: null,
-        latitud: 10.5061,
-        longitud: -66.9146,
-        geoLat: 10.4339,
-        geoLng: -66.8758,
+      modRow({
+        latitud: 10.5061, longitud: -66.9146, geoLat: 10.4339, geoLng: -66.8758,
         voluntarios: [{ usuario: { nombre: "Ana", cedula: "V-1", telefono: "0412" } }],
-      },
+      }),
     ]);
     const [m] = await service.moderacion("PENDIENTE" as any);
     expect(m.distanciaGeoM).toBeGreaterThan(7000);
@@ -561,17 +562,43 @@ describe("CentrosService.moderacion", () => {
   });
 
   it("distanciaGeoM null si falta alguna coordenada", async () => {
-    prismaMock.centro.findMany.mockResolvedValue([
-      {
-        id: "c1", nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
-        verificacion: "PENDIENTE", verificadoEn: null, creadoEn: new Date(),
-        fotoUrl: null, latitud: 10.5, longitud: -66.9, geoLat: null, geoLng: null,
-        voluntarios: [],
-      },
-    ]);
+    prismaMock.centro.findMany.mockResolvedValue([modRow({ latitud: 10.5, longitud: -66.9 })]);
     const [m] = await service.moderacion();
     expect(m.distanciaGeoM).toBeNull();
     expect(m.responsable).toBeNull();
+  });
+
+  it("incluye reportados aunque no sean PENDIENTE y los prioriza (flag >= 3)", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([
+      modRow({ id: "pend", verificacion: "PENDIENTE", _count: { reportes: 0 }, reportes: [] }),
+      modRow({
+        id: "rep", verificacion: "VERIFICADO", _count: { reportes: 4 },
+        reportes: [{ motivo: "ENGANOSO", comentario: null, creadoEn: new Date() }],
+      }),
+    ]);
+    const res = await service.moderacion("PENDIENTE" as any);
+
+    // el filtro incluye también los reportados (OR), no solo el estado
+    const where = prismaMock.centro.findMany.mock.calls[0][0].where;
+    expect(where.OR).toBeTruthy();
+    // el reportado (>=3) va primero
+    expect(res[0].id).toBe("rep");
+    expect(res[0].reportado).toBe(true);
+    expect(res[0].reportesCount).toBe(4);
+    expect(res[1].reportado).toBe(false);
+  });
+});
+
+describe("CentrosService.reportar", () => {
+  it("hace upsert por (centroId, fingerprint) con el motivo", async () => {
+    prismaMock.reporte.upsert.mockResolvedValue({});
+    await service.reportar("c1", "fp-1", "NO_EXISTE" as any, "ya cerró");
+    const arg = prismaMock.reporte.upsert.mock.calls[0][0];
+    expect(arg.where).toEqual({ centroId_fingerprint: { centroId: "c1", fingerprint: "fp-1" } });
+    expect(arg.create).toMatchObject({
+      centroId: "c1", fingerprint: "fp-1", motivo: "NO_EXISTE", comentario: "ya cerró",
+    });
+    expect(arg.update.motivo).toBe("NO_EXISTE");
   });
 });
 
@@ -590,6 +617,34 @@ describe("CentrosService.setFoto", () => {
     expect(prismaMock.centro.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
     );
+  });
+});
+
+describe("CentrosService.detallePublico", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("proyecta payload público: cantidad + voluntarios, ordena URGENTE primero, sin PII", async () => {
+    prismaMock.centro.findUnique.mockResolvedValue({
+      id: "c1", nombre: "Uno", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
+      latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
+      insumos: [
+        { nombre: "Ropa", nivel: "SUFICIENTE", categoria: "ROPA", cantidadTotal: 5 },
+        { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+      ],
+      _count: { voluntarios: 3 },
+    });
+
+    const r = await service.detallePublico("c1");
+
+    expect(r.necesidades[0].nivel).toBe("URGENTE");
+    expect(r.necesidades[0].cantidad).toBe(12);
+    expect(r.voluntarios).toBe(3);
+    expect(r).not.toHaveProperty("rol");
+  });
+
+  it("lanza 404 si el centro no existe", async () => {
+    prismaMock.centro.findUnique.mockResolvedValue(null);
+    await expect(service.detallePublico("nope")).rejects.toThrow("Centro no encontrado");
   });
 });
 

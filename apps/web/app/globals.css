@@ -1,21 +1,30 @@
 @import "tailwindcss";
 
+/* Sistema de colores "Terra" (Stitch design system). Solo se cambian los valores;
+   los nombres de token se mantienen. Mapeo por rol semántico:
+   - emergency  -> Terra error  (urgente/destructivo, sigue rojo)
+   - safety     -> Terra primary (acciones primarias, ahora verde bosque)
+   - success    -> verde profundo (estado disponible/ok)
+   - warning    -> Terra tertiary (ocre, antes ámbar)
+   - primary-container -> Terra primary (acento de marca verde)
+   - surfaces/outline/on-surface -> paleta Terra (crema cálido). */
 @theme {
-  --color-emergency: #dc2626;
-  --color-safety: #2563eb;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-surface: #fff8f7;
-  --color-on-surface: #281715;
-  --color-outline: #916f6b;
-  --color-outline-variant: #e6bdb8;
-  --color-border: #ead8d5;
-  --color-on-surface-variant: #5c403c;
+  --color-emergency: #b83230;
+  --color-action: #705c30;
+  --color-safety: #4a7c59;
+  --color-success: #2a6038;
+  --color-warning: #705c30;
+  --color-surface: #faf6f0;
+  --color-on-surface: #2e3230;
+  --color-outline: #74796e;
+  --color-outline-variant: #c4c8bc;
+  --color-border: #ded7ce;
+  --color-on-surface-variant: #4a4e4a;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container: #ffe9e6;
-  --color-surface-container-high: #ffe2de;
-  --color-primary-container: #dc2626;
-  --color-on-primary-container: #fff6f5;
+  --color-surface-container: #f0ece4;
+  --color-surface-container-high: #eae6de;
+  --color-primary-container: #4a7c59;
+  --color-on-primary-container: #ffffff;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --radius-card: 0.25rem;
   --radius-badge: 0.5rem;

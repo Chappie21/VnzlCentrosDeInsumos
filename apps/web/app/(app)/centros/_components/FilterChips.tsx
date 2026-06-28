@@ -21,7 +21,7 @@ function Chip({
       onClick={onClick}
       className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
         active
-          ? "border-emergency bg-primary-container text-on-primary-container"
+          ? "border-primary-container bg-primary-container text-on-primary-container"
           : "border-outline-variant bg-surface-container-lowest text-on-surface-variant"
       }`}
     >

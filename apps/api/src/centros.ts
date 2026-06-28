@@ -35,9 +35,10 @@ import {
 import { Transform, Type } from "class-transformer";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento } from "@vnzl/database";
-import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
+import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
+import { ESTADOS, municipiosDe, distanciaMetros, parseCedula } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
+import { CedulaService } from "./cedula";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, fingerprintOf } from "./guards";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
@@ -102,6 +103,16 @@ export class VerificarDto {
 export class FotoDto {
   @IsString() foto: string; // "data:image/jpeg;base64,...."
 }
+
+// Reporte comunitario de un centro inválido (CEN-22). Anónimo (fingerprint).
+export class ReporteDto {
+  @IsEnum(MotivoReporte) motivo: MotivoReporte;
+  @IsOptional() @IsString() @MaxLength(280) comentario?: string;
+}
+
+// A partir de cuántos reportes (dispositivos distintos) el centro se marca
+// "reportado" y sube al tope de la cola de moderación. ponytail: umbral fijo.
+const REPORTE_THRESHOLD = 3;
 
 // Edición de datos principales (solo JEFE). Todo opcional: se actualiza solo lo
 // enviado. Regla: `ciudad` necesita `estado` para validar contra la whitelist, así
@@ -362,6 +373,59 @@ function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
   };
 }
 
+// Detalle PÚBLICO de un centro (sin guard): allowlist segura, sin PII ni datos
+// operativos. Insumos sin cantidadTotal (solo nombre/nivel/categoria = necesidades).
+const publicoSelect = {
+  id: true,
+  nombre: true,
+  estado: true,
+  ciudad: true,
+  direccion: true,
+  latitud: true,
+  longitud: true,
+  recibiendoAhora: true,
+  horarioCierre: true,
+  insumos: { select: { nombre: true, nivel: true, categoria: true, cantidadTotal: true } },
+  _count: { select: { voluntarios: true } },
+} satisfies Prisma.CentroSelect;
+
+type PublicoRow = Prisma.CentroGetPayload<{ select: typeof publicoSelect }>;
+
+type NecesidadPublica = Necesidad & { cantidad: number };
+
+export type CentroDetallePublico = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  necesidades: NecesidadPublica[];
+};
+
+function toDetallePublico(c: PublicoRow): CentroDetallePublico {
+  const necesidades = [...c.insumos]
+    .sort((a, b) => NIVEL_ORDER[a.nivel] - NIVEL_ORDER[b.nivel])
+    .map((i) => ({ nombre: i.nombre, nivel: i.nivel, categoria: i.categoria, cantidad: i.cantidadTotal }));
+  return {
+    id: c.id,
+    nombre: c.nombre,
+    estado: c.estado,
+    ciudad: c.ciudad,
+    direccion: c.direccion,
+    latitud: c.latitud,
+    longitud: c.longitud,
+    recibiendoAhora: c.recibiendoAhora,
+    horarioCierre: c.horarioCierre,
+    voluntarios: c._count.voluntarios,
+    necesidades,
+  };
+}
+
 // Listado de miembros para la pantalla de gestión (solo JEFE). Allowlist explícita:
 // expone el id de la fila Voluntario (clave de remoción) + PII mínima de contacto del
 // usuario. NUNCA `usuarioId` (= fingerprint, regla AGENTS.md).
@@ -412,12 +476,24 @@ const moderacionSelect = {
   geoLng: true,
   voluntarios: {
     where: { rol: RolVoluntario.JEFE },
-    select: { usuario: { select: { nombre: true, cedula: true, telefono: true } } },
+    select: {
+      usuario: {
+        select: { nombre: true, cedula: true, telefono: true, cedulaVerificada: true, cedulaNombre: true },
+      },
+    },
     take: 1,
+  },
+  _count: { select: { reportes: true } },
+  reportes: {
+    select: { motivo: true, comentario: true, creadoEn: true },
+    orderBy: { creadoEn: "desc" },
+    take: 20,
   },
 } satisfies Prisma.CentroSelect;
 
 type ModeracionRow = Prisma.CentroGetPayload<{ select: typeof moderacionSelect }>;
+
+export type ReporteItem = { motivo: MotivoReporte; comentario: string | null; creadoEn: Date };
 
 export type CentroModeracion = {
   id: string;
@@ -434,12 +510,22 @@ export type CentroModeracion = {
   geoLat: number | null;
   geoLng: number | null;
   distanciaGeoM: number | null; // entre dirección (mapa) y geo de registro
-  responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+  responsable: {
+    nombre: string | null;
+    cedula: string | null;
+    telefono: string | null;
+    cedulaVerificada: boolean | null;
+    cedulaNombre: string | null;
+  } | null;
+  reportesCount: number;
+  reportado: boolean; // >= REPORTE_THRESHOLD
+  reportes: ReporteItem[];
 };
 
 function toModeracion(c: ModeracionRow): CentroModeracion {
   const tieneAmbas =
     c.latitud != null && c.longitud != null && c.geoLat != null && c.geoLng != null;
+  const reportesCount = c._count.reportes;
   return {
     id: c.id,
     nombre: c.nombre,
@@ -458,12 +544,40 @@ function toModeracion(c: ModeracionRow): CentroModeracion {
       ? distanciaMetros(c.latitud!, c.longitud!, c.geoLat!, c.geoLng!)
       : null,
     responsable: c.voluntarios[0]?.usuario ?? null,
+    reportesCount,
+    reportado: reportesCount >= REPORTE_THRESHOLD,
+    reportes: c.reportes,
   };
 }
 
 @Injectable()
 export class CentrosService {
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    private readonly cedula: CedulaService,
+  ) {}
+
+  // Valida la cédula del creador UNA sola vez y la cachea en Usuario (CEN-23).
+  // Best-effort y fire-and-forget: no bloquea ni demora la creación del centro.
+  private async validarCedulaCreador(fingerprint: string): Promise<void> {
+    try {
+      const u = await prisma.usuario.findUnique({
+        where: { fingerprint },
+        select: { cedula: true, cedulaVerificada: true },
+      });
+      if (!u?.cedula || u.cedulaVerificada != null) return; // ya validada o sin cédula
+      const parsed = parseCedula(u.cedula);
+      if (!parsed.valid || !parsed.data) return;
+      const r = await this.cedula.verificar(parsed.data.tipo, parsed.data.numero);
+      if (!r) return; // API caída/sin config → reintenta en el próximo centro
+      await prisma.usuario.update({
+        where: { fingerprint },
+        data: { cedulaVerificada: r.existe, cedulaNombre: r.nombre, cedulaVerificadaEn: new Date() },
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
 
   private buildWhere(q: ListCentrosQueryDto): Prisma.CentroWhereInput {
     return {
@@ -619,6 +733,7 @@ export class CentrosService {
       return c;
     });
     await this.redis.bumpCentros();
+    void this.validarCedulaCreador(fingerprint); // CEN-23: en segundo plano
     return centro;
   }
 
@@ -649,6 +764,16 @@ export class CentrosService {
       }),
     ]);
     return toCentroDetalle(row, donaciones);
+  }
+
+  // Detalle público (sin guard): cualquiera puede ver un centro del directorio.
+  async detallePublico(centroId: string): Promise<CentroDetallePublico> {
+    const row = await prisma.centro.findUnique({
+      where: { id: centroId },
+      select: publicoSelect,
+    });
+    if (!row) throw new NotFoundException("Centro no encontrado");
+    return toDetallePublico(row);
   }
 
   // Datos principales (solo JEFE, garantizado por JefeGuard). Actualiza solo los
@@ -697,14 +822,42 @@ export class CentrosService {
     return { ok: true };
   }
 
-  // Lista para moderación (solo equipo). `estado` filtra (default: todos).
+  // Lista para moderación (solo equipo). Si se filtra por `estado`, igual se
+  // incluyen los centros con reportes (aunque ya estén verificados) para revisión.
+  // Ordena: reportados primero, luego por más reportes, luego más nuevos.
   async moderacion(estado?: EstadoVerificacion): Promise<CentroModeracion[]> {
+    const where: Prisma.CentroWhereInput = estado
+      ? { OR: [{ verificacion: estado }, { reportes: { some: {} } }] }
+      : {};
     const rows = await prisma.centro.findMany({
-      where: estado ? { verificacion: estado } : {},
+      where,
       select: moderacionSelect,
       orderBy: { creadoEn: "desc" },
     });
-    return rows.map(toModeracion);
+    return rows
+      .map(toModeracion)
+      .sort(
+        (a, b) =>
+          Number(b.reportado) - Number(a.reportado) ||
+          b.reportesCount - a.reportesCount ||
+          b.creadoEn.getTime() - a.creadoEn.getTime(),
+      );
+  }
+
+  // Reporte comunitario anónimo (por fingerprint). Upsert: 1 por dispositivo por
+  // centro (re-reportar actualiza el motivo). No auto-oculta: solo prioriza al equipo.
+  async reportar(
+    centroId: string,
+    fingerprint: string,
+    motivo: MotivoReporte,
+    comentario?: string,
+  ): Promise<{ ok: true }> {
+    await prisma.reporte.upsert({
+      where: { centroId_fingerprint: { centroId, fingerprint } },
+      create: { centroId, fingerprint, motivo, comentario: comentario ?? null },
+      update: { motivo, comentario: comentario ?? null, creadoEn: new Date() },
+    });
+    return { ok: true };
   }
 
   // Marcar verificado/rechazado (solo equipo). Registra qué admin lo hizo
@@ -784,6 +937,12 @@ export class CentrosController {
     return this.service.create(fingerprintOf(req), dto);
   }
 
+  // Detalle público (directorio). Sin guard: ruta distinta a la de miembros.
+  @Get(":centroId/publico")
+  detallePublico(@Param("centroId") centroId: string) {
+    return this.service.detallePublico(centroId);
+  }
+
   // Detalle del centro (dashboard de miembros). DEBE declararse después de "mios"
   // para que el literal no caiga en el param :centroId.
   @Get(":centroId")
@@ -818,6 +977,13 @@ export class CentrosController {
   @UseGuards(IdentidadGuard, JefeGuard)
   subirFoto(@Param("centroId") centroId: string, @Body() dto: FotoDto) {
     return this.service.setFoto(centroId, dto.foto);
+  }
+
+  // Reportar un centro inválido: anónimo (fingerprint), sin identidad. Rate-limited.
+  @Post(":centroId/reportes")
+  @UseGuards(RateLimitGuard)
+  reportar(@Req() req: any, @Param("centroId") centroId: string, @Body() dto: ReporteDto) {
+    return this.service.reportar(centroId, fingerprintOf(req), dto.motivo, dto.comentario);
   }
 
   // Gestión de voluntarios: listar miembros del centro. Solo el JEFE.

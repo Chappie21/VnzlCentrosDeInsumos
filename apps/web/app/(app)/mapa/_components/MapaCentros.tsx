@@ -3,7 +3,9 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect } from "react";
+import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { ROUTES } from "../../../constants";
 import type { MapaPunto } from "../../../_hooks";
 
 // Punto coloreado por estado (verde=recibiendo, gris=inactivo). DivIcon en vez de
@@ -11,7 +13,7 @@ import type { MapaPunto } from "../../../_hooks";
 const dotIcon = (activo: boolean) =>
   L.divIcon({
     className: "",
-    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);background:${activo ? "#16a34a" : "#9ca3af"}"></span>`,
+    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);background:${activo ? "#4a7c59" : "#9ca3af"}"></span>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
     popupAnchor: [0, -8],
@@ -55,13 +57,7 @@ export default function MapaCentros({ puntos }: { puntos: MapaPunto[] }) {
             <br />
             {p.recibiendoAhora ? "🟢 Recibiendo ahora" : "⚪ Inactivo"}
             <br />
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Cómo llegar
-            </a>
+            <Link href={ROUTES.centroDetalle(p.id)}>Ver detalles</Link>
           </Popup>
         </Marker>
       ))}

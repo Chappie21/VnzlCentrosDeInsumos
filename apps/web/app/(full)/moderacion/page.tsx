@@ -21,6 +21,24 @@ function distancia(m: number | null): string | null {
   return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
+const MOTIVO_LABEL: Record<string, string> = {
+  NO_EXISTE: "Ya no está",
+  INFO_INCORRECTA: "Info incorrecta",
+  ENGANOSO: "Engañoso",
+};
+
+// ¿El nombre cargado coincide con el del registro de cédula? Tolerante a orden/acentos.
+function nombreCoincide(a: string | null, b: string | null): boolean | null {
+  if (!a || !b) return null;
+  const norm = (s: string) =>
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const ta = norm(a).split(/\s+/).filter((t) => t.length >= 3);
+  const tb = new Set(norm(b).split(/\s+/).filter(Boolean));
+  if (!ta.length) return null;
+  const hits = ta.filter((t) => tb.has(t)).length;
+  return hits >= Math.ceil(ta.length / 2);
+}
+
 export default function Moderacion() {
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -114,7 +132,7 @@ export default function Moderacion() {
         <button
           type="submit"
           disabled={!email.trim() || !password || entrando}
-          className="flex h-12 items-center justify-center rounded-lg bg-emergency font-semibold text-white disabled:opacity-50"
+          className="flex h-12 items-center justify-center rounded-lg bg-action font-semibold text-white transition-colors hover:bg-[#5a4a26] disabled:opacity-50"
         >
           {entrando ? "Entrando…" : "Entrar"}
         </button>
@@ -155,10 +173,14 @@ export default function Moderacion() {
             : c.latitud != null && c.longitud != null
               ? { lat: c.latitud, lng: c.longitud, tipo: "Dirección" }
               : null;
+        const ced = c.responsable?.cedulaVerificada ?? null;
+        const cedMatch = nombreCoincide(c.responsable?.nombre ?? null, c.responsable?.cedulaNombre ?? null);
         return (
           <article
             key={c.id}
-            className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
+            className={`space-y-3 rounded-xl border bg-surface-container-lowest p-4 ${
+              c.reportado ? "border-emergency" : "border-outline-variant"
+            }`}
           >
             <div>
               <h2 className="text-lg font-semibold text-on-surface">{c.nombre}</h2>
@@ -166,6 +188,18 @@ export default function Moderacion() {
                 {c.direccion} · {c.ciudad}, {c.estado}
               </p>
             </div>
+
+            {c.reportesCount > 0 && (
+              <div
+                className={`rounded-lg p-2 text-sm ${
+                  c.reportado ? "bg-emergency/10 text-emergency" : "bg-surface-container text-on-surface-variant"
+                }`}
+              >
+                <span className="font-bold">🚩 {c.reportesCount} reporte{c.reportesCount === 1 ? "" : "s"}</span>
+                {": "}
+                {c.reportes.map((r) => MOTIVO_LABEL[r.motivo] ?? r.motivo).join(" · ")}
+              </div>
+            )}
 
             {c.fotoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -185,6 +219,24 @@ export default function Moderacion() {
                   ? `${c.responsable.nombre ?? "—"} (${c.responsable.cedula ?? "s/c"}, ${c.responsable.telefono ?? "s/t"})`
                   : "—"}
               </div>
+              {c.responsable && (
+                <div>
+                  <span className="font-semibold text-on-surface">Cédula: </span>
+                  {ced === true && cedMatch === false ? (
+                    <span className="text-emergency">
+                      ⚠️ existe pero el nombre no coincide — registro: {c.responsable.cedulaNombre}
+                    </span>
+                  ) : ced === true ? (
+                    <span className="text-safety">
+                      ✓ verificada{c.responsable.cedulaNombre ? ` — ${c.responsable.cedulaNombre}` : ""}
+                    </span>
+                  ) : ced === false ? (
+                    <span className="text-emergency">⚠️ no encontrada en el registro</span>
+                  ) : (
+                    <span>sin verificar</span>
+                  )}
+                </div>
+              )}
               {dist && (
                 <div>
                   <span className="font-semibold text-on-surface">Distancia: </span>
@@ -228,7 +280,7 @@ export default function Moderacion() {
               <button
                 type="button"
                 onClick={() => decidir(c.id, "VERIFICADO")}
-                className="flex h-11 items-center justify-center gap-1 rounded-lg bg-safety text-sm font-semibold text-white hover:bg-[#1d4ed8]"
+                className="flex h-11 items-center justify-center gap-1 rounded-lg bg-safety text-sm font-semibold text-white transition-colors hover:bg-[#3d6649]"
               >
                 <Icon name="verified" />
                 Verificar

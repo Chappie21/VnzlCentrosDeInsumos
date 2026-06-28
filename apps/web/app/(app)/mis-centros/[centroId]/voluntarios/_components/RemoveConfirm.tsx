@@ -52,7 +52,7 @@ export default function RemoveConfirm({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className="h-11 flex-1 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011] disabled:opacity-50"
+            className="h-11 flex-1 rounded-lg bg-emergency font-semibold text-white hover:bg-[#9a2a28] disabled:opacity-50"
           >
             {pending ? VOLUNTARIOS.removiendo : VOLUNTARIOS.confirmar}
           </button>
