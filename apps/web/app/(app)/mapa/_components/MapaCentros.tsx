@@ -3,7 +3,9 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect } from "react";
+import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { ROUTES } from "../../../constants";
 import type { MapaPunto } from "../../../_hooks";
 
 // Punto coloreado por estado (verde=recibiendo, gris=inactivo). DivIcon en vez de
@@ -55,13 +57,7 @@ export default function MapaCentros({ puntos }: { puntos: MapaPunto[] }) {
             <br />
             {p.recibiendoAhora ? "🟢 Recibiendo ahora" : "⚪ Inactivo"}
             <br />
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Cómo llegar
-            </a>
+            <Link href={ROUTES.centroDetalle(p.id)}>Ver detalles</Link>
           </Popup>
         </Marker>
       ))}
