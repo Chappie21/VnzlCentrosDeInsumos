@@ -126,7 +126,7 @@ export default function Moderacion() {
         <button
           type="submit"
           disabled={!email.trim() || !password || entrando}
-          className="flex h-12 items-center justify-center rounded-lg bg-emergency font-semibold text-white disabled:opacity-50"
+          className="flex h-12 items-center justify-center rounded-lg bg-action font-semibold text-white transition-colors hover:bg-[#5a4a26] disabled:opacity-50"
         >
           {entrando ? "Entrando…" : "Entrar"}
         </button>
@@ -260,7 +260,7 @@ export default function Moderacion() {
               <button
                 type="button"
                 onClick={() => decidir(c.id, "VERIFICADO")}
-                className="flex h-11 items-center justify-center gap-1 rounded-lg bg-safety text-sm font-semibold text-white hover:bg-[#1d4ed8]"
+                className="flex h-11 items-center justify-center gap-1 rounded-lg bg-safety text-sm font-semibold text-white transition-colors hover:bg-[#3d6649]"
               >
                 <Icon name="verified" />
                 Verificar
