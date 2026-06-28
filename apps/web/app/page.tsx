@@ -36,7 +36,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      <footer className="mx-auto w-full max-w-[1024px] px-4 pb-6 text-center text-xs text-on-surface-variant">
+      <footer className="mx-auto w-full max-w-[1024px] px-4 pb-8 text-center text-sm text-on-surface-variant">
         <p>
           Hecho por:{" "}
           <a
@@ -57,7 +57,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             Victor Atencio
           </a>
         </p>
-        <p className="mt-1">Dios bendiga a Venezuela</p>
+        <p className="mt-2 text-base font-medium">🇻🇪 Dios bendiga a Venezuela 🙏</p>
       </footer>
     </div>
   );
