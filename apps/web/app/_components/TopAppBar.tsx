@@ -47,6 +47,14 @@ export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
                 <Icon name="home" />
                 Volver al inicio
               </Link>
+              <Link
+                href={ROUTES.faq}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-on-surface hover:bg-surface-container-high"
+              >
+                <Icon name="help" />
+                Ayuda / Cómo funciona
+              </Link>
             </div>
           </>
         )}
@@ -55,12 +63,13 @@ export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
       <h1 className="min-w-0 flex-1 truncate text-center text-xl font-bold uppercase tracking-tight text-emergency">
         Red Acopio Venezuela
       </h1>
-      <span
-        aria-hidden
-        className="flex h-12 w-12 items-center justify-center rounded-full text-emergency"
+      <Link
+        href={ROUTES.faq}
+        aria-label="Ayuda"
+        className="flex h-12 w-12 items-center justify-center rounded-full text-emergency transition-colors hover:bg-surface-container-high active:scale-95"
       >
-        <Icon name="emergency" />
-      </span>
+        <Icon name="help" />
+      </Link>
     </header>
   );
 }
