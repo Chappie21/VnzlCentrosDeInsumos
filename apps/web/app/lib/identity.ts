@@ -1,6 +1,7 @@
 "use client";
 
 import { getMe } from "./api";
+import { getToken, clearToken } from "./auth";
 import { STORAGE } from "../constants";
 
 export type Identity = { nombre: string; cedula: string; telefono: string };
@@ -43,8 +44,13 @@ export function isAnon(): boolean {
 export async function syncIdentity(): Promise<Identity | null> {
   if (typeof window === "undefined") return null;
   if (hasFullIdentity()) return getIdentity();
+  if (!getToken()) return null; // sin sesión no hay nada que rehidratar
   try {
     const res = await getMe();
+    if (res.status === 401) {
+      clearToken(); // sesión vencida/inválida
+      return null;
+    }
     if (!res.ok) return null;
     const me = await res.json();
     if (me?.identidadCompleta && me.nombre && me.cedula && me.telefono) {

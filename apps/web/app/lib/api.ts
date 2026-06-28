@@ -1,24 +1,27 @@
 import { getFingerprint } from "../fingerprint";
+import { getToken } from "./auth";
 import type { DonationItem } from "./donation";
 import type { Categoria } from "../constants/categorias";
 
 export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export function apiFetch(path: string, init?: RequestInit) {
+  const token = getToken();
   return fetch(`${API}${path}`, {
     ...init,
     headers: {
-      "x-fingerprint": getFingerprint(),
+      "x-fingerprint": getFingerprint(), // solo rate limit
       "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(init?.headers),
     },
   });
 }
 
-export type OnboardBody = { nombre: string; cedula: string; telefono: string };
+export type OnboardBody = { nombre?: string; cedula: string; telefono: string };
 
 export type Me = {
-  fingerprint: string;
+  id: string;
   nombre: string | null;
   cedula: string | null;
   telefono: string | null;
