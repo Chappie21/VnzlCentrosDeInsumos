@@ -515,3 +515,24 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => 
     expect(e).toContain("isCiudadDeEstado");
   });
 });
+
+describe("CentrosService.mapaCoords", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("pide solo centros con coords y proyecta el punto del mapa", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([
+      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
+    ]);
+
+    const puntos = await service.mapaCoords();
+
+    expect(prismaMock.centro.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { latitud: { not: null }, longitud: { not: null } },
+      }),
+    );
+    expect(puntos).toEqual([
+      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
+    ]);
+  });
+});
