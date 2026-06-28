@@ -10,6 +10,7 @@ import {
   StatsRow,
   OperativoToggle,
   InventarioResumen,
+  FotoLocal,
 } from "./_components";
 
 // Dashboard de un centro: solo miembros (el server lo refuerza con VoluntarioGuard).
@@ -81,6 +82,8 @@ export default function CentroDetallePage() {
           Nuevo Envío
         </Link>
       </div>
+
+      <FotoLocal centro={data} />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant">

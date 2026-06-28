@@ -46,8 +46,12 @@ export type CreateCentroBody = {
   direccion: string;
   latitud?: number;
   longitud?: number;
+  geoLat?: number; // geo del dispositivo al registrar (anti-fraude)
+  geoLng?: number;
   insumos?: InsumoInicial[];
 };
+
+export type EstadoVerificacion = "PENDIENTE" | "VERIFICADO" | "RECHAZADO";
 
 export type CreatedCentro = {
   id: string;
@@ -194,6 +198,8 @@ export type CentroDetalle = {
   longitud: number | null;
   recibiendoAhora: boolean;
   horarioCierre: string | null;
+  verificacion: EstadoVerificacion;
+  fotoUrl: string | null;
   voluntarios: number;
   donaciones: number;
   rol: RolCentro;
@@ -297,4 +303,85 @@ export async function removerVoluntario(centroId: string, voluntarioId: string):
     const data = await res.json().catch(() => null);
     throw new Error(data?.message || "No se pudo remover el voluntario");
   }
+}
+
+// ---- Verificación de centros (CEN-21) ----
+
+// Foto del local/cartel (data URL base64). Solo el JEFE. El cliente la comprime antes.
+export async function subirFoto(centroId: string, foto: string): Promise<{ fotoUrl: string }> {
+  const res = await apiFetch(`/centros/${centroId}/foto`, {
+    method: "POST",
+    body: JSON.stringify({ foto }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msg = Array.isArray(data?.message) ? data.message.join(" ") : data?.message;
+    throw new Error(msg || "No se pudo subir la foto");
+  }
+  return res.json();
+}
+
+// Panel de moderación (solo equipo, token compartido en header x-admin-token).
+export type CentroModeracion = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  verificacion: EstadoVerificacion;
+  verificadoEn: string | null;
+  creadoEn: string;
+  fotoUrl: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  geoLat: number | null;
+  geoLng: number | null;
+  distanciaGeoM: number | null;
+  responsable: {
+    nombre: string | null;
+    cedula: string | null;
+    telefono: string | null;
+    cedulaVerificada: boolean | null;
+    cedulaNombre: string | null;
+  } | null;
+};
+
+// Login de moderador (opción C): email + password → sesión JWT (8h).
+export async function adminLogin(
+  email: string,
+  password: string,
+): Promise<{ token: string; nombre: string }> {
+  const res = await apiFetch("/admin/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  if (res.status === 401) throw new Error("Credenciales inválidas");
+  if (!res.ok) throw new Error("No se pudo iniciar sesión");
+  return res.json();
+}
+
+export async function getModeracion(
+  token: string,
+  estado?: EstadoVerificacion,
+): Promise<CentroModeracion[]> {
+  const qs = estado ? `?estado=${estado}` : "";
+  const res = await apiFetch(`/centros/moderacion${qs}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401 || res.status === 403) throw new Error("Sesión inválida o expirada");
+  if (!res.ok) throw new Error("No se pudo cargar la moderación");
+  return res.json();
+}
+
+export async function verificarCentro(
+  token: string,
+  centroId: string,
+  estado: EstadoVerificacion,
+): Promise<void> {
+  const res = await apiFetch(`/centros/${centroId}/verificacion`, {
+    method: "PATCH",
+    headers: { authorization: `Bearer ${token}` },
+    body: JSON.stringify({ estado }),
+  });
+  if (!res.ok) throw new Error("No se pudo actualizar la verificación");
 }

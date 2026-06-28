@@ -4,9 +4,11 @@ import {
   Injectable,
   ForbiddenException,
   BadRequestException,
+  UnauthorizedException,
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { prisma, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { RATE_LIMIT } from "./constants";
@@ -70,6 +72,38 @@ export class JefeGuard implements CanActivate {
     if (!link) throw new ForbiddenException("No eres voluntario de este centro");
     if (link.rol !== RolVoluntario.JEFE)
       throw new ForbiddenException("Solo el jefe del centro puede hacer esto");
+    return true;
+  }
+}
+
+// Acceso de moderación del equipo (opción C): sesión JWT por persona emitida en
+// /admin/login. Verifica firma + tipo "admin" + que el admin siga activo (revocación).
+// Deja `req.adminId` para registrar quién verificó (accountability).
+@Injectable()
+export class AdminGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest();
+    const auth: string = req.header("authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+    if (!token) throw new UnauthorizedException("Sesión de moderación requerida");
+
+    let payload: any;
+    try {
+      payload = await this.jwt.verifyAsync(token);
+    } catch {
+      throw new UnauthorizedException("Sesión inválida o expirada");
+    }
+    if (payload?.typ !== "admin" || !payload?.sub)
+      throw new ForbiddenException("No es una sesión de moderación");
+
+    const admin = await prisma.admin.findUnique({
+      where: { id: payload.sub },
+      select: { activo: true },
+    });
+    if (!admin || !admin.activo) throw new ForbiddenException("Moderador inactivo");
+
+    req.adminId = payload.sub;
     return true;
   }
 }

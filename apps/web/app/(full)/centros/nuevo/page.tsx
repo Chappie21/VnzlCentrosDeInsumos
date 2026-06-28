@@ -47,12 +47,26 @@ export default function NuevoCentro() {
     setPaso("inventario");
   }
 
+  // Geo del dispositivo al registrar (anti-fraude, CEN-21). Best-effort: si la
+  // deniegan o tarda, se crea igual sin geo.
+  function capturarGeo(): Promise<{ geoLat?: number; geoLng?: number }> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ geoLat: pos.coords.latitude, geoLng: pos.coords.longitude }),
+        () => resolve({}),
+        { timeout: 8000, enableHighAccuracy: true },
+      );
+    });
+  }
+
   // Paso 2: un único request con datos + insumos (carga inicial atómica).
   async function onConfirmInventario(insumos: InsumoInicial[]) {
     if (!datos) return;
     setApiError(null);
     try {
-      const body = { ...datos, ...(insumos.length ? { insumos } : {}) };
+      const geo = await capturarGeo();
+      const body = { ...datos, ...geo, ...(insumos.length ? { insumos } : {}) };
       const res = await mutation.mutateAsync(body);
       if (!res.ok) {
         const data = await res.json().catch(() => null);

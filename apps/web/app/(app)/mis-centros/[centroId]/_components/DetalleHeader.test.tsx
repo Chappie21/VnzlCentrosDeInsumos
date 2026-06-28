@@ -13,6 +13,8 @@ const base: Omit<CentroDetalle, "rol"> = {
   longitud: null,
   recibiendoAhora: true,
   horarioCierre: null,
+  verificacion: "PENDIENTE",
+  fotoUrl: null,
   voluntarios: 3,
   donaciones: 0,
   insumos: [],
