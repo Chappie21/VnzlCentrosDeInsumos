@@ -1,17 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Icon, Field, TopAppBar } from "./_components";
+import { GoogleButton } from "./_components/GoogleButton";
 import { ROUTES } from "./constants";
-import { onboard } from "./lib/api";
-import {
-  normalizeCedula,
-  normalizeTelefono,
-  validateOnboarding,
-  type OnboardingInput,
-} from "./lib/validate";
+import { login } from "./lib/authApi";
+import { normalizeCedula } from "./lib/validate";
 import {
   getIdentity,
   hasFullIdentity,
@@ -20,6 +17,7 @@ import {
   syncIdentity,
   type Identity,
 } from "./lib/identity";
+import { clearToken } from "./lib/auth";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -90,7 +88,7 @@ function Home() {
   const params = useSearchParams();
   const next = params.get("next") || "/centros";
 
-  // Resolver identidad al montar: localStorage primero, luego backend (rehidrata).
+  // Resolver identidad al montar: cache local primero, luego backend (rehidrata vía JWT).
   const [loading, setLoading] = useState(true);
   const [identity, setIdentityState] = useState<Identity | null>(null);
 
@@ -121,12 +119,14 @@ function Home() {
           identity={identity}
           onContinue={() => router.push(ROUTES.centros)}
           onDonate={() => router.push(ROUTES.donar)}
+          onLogout={() => {
+            clearToken();
+            setIdentityState(null);
+          }}
         />
       ) : (
-        <OnboardingForm
-          next={next}
+        <LoginForm
           onDone={(id) => setIdentityState(id)}
-          onDonate={() => router.push(ROUTES.donar)}
           onObserve={() => {
             setAnon();
             router.push(next);
@@ -141,10 +141,12 @@ function ProfileView({
   identity,
   onContinue,
   onDonate,
+  onLogout,
 }: {
   identity: Identity;
   onContinue: () => void;
   onDonate: () => void;
+  onLogout: () => void;
 }) {
   const rows: { icon: string; label: string; value: string }[] = [
     { icon: "person", label: "Nombre completo", value: identity.nombre },
@@ -161,7 +163,7 @@ function ProfileView({
           Hola, {identity.nombre.split(" ")[0]}
         </h2>
         <p className="text-base text-on-surface-variant">
-          Tu identidad está registrada en este dispositivo.
+          Tu sesión está activa. Puedes usar tu cuenta en cualquier dispositivo.
         </p>
       </div>
 
@@ -201,6 +203,13 @@ function ProfileView({
           <Icon name="arrow_forward" />
           Continuar a centros
         </button>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full text-center text-sm text-on-surface-variant underline hover:no-underline"
+        >
+          Cerrar sesión
+        </button>
       </div>
 
       <StatusFooter />
@@ -208,68 +217,45 @@ function ProfileView({
   );
 }
 
-function OnboardingForm({
-  next,
+type LoginInput = { cedula: string; password: string };
+
+function LoginForm({
   onDone,
-  onDonate,
   onObserve,
 }: {
-  next: string;
   onDone: (id: Identity) => void;
-  onDonate: () => void;
   onObserve: () => void;
 }) {
   const [apiError, setApiError] = useState<string | null>(null);
-  // Qué botón disparó el submit: ambos onboardean, pero divergen el destino.
-  const intent = useRef<"help" | "donate">("help");
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid, isSubmitting },
-  } = useForm<OnboardingInput>({
+    formState: { errors, isSubmitting },
+  } = useForm<LoginInput>({
     mode: "onChange",
-    defaultValues: { nombre: "", cedula: "", telefono: "" },
-    // Reutiliza las mismas reglas que el backend mapeándolas al formato de RHF.
-    resolver: (values) => {
-      const fieldErrors = validateOnboarding(values);
-      const hasErrors = Object.keys(fieldErrors).length > 0;
-      return {
-        values: hasErrors ? {} : values,
-        errors: Object.fromEntries(
-          Object.entries(fieldErrors).map(([name, message]) => [
-            name,
-            { type: "validate", message },
-          ]),
-        ),
-      };
-    },
+    defaultValues: { cedula: "", password: "" },
   });
 
-  async function onValid(values: OnboardingInput) {
+  async function onValid(values: LoginInput) {
     setApiError(null);
-
-    const body = {
-      nombre: values.nombre.trim(),
-      cedula: normalizeCedula(values.cedula),
-      telefono: normalizeTelefono(values.telefono),
-    };
-
     try {
-      const res = await onboard(body);
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        const msg = Array.isArray(data?.message)
-          ? data.message.join(" ")
-          : data?.message;
-        setApiError(msg || "No se pudo guardar. Inténtalo de nuevo.");
-        return;
+      const { usuario } = await login(normalizeCedula(values.cedula), values.password);
+      if (usuario.nombre && usuario.cedula && usuario.telefono) {
+        const id: Identity = {
+          nombre: usuario.nombre,
+          cedula: usuario.cedula,
+          telefono: usuario.telefono,
+        };
+        setIdentity(id);
+        onDone(id);
+      } else {
+        // Cuenta sin perfil completo (caso borde) → rehidratar igual.
+        const id = await syncIdentity();
+        if (id) onDone(id);
       }
-      setIdentity(body);
-      if (intent.current === "donate") onDonate();
-      else onDone(body); // queda autenticado: la vista pasa a perfil
-    } catch {
-      setApiError("Error de conexión. Inténtalo de nuevo.");
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Cédula o contraseña inválida");
     }
   }
 
@@ -277,38 +263,30 @@ function OnboardingForm({
     <>
       <div className="space-y-2 text-center">
         <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
-          <Icon name="healing" filled className="text-4xl" />
+          <Icon name="login" filled className="text-4xl" />
         </div>
-        <h2 className="text-2xl font-semibold text-on-surface">Ayuda de Emergencia</h2>
+        <h2 className="text-2xl font-semibold text-on-surface">Iniciar sesión</h2>
         <p className="text-base text-on-surface-variant">
-          Completa tus datos para asistir o monitorear recursos vitales.
+          Ingresa con tu cédula y contraseña para ayudar o donar.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onValid)} className="space-y-6">
         <div className="space-y-4">
           <Field
-            label="Nombre completo"
-            icon="person"
-            placeholder="Ingresa tu nombre"
-            error={errors.nombre?.message}
-            {...register("nombre")}
-          />
-          <Field
             label="Cédula de identidad"
             icon="badge"
             placeholder="V12345678"
             error={errors.cedula?.message}
-            {...register("cedula")}
+            {...register("cedula", { required: "Ingresa tu cédula" })}
           />
           <Field
-            label="Teléfono"
-            icon="phone"
-            type="tel"
-            inputMode="tel"
-            placeholder="04141234567"
-            error={errors.telefono?.message}
-            {...register("telefono")}
+            label="Contraseña"
+            icon="lock"
+            type="password"
+            placeholder="••••••••"
+            error={errors.password?.message}
+            {...register("password", { required: "Ingresa tu contraseña" })}
           />
         </div>
 
@@ -317,23 +295,21 @@ function OnboardingForm({
         <div className="space-y-4 pt-2">
           <button
             type="submit"
-            onClick={() => (intent.current = "donate")}
-            disabled={!isValid || isSubmitting}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Icon name="volunteer_activism" />
-            Quiero Donar
-          </button>
-
-          <button
-            type="submit"
-            onClick={() => (intent.current = "help")}
-            disabled={!isValid || isSubmitting}
+            disabled={isSubmitting}
             className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="login" />
-            {isSubmitting ? "Entrando…" : "Entrar y Ayudar"}
+            {isSubmitting ? "Entrando…" : "Entrar"}
           </button>
+
+          <GoogleButton />
+
+          <p className="text-center text-sm text-on-surface-variant">
+            ¿No tienes cuenta?{" "}
+            <Link href="/registro" className="font-semibold text-primary-container underline hover:no-underline">
+              Regístrate
+            </Link>
+          </p>
 
           <button
             type="button"
