@@ -69,7 +69,7 @@ export default function UnirsePage() {
       <button
         type="button"
         onClick={() => router.push(ROUTES.misCentroDetalle(centro.centroId))}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white hover:bg-[#1d4ed8] active:scale-[0.98]"
+        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white hover:bg-[#3d6649] active:scale-[0.98]"
       >
         <Icon name="store" />
         {UNIRSE.verCentro}

@@ -48,7 +48,7 @@ export default function SuccessView({
         <button
           type="button"
           onClick={onVerCentro}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#1d4ed8] active:scale-[0.98]"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white shadow-sm transition-colors hover:bg-[#3d6649] active:scale-[0.98]"
         >
           <Icon name="store" />
           Ver mi Centro de Acopio

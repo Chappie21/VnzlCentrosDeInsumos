@@ -52,7 +52,7 @@ export default function ReportarSheet({
             <button
               type="button"
               onClick={onClose}
-              className="h-11 w-full rounded-lg bg-emergency font-semibold text-white"
+              className="h-11 w-full rounded-lg bg-action font-semibold text-white transition-colors hover:bg-[#5a4a26]"
             >
               Cerrar
             </button>
@@ -78,7 +78,7 @@ export default function ReportarSheet({
                   onClick={() => setMotivo(m.value)}
                   className={`flex w-full items-center gap-2 rounded-lg border-2 px-3 py-3 text-left text-sm font-medium transition-colors ${
                     motivo === m.value
-                      ? "border-emergency bg-emergency/5 text-on-surface"
+                      ? "border-action bg-action/5 text-on-surface"
                       : "border-outline-variant text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
@@ -94,7 +94,7 @@ export default function ReportarSheet({
               maxLength={280}
               placeholder="Comentario (opcional)"
               rows={2}
-              className="w-full rounded-lg border-2 border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-emergency focus:outline-none"
+              className="w-full rounded-lg border-2 border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface focus:border-action focus:outline-none"
             />
 
             {error && <p className="text-sm text-emergency">{error}</p>}
@@ -103,7 +103,7 @@ export default function ReportarSheet({
               type="button"
               disabled={!motivo || enviando}
               onClick={enviar}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white transition-colors hover:bg-[#5a4a26] disabled:opacity-50"
             >
               {enviando ? "Enviando…" : "Enviar reporte"}
             </button>

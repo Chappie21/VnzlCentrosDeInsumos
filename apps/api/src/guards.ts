@@ -4,9 +4,11 @@ import {
   Injectable,
   ForbiddenException,
   BadRequestException,
+  UnauthorizedException,
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { prisma, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { RATE_LIMIT } from "./constants";
@@ -74,17 +76,34 @@ export class JefeGuard implements CanActivate {
   }
 }
 
-// Acceso de moderación del equipo. ponytail: secreto compartido (ADMIN_TOKEN env,
-// header x-admin-token) — alcanza para "solo nosotros"; upgrade a roles reales
-// cuando haya más moderadores. Sin ADMIN_TOKEN configurado, niega todo.
+// Acceso de moderación del equipo (opción C): sesión JWT por persona emitida en
+// /admin/login. Verifica firma + tipo "admin" + que el admin siga activo (revocación).
+// Deja `req.adminId` para registrar quién verificó (accountability).
 @Injectable()
 export class AdminGuard implements CanActivate {
-  canActivate(ctx: ExecutionContext): boolean {
+  constructor(private readonly jwt: JwtService) {}
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const expected = process.env.ADMIN_TOKEN;
-    const token = req.header("x-admin-token");
-    if (!expected || token !== expected)
-      throw new ForbiddenException("Acceso de moderación inválido");
+    const auth: string = req.header("authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+    if (!token) throw new UnauthorizedException("Sesión de moderación requerida");
+
+    let payload: any;
+    try {
+      payload = await this.jwt.verifyAsync(token);
+    } catch {
+      throw new UnauthorizedException("Sesión inválida o expirada");
+    }
+    if (payload?.typ !== "admin" || !payload?.sub)
+      throw new ForbiddenException("No es una sesión de moderación");
+
+    const admin = await prisma.admin.findUnique({
+      where: { id: payload.sub },
+      select: { activo: true },
+    });
+    if (!admin || !admin.activo) throw new ForbiddenException("Moderador inactivo");
+
+    req.adminId = payload.sub;
     return true;
   }
 }

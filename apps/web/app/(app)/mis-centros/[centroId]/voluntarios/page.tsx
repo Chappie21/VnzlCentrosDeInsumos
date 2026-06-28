@@ -73,7 +73,7 @@ export default function VoluntariosPage() {
 
       <Link
         href={ROUTES.invitarVoluntarios(centroId)}
-        className="flex h-12 items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white transition-colors hover:bg-[#1d4ed8]"
+        className="flex h-12 items-center justify-center gap-2 rounded-lg bg-safety font-semibold text-white transition-colors hover:bg-[#3d6649]"
       >
         <Icon name="group_add" />
         {VOLUNTARIOS.invitar}

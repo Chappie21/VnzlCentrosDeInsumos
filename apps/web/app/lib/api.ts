@@ -212,6 +212,35 @@ export async function getCentroDetalle(id: string): Promise<CentroDetalle> {
   return res.json();
 }
 
+// ---- Detalle PÚBLICO de un centro (directorio, sin identidad) ----
+
+export type NecesidadPublica = {
+  nombre: string;
+  nivel: NivelInsumo;
+  categoria: string | null;
+  cantidad: number;
+};
+
+export type CentroPublico = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  recibiendoAhora: boolean;
+  horarioCierre: string | null;
+  voluntarios: number;
+  necesidades: NecesidadPublica[];
+};
+
+export async function getCentroPublico(id: string): Promise<CentroPublico> {
+  const res = await apiFetch(`/centros/${id}/publico`);
+  if (!res.ok) throw new Error("No se pudo cargar el centro");
+  return res.json();
+}
+
 // Datos principales (solo JEFE). Devuelve el Response para que el caller maneje !ok.
 export type UpdateCentroBody = Partial<CreateCentroBody>;
 export function updateCentro(id: string, body: UpdateCentroBody) {
@@ -308,11 +337,31 @@ export type CentroModeracion = {
   geoLat: number | null;
   geoLng: number | null;
   distanciaGeoM: number | null;
-  responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+  responsable: {
+    nombre: string | null;
+    cedula: string | null;
+    telefono: string | null;
+    cedulaVerificada: boolean | null;
+    cedulaNombre: string | null;
+  } | null;
   reportesCount: number;
   reportado: boolean;
   reportes: { motivo: MotivoReporte; comentario: string | null; creadoEn: string }[];
 };
+
+// Login de moderador (opción C): email + password → sesión JWT (8h).
+export async function adminLogin(
+  email: string,
+  password: string,
+): Promise<{ token: string; nombre: string }> {
+  const res = await apiFetch("/admin/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  if (res.status === 401) throw new Error("Credenciales inválidas");
+  if (!res.ok) throw new Error("No se pudo iniciar sesión");
+  return res.json();
+}
 
 export async function getModeracion(
   token: string,
@@ -320,9 +369,9 @@ export async function getModeracion(
 ): Promise<CentroModeracion[]> {
   const qs = estado ? `?estado=${estado}` : "";
   const res = await apiFetch(`/centros/moderacion${qs}`, {
-    headers: { "x-admin-token": token },
+    headers: { authorization: `Bearer ${token}` },
   });
-  if (res.status === 403) throw new Error("Token de moderación inválido");
+  if (res.status === 401 || res.status === 403) throw new Error("Sesión inválida o expirada");
   if (!res.ok) throw new Error("No se pudo cargar la moderación");
   return res.json();
 }
@@ -334,7 +383,7 @@ export async function verificarCentro(
 ): Promise<void> {
   const res = await apiFetch(`/centros/${centroId}/verificacion`, {
     method: "PATCH",
-    headers: { "x-admin-token": token },
+    headers: { authorization: `Bearer ${token}` },
     body: JSON.stringify({ estado }),
   });
   if (!res.ok) throw new Error("No se pudo actualizar la verificación");

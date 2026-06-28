@@ -1,11 +1,16 @@
+import Link from "next/link";
 import { Icon } from "../../../_components";
+import { ROUTES } from "../../../constants";
 import type { CentroCard as Centro } from "../../../_hooks";
 import NeedBadge from "./NeedBadge";
 import ReportarButton from "./ReportarButton";
 
 export default function CentroCard({ centro }: { centro: Centro }) {
   return (
-    <article className="relative overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-colors hover:border-outline">
+    <Link
+      href={ROUTES.centroDetalle(centro.id)}
+      className="relative block overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm transition-colors hover:border-outline"
+    >
       {centro.prioridadAlta && (
         <div className="absolute left-0 top-0 h-full w-1 bg-emergency" aria-hidden />
       )}
@@ -57,6 +62,6 @@ export default function CentroCard({ centro }: { centro: Centro }) {
         )}
         <ReportarButton centroId={centro.id} nombre={centro.nombre} />
       </div>
-    </article>
+    </Link>
   );
 }

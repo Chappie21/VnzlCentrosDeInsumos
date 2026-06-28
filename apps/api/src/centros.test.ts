@@ -9,6 +9,7 @@ const { prismaMock } = vi.hoisted(() => ({
     centro: {
       findMany: vi.fn(),
       count: vi.fn(),
+      findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
@@ -19,6 +20,7 @@ const { prismaMock } = vi.hoisted(() => ({
       delete: vi.fn(),
     },
     reporte: { upsert: vi.fn() },
+    usuario: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -53,7 +55,8 @@ const redis = {
   bumpCentros: vi.fn(),
 } as any;
 
-const service = new CentrosService(redis);
+const cedula = { verificar: vi.fn().mockResolvedValue(null) } as any;
+const service = new CentrosService(redis, cedula);
 
 const centroBase = {
   id: "c1",
@@ -524,13 +527,14 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => 
 });
 
 describe("CentrosService.verificar", () => {
-  it("setea estado + verificadoEn y bumpea el directorio", async () => {
+  it("setea estado + verificadoEn + verificadoPorId y bumpea el directorio", async () => {
     prismaMock.centro.update.mockResolvedValue({});
-    await service.verificar("c1", "VERIFICADO" as any);
+    await service.verificar("c1", "VERIFICADO" as any, "admin-1");
     const arg = prismaMock.centro.update.mock.calls[0][0];
     expect(arg.where).toEqual({ id: "c1" });
     expect(arg.data.verificacion).toBe("VERIFICADO");
     expect(arg.data.verificadoEn).toBeInstanceOf(Date);
+    expect(arg.data.verificadoPorId).toBe("admin-1");
     expect(redis.bumpCentros).toHaveBeenCalled();
   });
 });
@@ -613,5 +617,54 @@ describe("CentrosService.setFoto", () => {
     expect(prismaMock.centro.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
     );
+  });
+});
+
+describe("CentrosService.detallePublico", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("proyecta payload público: cantidad + voluntarios, ordena URGENTE primero, sin PII", async () => {
+    prismaMock.centro.findUnique.mockResolvedValue({
+      id: "c1", nombre: "Uno", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
+      latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
+      insumos: [
+        { nombre: "Ropa", nivel: "SUFICIENTE", categoria: "ROPA", cantidadTotal: 5 },
+        { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+      ],
+      _count: { voluntarios: 3 },
+    });
+
+    const r = await service.detallePublico("c1");
+
+    expect(r.necesidades[0].nivel).toBe("URGENTE");
+    expect(r.necesidades[0].cantidad).toBe(12);
+    expect(r.voluntarios).toBe(3);
+    expect(r).not.toHaveProperty("rol");
+  });
+
+  it("lanza 404 si el centro no existe", async () => {
+    prismaMock.centro.findUnique.mockResolvedValue(null);
+    await expect(service.detallePublico("nope")).rejects.toThrow("Centro no encontrado");
+  });
+});
+
+describe("CentrosService.mapaCoords", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("pide solo centros con coords y proyecta el punto del mapa", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([
+      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
+    ]);
+
+    const puntos = await service.mapaCoords();
+
+    expect(prismaMock.centro.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { latitud: { not: null }, longitud: { not: null } },
+      }),
+    );
+    expect(puntos).toEqual([
+      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
+    ]);
   });
 });

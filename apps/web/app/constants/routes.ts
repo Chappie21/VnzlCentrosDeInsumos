@@ -2,6 +2,7 @@ export const ROUTES = {
   home: "/",
   donar: "/donar",
   centros: "/centros",
+  centroDetalle: (id: string) => `/centros/${id}`,
   crearCentro: "/centros/nuevo",
   misCentros: "/mis-centros",
   misCentroDetalle: (id: string) => `/mis-centros/${id}`,
@@ -12,6 +13,6 @@ export const ROUTES = {
   unirse: (token: string) => `/unirse/${token}`,
   nuevoEnvio: (centroId: string) => `/envios/nuevo?centro=${centroId}`,
   escanearDonacion: (centroId: string) => `/scanning?centro=${centroId}`,
-  inventario: "/inventario",
+  mapa: "/mapa",
   scanning: "/scanning",
 } as const;

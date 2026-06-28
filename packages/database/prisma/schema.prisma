@@ -14,6 +14,12 @@ model Usuario {
   cedula      String?
   telefono    String?
 
+  // Validación de cédula contra api.cedula.com.ve (CEN-23). Se valida una vez,
+  // al crear el primer centro. null = no chequeada; true/false = existe en registro.
+  cedulaVerificada   Boolean?
+  cedulaNombre       String? // nombre oficial del registro (para comparar con `nombre`)
+  cedulaVerificadaEn DateTime?
+
   centros       Voluntario[]
   movimientos   Historial[]
   enviosCreados Envio[]
@@ -36,6 +42,7 @@ model Centro {
   // Verificación manual (etiqueta, no portón): el centro opera desde PENDIENTE.
   verificacion EstadoVerificacion @default(PENDIENTE)
   verificadoEn DateTime?
+  verificadoPorId String? // qué admin lo verificó (accountability)
   fotoUrl      String? // foto del local/cartel (evidencia para el verificador)
   geoLat       Float? // geo del dispositivo al registrar (vs dirección declarada)
   geoLng       Float?
@@ -45,9 +52,24 @@ model Centro {
   enviosOrigen  Envio[] @relation("EnviosOrigen")
   enviosDestino Envio[] @relation("EnviosDestino")
   reportes      Reporte[]
+  verificadoPor Admin? @relation(fields: [verificadoPorId], references: [id])
 
   @@index([estado, ciudad])
   @@index([recibiendoAhora])
+}
+
+// Moderador del equipo (verifica centros). Login propio (opción C): email +
+// password hasheada → sesión JWT. Da accountability (quién verificó) y revocación
+// por persona (activo=false). ponytail: 2 filas sembradas a mano, sin UI de admins.
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  verificaciones Centro[]
 }
 
 model Voluntario {
