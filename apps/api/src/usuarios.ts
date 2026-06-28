@@ -22,6 +22,22 @@ import {
 import { verifyUserToken } from "./auth/jwt-session";
 import { INVITACION } from "./constants";
 
+// ---------------------------------------------------------------------------
+// Normalizers (exported so AuthService can reuse them — DRY).
+// ---------------------------------------------------------------------------
+
+/** Uppercase, strip dots/spaces/dashes; bare digit string → prefix V. */
+export function normalizarCedula(value: string): string {
+  let v = value.toUpperCase().replace(/[.\s-]/g, "");
+  if (/^\d+$/.test(v)) v = "V" + v;
+  return v;
+}
+
+/** Strip spaces and dashes from a phone number string. */
+export function normalizarTelefono(value: string): string {
+  return value.replace(/[\s-]/g, "");
+}
+
 class OnboardDto {
   @IsString()
   @IsNotEmpty()
@@ -29,18 +45,11 @@ class OnboardDto {
   nombre: string;
 
   // Normalize: uppercase, strip dots/spaces/dashes; bare digits -> prefix V.
-  @Transform(({ value }) => {
-    if (typeof value !== "string") return value;
-    let v = value.toUpperCase().replace(/[.\s-]/g, "");
-    if (/^\d+$/.test(v)) v = "V" + v;
-    return v;
-  })
+  @Transform(({ value }) => (typeof value === "string" ? normalizarCedula(value) : value))
   @Matches(/^[VE]\d{6,9}$/, { message: "Cédula inválida (ej: V12345678)" })
   cedula: string;
 
-  @Transform(({ value }) =>
-    typeof value === "string" ? value.replace(/[\s-]/g, "") : value,
-  )
+  @Transform(({ value }) => (typeof value === "string" ? normalizarTelefono(value) : value))
   @Matches(/^(?:\+?58|0)?4(?:12|14|16|24|26)\d{7}$/, {
     message: "Teléfono móvil venezolano inválido",
   })

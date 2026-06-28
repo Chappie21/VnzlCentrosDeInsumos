@@ -11,6 +11,8 @@ import { UsuariosController, UsuariosService } from "./usuarios";
 import { EnviosController, EnviosService } from "./envios";
 import { AdminController, AdminService } from "./admin";
 import { CedulaService } from "./cedula";
+import { AuthController } from "./auth/auth.controller";
+import { AuthService } from "./auth/auth.service";
 
 @Module({
   imports: [
@@ -27,6 +29,7 @@ import { CedulaService } from "./cedula";
     UsuariosController,
     EnviosController,
     AdminController,
+    AuthController,
   ],
   providers: [
     // Captura excepciones no manejadas (500s) en Sentry; ignora 4xx esperados.
@@ -44,6 +47,7 @@ import { CedulaService } from "./cedula";
     EnviosService,
     AdminService,
     CedulaService,
+    AuthService,
   ],
 })
 export class AppModule {}
