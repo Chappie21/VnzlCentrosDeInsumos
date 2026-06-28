@@ -3,6 +3,7 @@ import { Icon } from "../../../_components";
 import { ROUTES } from "../../../constants";
 import type { CentroCard as Centro } from "../../../_hooks";
 import NeedBadge from "./NeedBadge";
+import ReportarButton from "./ReportarButton";
 
 export default function CentroCard({ centro }: { centro: Centro }) {
   return (
@@ -59,7 +60,7 @@ export default function CentroCard({ centro }: { centro: Centro }) {
             {centro.horarioCierre ? `Cierra a las ${centro.horarioCierre}` : "Cerrado"}
           </span>
         )}
-        <Icon name="chevron_right" className="text-outline" />
+        <ReportarButton centroId={centro.id} nombre={centro.nombre} />
       </div>
     </Link>
   );
