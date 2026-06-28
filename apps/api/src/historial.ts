@@ -20,7 +20,7 @@ import {
 import { Type } from "class-transformer";
 import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, VoluntarioGuard, JefeGuard, fingerprintOf } from "./guards";
+import { IdentidadGuard, VoluntarioGuard, JefeGuard, userIdOf } from "./guards";
 
 class MovimientoDto {
   @IsString() insumoId: string;
@@ -196,27 +196,27 @@ export class HistorialController {
   @Post()
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   add(@Req() req: any, @Body() body: AddDto) {
-    return this.service.addOne(fingerprintOf(req), body);
+    return this.service.addOne(userIdOf(req), body);
   }
 
   // QR approval. Volunteer-only, transactional batch.
   @Post("batch")
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   batch(@Req() req: any, @Body() dto: BatchDto) {
-    return this.service.batch(fingerprintOf(req), dto);
+    return this.service.batch(userIdOf(req), dto);
   }
 
   // Recepción por QR de donante (insumos por nombre). Solo voluntario del centro.
   @Post("recibir")
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   recibir(@Req() req: any, @Body() dto: RecibirDto) {
-    return this.service.recibir(fingerprintOf(req), dto);
+    return this.service.recibir(userIdOf(req), dto);
   }
 
   // Ajuste manual de stock. Solo el JEFE del centro (JefeGuard lee body.centroId).
   @Post("ajuste")
   @UseGuards(IdentidadGuard, JefeGuard)
   ajuste(@Req() req: any, @Body() dto: AjusteDto) {
-    return this.service.ajuste(fingerprintOf(req), dto);
+    return this.service.ajuste(userIdOf(req), dto);
   }
 }

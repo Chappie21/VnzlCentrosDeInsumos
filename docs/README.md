@@ -8,6 +8,7 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 
 <!-- agregá una línea por flujo documentado -->
 - [Onboarding e identidad](onboarding.md) — datos del usuario + 3 caminos, identidad sin login.
+- [Login con contraseña + Google](auth-login.md) — cédula+contraseña, registro, Google, JWT de sesión.
 - [Directorio de centros](directorio-centros.md) — listado público con filtros y geolocalización.
 - [Donar (donación por QR)](donar.md) — carrito de insumos → QR de entrega stateless.
 - [Crear centro + invitar](crear-centro.md) — registrar un centro de acopio e invitar ayudantes.

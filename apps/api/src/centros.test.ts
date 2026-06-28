@@ -353,10 +353,10 @@ describe("CentrosController", () => {
     expect(svc.list).toHaveBeenCalledWith(query);
   });
 
-  it("mios usa el fingerprint del header y delega al service", () => {
+  it("mios usa el userId del request y delega al service", () => {
     const svc = { mias: vi.fn().mockReturnValue("ok") } as any;
     const ctrl = new CentrosController(svc);
-    const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-9" : undefined) };
+    const req = { userId: "fp-9" };
     expect(ctrl.mias(req as any)).toBe("ok");
     expect(svc.mias).toHaveBeenCalledWith("fp-9");
   });

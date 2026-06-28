@@ -12,25 +12,45 @@ import { JwtService } from "@nestjs/jwt";
 import { prisma, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { RATE_LIMIT } from "./constants";
+import { verifyUserToken } from "./auth/jwt-session";
 
-// Identity = device fingerprint, sent as header. No login (spec §3).
-export function fingerprintOf(req: any): string {
-  const fp = req.header("x-fingerprint");
-  if (!fp) throw new BadRequestException("x-fingerprint header requerido");
-  return fp;
+// Extract Bearer token from Authorization header.
+function bearer(req: any): string {
+  const auth: string = req.header("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) throw new UnauthorizedException("Sesión requerida");
+  return token;
+}
+
+// Retrieve the userId that a guard placed on the request.
+export function userIdOf(req: any): string {
+  if (!req.userId) throw new UnauthorizedException("Sesión requerida");
+  return req.userId;
 }
 
 // Identity is "complete" once name + cedula + phone are all present (spec §3).
 export const identidadCompleta = (u: any) =>
   Boolean(u?.nombre && u?.cedula && u?.telefono);
 
+// Allow any authenticated user (complete or incomplete profile). Used by onboard/me.
+@Injectable()
+export class SesionGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest();
+    req.userId = await verifyUserToken(this.jwt, bearer(req));
+    return true;
+  }
+}
+
 // Gate contribution endpoints behind a complete identity.
 @Injectable()
 export class IdentidadGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const fingerprint = fingerprintOf(req);
-    const u = await prisma.usuario.findUnique({ where: { fingerprint } });
+    req.userId = await verifyUserToken(this.jwt, bearer(req));
+    const u = await prisma.usuario.findUnique({ where: { id: req.userId } });
     if (!identidadCompleta(u))
       throw new ForbiddenException(
         "Completa tu identidad para realizar esta acción",
@@ -42,14 +62,14 @@ export class IdentidadGuard implements CanActivate {
 // Only volunteers of the target centro may scan/approve donations (spec §6.4).
 @Injectable()
 export class VoluntarioGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const fingerprint = fingerprintOf(req);
+    req.userId = await verifyUserToken(this.jwt, bearer(req));
     const centroId = req.body?.centroId ?? req.params?.centroId;
     if (!centroId) throw new BadRequestException("centroId requerido");
-
     const link = await prisma.voluntario.findUnique({
-      where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
+      where: { usuarioId_centroId: { usuarioId: req.userId, centroId } },
     });
     if (!link) throw new ForbiddenException("No eres voluntario de este centro");
     return true;
@@ -60,14 +80,14 @@ export class VoluntarioGuard implements CanActivate {
 // ubicación). Espeja VoluntarioGuard pero exige rol === JEFE.
 @Injectable()
 export class JefeGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const fingerprint = fingerprintOf(req);
+    req.userId = await verifyUserToken(this.jwt, bearer(req));
     const centroId = req.params?.centroId ?? req.body?.centroId;
     if (!centroId) throw new BadRequestException("centroId requerido");
-
     const link = await prisma.voluntario.findUnique({
-      where: { usuarioId_centroId: { usuarioId: fingerprint, centroId } },
+      where: { usuarioId_centroId: { usuarioId: req.userId, centroId } },
     });
     if (!link) throw new ForbiddenException("No eres voluntario de este centro");
     if (link.rol !== RolVoluntario.JEFE)

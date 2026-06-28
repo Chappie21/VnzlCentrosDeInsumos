@@ -12,7 +12,7 @@ import {
 import { IsEnum, IsOptional, IsString } from "class-validator";
 import { prisma, NivelInsumo, CategoriaInsumo } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, fingerprintOf } from "./guards";
+import { IdentidadGuard, userIdOf } from "./guards";
 
 // Metadata editable de un insumo (cualquier voluntario del centro). NO incluye
 // `cantidadTotal`: la regla de oro la mueve solo Historial. ValidationPipe
@@ -32,7 +32,7 @@ export class InsumosService {
   // params, así que cargamos el insumo, obtenemos su centroId y verificamos que el
   // usuario sea Voluntario. Si cambia `nivel` hacemos bumpCentros (alimenta el
   // filtro urgenciaAlta del directorio). Nunca tocamos cantidadTotal.
-  async actualizar(fingerprint: string, insumoId: string, dto: UpdateInsumoDto) {
+  async actualizar(userId: string, insumoId: string, dto: UpdateInsumoDto) {
     const insumo = await prisma.insumo.findUnique({
       where: { id: insumoId },
       select: { centroId: true, nivel: true },
@@ -40,7 +40,7 @@ export class InsumosService {
     if (!insumo) throw new NotFoundException("Insumo no encontrado");
 
     const link = await prisma.voluntario.findUnique({
-      where: { usuarioId_centroId: { usuarioId: fingerprint, centroId: insumo.centroId } },
+      where: { usuarioId_centroId: { usuarioId: userId, centroId: insumo.centroId } },
     });
     if (!link) throw new ForbiddenException("No eres voluntario de este centro");
 
@@ -59,6 +59,6 @@ export class InsumosController {
   @Patch(":id")
   @UseGuards(IdentidadGuard)
   actualizar(@Req() req: any, @Param("id") id: string, @Body() dto: UpdateInsumoDto) {
-    return this.service.actualizar(fingerprintOf(req), id, dto);
+    return this.service.actualizar(userIdOf(req), id, dto);
   }
 }

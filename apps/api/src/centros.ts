@@ -39,7 +39,7 @@ import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVeri
 import { ESTADOS, municipiosDe, distanciaMetros, parseCedula } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
 import { CedulaService } from "./cedula";
-import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, fingerprintOf } from "./guards";
+import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
 
@@ -244,7 +244,7 @@ function toCard(c: CentroRow, distanciaKm: number | null): CentroCard {
 // Función del fingerprint: el select filtra la relación `voluntarios` al usuario
 // actual (take 1) para exponer su `rol`, mientras `_count.voluntarios` mantiene el
 // total. Son keys distintas: `voluntarios` (select) vs `_count.voluntarios`.
-const miCentroSelect = (fingerprint: string) =>
+const miCentroSelect = (userId: string) =>
   ({
     id: true,
     nombre: true,
@@ -257,7 +257,7 @@ const miCentroSelect = (fingerprint: string) =>
       select: { id: true, nombre: true, nivel: true, categoria: true, cantidadTotal: true },
     },
     _count: { select: { voluntarios: true } },
-    voluntarios: { where: { usuarioId: fingerprint }, select: { rol: true }, take: 1 },
+    voluntarios: { where: { usuarioId: userId }, select: { rol: true }, take: 1 },
   }) satisfies Prisma.CentroSelect;
 
 type MiCentroRow = Prisma.CentroGetPayload<{ select: ReturnType<typeof miCentroSelect> }>;
@@ -301,7 +301,7 @@ function toMiCentro(c: MiCentroRow): MiCentro {
 // Proyección del dashboard de detalle (solo miembros). A diferencia de la card
 // pública incluye coords + descripcion de insumos; igual que miCentroSelect filtra
 // `voluntarios` al usuario actual para exponer su `rol`. Nunca PII de terceros.
-const detalleSelect = (fingerprint: string) =>
+const detalleSelect = (userId: string) =>
   ({
     id: true,
     nombre: true,
@@ -319,7 +319,7 @@ const detalleSelect = (fingerprint: string) =>
       select: { id: true, nombre: true, descripcion: true, nivel: true, categoria: true, cantidadTotal: true },
     },
     _count: { select: { voluntarios: true } },
-    voluntarios: { where: { usuarioId: fingerprint }, select: { rol: true }, take: 1 },
+    voluntarios: { where: { usuarioId: userId }, select: { rol: true }, take: 1 },
   }) satisfies Prisma.CentroSelect;
 
 type DetalleRow = Prisma.CentroGetPayload<{ select: ReturnType<typeof detalleSelect> }>;
@@ -559,10 +559,10 @@ export class CentrosService {
 
   // Valida la cédula del creador UNA sola vez y la cachea en Usuario (CEN-23).
   // Best-effort y fire-and-forget: no bloquea ni demora la creación del centro.
-  private async validarCedulaCreador(fingerprint: string): Promise<void> {
+  private async validarCedulaCreador(userId: string): Promise<void> {
     try {
       const u = await prisma.usuario.findUnique({
-        where: { fingerprint },
+        where: { id: userId },
         select: { cedula: true, cedulaVerificada: true },
       });
       if (!u?.cedula || u.cedulaVerificada != null) return; // ya validada o sin cédula
@@ -571,7 +571,7 @@ export class CentrosService {
       const r = await this.cedula.verificar(parsed.data.tipo, parsed.data.numero);
       if (!r) return; // API caída/sin config → reintenta en el próximo centro
       await prisma.usuario.update({
-        where: { fingerprint },
+        where: { id: userId },
         data: { cedulaVerificada: r.existe, cedulaNombre: r.nombre, cedulaVerificadaEn: new Date() },
       });
     } catch {
@@ -700,7 +700,7 @@ export class CentrosService {
     };
   }
 
-  async create(fingerprint: string, dto: CreateCentroDto) {
+  async create(userId: string, dto: CreateCentroDto) {
     // IdentidadGuard already guarantees the Usuario exists with a complete identity.
     const { insumos, ...datos } = dto;
     // Agrupa el inventario inicial por nombre (case-insensitive) para no duplicar
@@ -716,7 +716,7 @@ export class CentrosService {
     const centro = await prisma.$transaction(async (tx) => {
       const c = await tx.centro.create({ data: datos });
       await tx.voluntario.create({
-        data: { usuarioId: fingerprint, centroId: c.id, rol: RolVoluntario.JEFE },
+        data: { usuarioId: userId, centroId: c.id, rol: RolVoluntario.JEFE },
       });
       // Carga inicial: cada insumo se crea en 0 y se mueve vía Historial (regla de
       // oro). tipo CARGA_INICIAL para no contarlo como donación. cantidad 0 igual
@@ -727,7 +727,7 @@ export class CentrosService {
           select: { id: true },
         });
         await tx.historial.create({
-          data: { insumoId: insumo.id, usuarioId: fingerprint, cantidad: it.cantidad, tipo: TipoMovimiento.CARGA_INICIAL },
+          data: { insumoId: insumo.id, usuarioId: userId, cantidad: it.cantidad, tipo: TipoMovimiento.CARGA_INICIAL },
         });
         await tx.insumo.update({
           where: { id: insumo.id },
@@ -737,17 +737,17 @@ export class CentrosService {
       return c;
     });
     await this.redis.bumpCentros();
-    void this.validarCedulaCreador(fingerprint); // CEN-23: en segundo plano
+    void this.validarCedulaCreador(userId); // CEN-23: en segundo plano
     return centro;
   }
 
   // Centros donde el usuario es voluntario. Alimenta el dashboard "Mi Centro"
   // (inventario completo + conteo de voluntarios). Sin cache: data personal y poco
   // voluminosa; debe reflejar movimientos al instante.
-  async mias(fingerprint: string): Promise<MiCentro[]> {
+  async mias(userId: string): Promise<MiCentro[]> {
     const rows = await prisma.centro.findMany({
-      where: { voluntarios: { some: { usuarioId: fingerprint } } },
-      select: miCentroSelect(fingerprint),
+      where: { voluntarios: { some: { usuarioId: userId } } },
+      select: miCentroSelect(userId),
       orderBy: { creadoEn: "desc" },
     });
     return rows.map(toMiCentro);
@@ -755,13 +755,13 @@ export class CentrosService {
 
   // Detalle de un centro (solo miembros, garantizado por VoluntarioGuard). Sin
   // cache: refleja inventario al instante. `cantidadTotal` se expone para lectura.
-  async detalle(fingerprint: string, centroId: string): Promise<CentroDetalle> {
+  async detalle(userId: string, centroId: string): Promise<CentroDetalle> {
     // Donaciones recibidas = movimientos tipo DONACION de los insumos del centro.
     // La carga inicial (CARGA_INICIAL) y ajustes (AJUSTE) no cuentan como donación.
     const [row, donaciones] = await Promise.all([
       prisma.centro.findUniqueOrThrow({
         where: { id: centroId },
-        select: detalleSelect(fingerprint),
+        select: detalleSelect(userId),
       }),
       prisma.historial.count({
         where: { tipo: TipoMovimiento.DONACION, insumo: { centroId } },
@@ -923,7 +923,7 @@ export class CentrosController {
   @Get("mios")
   @UseGuards(IdentidadGuard)
   mias(@Req() req: any) {
-    return this.service.mias(fingerprintOf(req));
+    return this.service.mias(userIdOf(req));
   }
 
   // Panel de moderación (solo equipo, token admin). DEBE ir antes de ":centroId".
@@ -943,11 +943,11 @@ export class CentrosController {
     return this.service.mapaCoords();
   }
 
-  // Identified users only (fingerprint header). Rate-limited (spec §6.5).
+  // Identified users only. Rate-limited (spec §6.5).
   @Post()
   @UseGuards(RateLimitGuard, IdentidadGuard)
   create(@Req() req: any, @Body() dto: CreateCentroDto) {
-    return this.service.create(fingerprintOf(req), dto);
+    return this.service.create(userIdOf(req), dto);
   }
 
   // Detalle público (directorio). Sin guard: ruta distinta a la de miembros.
@@ -961,7 +961,7 @@ export class CentrosController {
   @Get(":centroId")
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   detalle(@Req() req: any, @Param("centroId") centroId: string) {
-    return this.service.detalle(fingerprintOf(req), centroId);
+    return this.service.detalle(userIdOf(req), centroId);
   }
 
   // Editar datos principales: solo el JEFE.
@@ -993,11 +993,12 @@ export class CentrosController {
     return this.service.setFoto(centroId, dto.foto);
   }
 
-  // Reportar un centro inválido: anónimo (fingerprint), sin identidad. Rate-limited.
+  // Reportar un centro inválido: anónimo (x-fingerprint o IP), sin identidad. Rate-limited.
   @Post(":centroId/reportes")
   @UseGuards(RateLimitGuard)
   reportar(@Req() req: any, @Param("centroId") centroId: string, @Body() dto: ReporteDto) {
-    return this.service.reportar(centroId, fingerprintOf(req), dto.motivo, dto.comentario);
+    const fp: string = req.header("x-fingerprint") || req.ip || "anon";
+    return this.service.reportar(centroId, fp, dto.motivo, dto.comentario);
   }
 
   // Gestión de voluntarios: listar miembros del centro. Solo el JEFE.

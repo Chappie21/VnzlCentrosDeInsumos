@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { ForbiddenException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: { voluntario: { findUnique: vi.fn() } },
@@ -14,26 +15,37 @@ vi.mock("@vnzl/database", () => ({
 
 import { JefeGuard } from "./guards";
 
+const jwt = new JwtService({ secret: "test-secret" });
+const USER_ID = "user-1";
+let validToken: string;
+
+beforeAll(async () => {
+  validToken = await jwt.signAsync({ sub: USER_ID, typ: "user" });
+});
+
 // ExecutionContext mínimo: solo necesitamos getRequest().
 const ctxDe = (req: any) =>
   ({ switchToHttp: () => ({ getRequest: () => req }) }) as any;
 
-const reqDe = (rol?: string) => ({
-  header: (h: string) => (h === "x-fingerprint" ? "fp-1" : undefined),
+const reqDe = () => ({
+  header: (h: string) => h.toLowerCase() === "authorization" ? `Bearer ${validToken}` : undefined,
   params: { centroId: "c1" },
   body: {},
 });
 
-const guard = new JefeGuard();
+let guard: JefeGuard;
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  guard = new JefeGuard(jwt);
+});
 
 describe("JefeGuard", () => {
   it("permite al JEFE del centro", async () => {
     prismaMock.voluntario.findUnique.mockResolvedValue({ rol: "JEFE" });
     await expect(guard.canActivate(ctxDe(reqDe()))).resolves.toBe(true);
     expect(prismaMock.voluntario.findUnique).toHaveBeenCalledWith({
-      where: { usuarioId_centroId: { usuarioId: "fp-1", centroId: "c1" } },
+      where: { usuarioId_centroId: { usuarioId: USER_ID, centroId: "c1" } },
     });
   });
 
