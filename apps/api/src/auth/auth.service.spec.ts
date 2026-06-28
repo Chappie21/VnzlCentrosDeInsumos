@@ -8,6 +8,7 @@ const { prismaMock } = vi.hoisted(() => ({
     usuario: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      upsert: vi.fn(),
     },
   },
 }));
@@ -148,5 +149,71 @@ describe("AuthService.login", () => {
     await expect(
       service.login({ cedula: "V11111111", password: "anypassword" }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// google
+// ---------------------------------------------------------------------------
+describe("AuthService.google", () => {
+  const fakePayload = { sub: "g1", email: "a@b.com", name: "Ana" };
+  const fakeTicket = { getPayload: () => fakePayload };
+  const fakeVerifier = { verifyIdToken: async () => fakeTicket };
+
+  beforeEach(() => {
+    // ponytail: cliente real en runtime, mock en test
+    (service as any)["googleClient"] = fakeVerifier;
+  });
+
+  it("crea un nuevo usuario con googleId y devuelve needsProfile:true (sin cédula)", async () => {
+    const newUser = {
+      id: "user-google-1",
+      nombre: "Ana",
+      cedula: null,
+      telefono: null,
+      googleId: "g1",
+      email: "a@b.com",
+    };
+    prismaMock.usuario.findUnique.mockResolvedValue(null); // no existe por googleId
+    prismaMock.usuario.upsert.mockResolvedValue(newUser);
+
+    const res = await service.google("fake-id-token");
+
+    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({ where: { googleId: "g1" } });
+    expect(prismaMock.usuario.upsert).toHaveBeenCalledWith({
+      where: { email: "a@b.com" },
+      update: { googleId: "g1" },
+      create: { googleId: "g1", email: "a@b.com", nombre: "Ana" },
+    });
+    expect(res.needsProfile).toBe(true);
+    expect(res.usuario).toMatchObject({ id: "user-google-1", nombre: "Ana" });
+    expect(res.token).toBeDefined();
+  });
+
+  it("reutiliza el usuario existente por googleId sin crear duplicado", async () => {
+    const existingUser = {
+      id: "user-google-1",
+      nombre: "Ana",
+      cedula: null,
+      telefono: null,
+      googleId: "g1",
+      email: "a@b.com",
+    };
+    prismaMock.usuario.findUnique.mockResolvedValue(existingUser); // ya existe
+
+    const res = await service.google("fake-id-token");
+
+    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({ where: { googleId: "g1" } });
+    expect(prismaMock.usuario.upsert).not.toHaveBeenCalled();
+    expect(res.needsProfile).toBe(true);
+    expect(res.usuario.id).toBe("user-google-1");
+  });
+
+  it("lanza UnauthorizedException si el token no tiene sub", async () => {
+    (service as any)["googleClient"] = {
+      verifyIdToken: async () => ({ getPayload: () => ({ email: "a@b.com" }) }),
+    };
+
+    await expect(service.google("bad-token")).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

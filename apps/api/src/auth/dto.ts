@@ -11,3 +11,7 @@ export class LoginDto {
   @IsString() cedula!: string;
   @IsString() password!: string;
 }
+
+export class GoogleDto {
+  @IsString() idToken!: string;
+}
