@@ -16,9 +16,10 @@ import {
   IdentidadGuard,
   JefeGuard,
   RateLimitGuard,
-  fingerprintOf,
+  userIdOf,
   identidadCompleta,
 } from "./guards";
+import { verifyUserToken } from "./auth/jwt-session";
 import { INVITACION } from "./constants";
 
 class OnboardDto {
@@ -64,11 +65,11 @@ class AceptarInvitacionDto {
 export class UsuariosService {
   constructor(private readonly jwt: JwtService) {}
 
-  // Public profile of the current device (spec §3). Anonymous observers get nulls, never 404.
-  async me(fingerprint: string) {
-    const u = await prisma.usuario.findUnique({ where: { fingerprint } });
+  // Public profile of the current user (spec §3). Returns nulls for incomplete identity.
+  async me(userId: string) {
+    const u = await prisma.usuario.findUnique({ where: { id: userId } });
     return {
-      fingerprint,
+      id: userId,
       nombre: u?.nombre ?? null,
       cedula: u?.cedula ?? null,
       telefono: u?.telefono ?? null,
@@ -77,11 +78,10 @@ export class UsuariosService {
   }
 
   // Onboarding (spec §3): name/cedula/phone required before contributing.
-  onboard(fingerprint: string, dto: OnboardDto) {
-    return prisma.usuario.upsert({
-      where: { fingerprint },
-      update: dto,
-      create: { fingerprint, ...dto },
+  onboard(userId: string, dto: OnboardDto) {
+    return prisma.usuario.update({
+      where: { id: userId },
+      data: dto,
     });
   }
 
@@ -120,17 +120,31 @@ export class UsuariosService {
 
 @Controller()
 export class UsuariosController {
-  constructor(private readonly service: UsuariosService) {}
+  constructor(
+    private readonly service: UsuariosService,
+    private readonly jwt: JwtService,
+  ) {}
 
-  // Public: current device identity. No guard, just the fingerprint header.
+  // Extract userId from Bearer JWT without requiring complete identity.
+  // Used by endpoints that need authentication but not a fully completed profile.
+  private async jwtUserId(req: any): Promise<string> {
+    const auth: string = req.header("authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+    if (!token) throw new UnauthorizedException("Sesión requerida");
+    return verifyUserToken(this.jwt, token);
+  }
+
+  // Current user identity. JWT required; any authenticated user can access.
   @Get("usuarios/me")
-  me(@Req() req: any) {
-    return this.service.me(fingerprintOf(req));
+  async me(@Req() req: any) {
+    const userId = await this.jwtUserId(req);
+    return this.service.me(userId);
   }
 
   @Post("usuarios/onboard")
-  onboard(@Req() req: any, @Body() dto: OnboardDto) {
-    return this.service.onboard(fingerprintOf(req), dto);
+  async onboard(@Req() req: any, @Body() dto: OnboardDto) {
+    const userId = await this.jwtUserId(req);
+    return this.service.onboard(userId, dto);
   }
 
   // Solo el JEFE del centro puede mintear invitaciones (con rate-limit anti-abuso).
@@ -144,6 +158,6 @@ export class UsuariosController {
   @Post("invitaciones/aceptar")
   @UseGuards(RateLimitGuard, IdentidadGuard)
   accept(@Req() req: any, @Body() dto: AceptarInvitacionDto) {
-    return this.service.accept(fingerprintOf(req), dto.token);
+    return this.service.accept(userIdOf(req), dto.token);
   }
 }

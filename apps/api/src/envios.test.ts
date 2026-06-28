@@ -170,10 +170,10 @@ describe("EnviosService.guia", () => {
 });
 
 describe("EnviosController", () => {
-  it("crear usa el fingerprint del header y delega", () => {
+  it("crear usa el userId del request y delega", () => {
     const svc = { crear: vi.fn().mockReturnValue("ok") } as any;
     const ctrl = new EnviosController(svc);
-    const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-1" : undefined) };
+    const req = { userId: "fp-1" };
     expect(ctrl.crear(req as any, base as any)).toBe("ok");
     expect(svc.crear).toHaveBeenCalledWith("fp-1", base);
   });

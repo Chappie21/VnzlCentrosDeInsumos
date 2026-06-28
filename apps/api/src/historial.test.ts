@@ -168,10 +168,10 @@ describe("HistorialService.addOne — movimiento simple", () => {
 });
 
 describe("HistorialController.recibir", () => {
-  it("usa el fingerprint del header y delega al service", () => {
+  it("usa el userId del request y delega al service", () => {
     const svc = { recibir: vi.fn().mockReturnValue("ok") } as any;
     const ctrl = new HistorialController(svc);
-    const req = { header: (h: string) => (h === "x-fingerprint" ? "fp-1" : undefined) };
+    const req = { userId: "fp-1" };
     const dto = { centroId: "c1", items: [{ nombre: "Agua", cantidad: 1 }] };
 
     expect(ctrl.recibir(req as any, dto as any)).toBe("ok");

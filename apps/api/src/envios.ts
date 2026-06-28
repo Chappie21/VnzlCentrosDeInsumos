@@ -21,7 +21,7 @@ import {
 import { Type } from "class-transformer";
 import { prisma, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, VoluntarioGuard, fingerprintOf } from "./guards";
+import { IdentidadGuard, VoluntarioGuard, userIdOf } from "./guards";
 
 class EnvioItemDto {
   @IsString() insumoId: string;
@@ -139,7 +139,7 @@ export class EnviosController {
   @Post()
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   crear(@Req() req: any, @Body() dto: EnvioDto) {
-    return this.service.crear(fingerprintOf(req), dto);
+    return this.service.crear(userIdOf(req), dto);
   }
 
   // Guía pública (la abre el QR). Sin guard.
