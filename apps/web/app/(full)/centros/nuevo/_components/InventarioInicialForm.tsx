@@ -1,8 +1,11 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Icon, InsumoRows, type InsumoRowItem, type InsumoRowsValues } from "../../../../_components";
 import type { InsumoInicial } from "../../../../lib/api";
+import { readWorkbook, type Sheet } from "../../../../lib/excel";
+import ImportarExcel from "./ImportarExcel";
 
 const blank = (): InsumoRowItem => ({ nombre: "", categoria: "", cantidad: 1 });
 
@@ -27,14 +30,58 @@ type Props = {
 // Paso 2 de crear centro: inventario inicial opcional. Reusa InsumoRows con min=0
 // (B3: permite 0). "Registrar" siembra los insumos; "Omitir" crea sin insumos.
 export default function InventarioInicialForm({ onSubmit, onBack, pending, apiError }: Props) {
-  const { control, register, watch } = useForm<InsumoRowsValues>({
+  const { control, register, watch, getValues } = useForm<InsumoRowsValues>({
     defaultValues: { items: [blank()] },
   });
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: "items" });
 
   const items = watch("items");
   // No se puede registrar si alguna fila quedó con nombre vacío.
   const incompleto = items.some((i) => !i.nombre.trim());
+
+  // Estado de la importación por Excel (parseo client-side; ver lib/excel.ts).
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sheets, setSheets] = useState<Sheet[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite re-seleccionar el mismo archivo
+    if (!file) return;
+    setImportError(null);
+    try {
+      const parsed = await readWorkbook(file);
+      if (parsed.length === 0 || parsed.every((s) => s.filas.length === 0)) {
+        setImportError("El archivo no contiene filas legibles.");
+        return;
+      }
+      setSheets(parsed);
+    } catch {
+      setImportError("No se pudo leer el archivo. Verificá que sea un Excel válido.");
+    }
+  }
+
+  function handleImport(imported: InsumoRowItem[]) {
+    const current = getValues("items");
+    const soloBlank = current.length === 1 && !current[0].nombre.trim();
+    if (soloBlank) replace(imported);
+    else append(imported);
+    setSheets(null);
+  }
+
+  if (sheets) {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-grow flex-col">
+        <div className="flex-grow px-4 py-6">
+          <ImportarExcel
+            sheets={sheets}
+            onImport={handleImport}
+            onCancel={() => setSheets(null)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-grow flex-col">
@@ -46,15 +93,34 @@ export default function InventarioInicialForm({ onSubmit, onBack, pending, apiEr
 
         <InsumoRows control={control} register={register} fields={fields} remove={remove} min={0} />
 
-        <button
-          type="button"
-          onClick={() => append(blank())}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant py-3 text-on-surface-variant hover:bg-surface-container"
-        >
-          <Icon name="add" />
-          Agregar insumo
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => append(blank())}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant py-3 text-on-surface-variant hover:bg-surface-container"
+          >
+            <Icon name="add" />
+            Agregar insumo
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant py-3 text-on-surface-variant hover:bg-surface-container"
+          >
+            <Icon name="upload_file" />
+            Importar desde Excel
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFile}
+            className="hidden"
+            aria-label="Importar desde Excel"
+          />
+        </div>
 
+        {importError && <p className="text-sm text-emergency">{importError}</p>}
         {apiError && <p className="text-sm text-emergency">{apiError}</p>}
       </div>
 

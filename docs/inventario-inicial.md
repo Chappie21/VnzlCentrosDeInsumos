@@ -144,3 +144,50 @@ export type CreateCentroBody = { /* ...actual... */; insumos?: InsumoInicial[] }
 - Carga inicial y ajuste: solo JEFE (`JefeGuard` / autoridad de creador).
 - AJUSTE no puede dejar stock negativo.
 - Sin PII nueva en respuestas. Fingerprint solo por header `x-fingerprint`.
+
+## Importar desde Excel
+
+En el paso 2 (inventario inicial) hay un botón **"Importar desde Excel"** junto a
+"Agregar insumo". No es una importación al servidor: el Excel se **parsea 100% en el
+navegador** y pre-llena las filas editables existentes. El usuario revisa/corrige y
+envía por el **mismo flujo** (`createCentro({ ...datos, insumos })`) — sin cambios en
+el backend.
+
+### Parseo client-side
+- Librería: `read-excel-file` (subpath `/browser`), cargada con **import dinámico
+  lazy** (`await import("read-excel-file/browser")`) dentro de `readWorkbook` para
+  mantenerla fuera del bundle principal.
+- **Por qué no SheetJS (`xlsx`):** el paquete `xlsx` en npm arrastra CVEs; se usa
+  `read-excel-file` en su lugar.
+- Toda la lógica vive en `app/lib/excel.ts` (único lugar que toca la librería).
+  `readWorkbook` es un wrapper fino sin tests; lo testeado es puro: `detectColumns`,
+  `matchCategoria`, `rowsToItems` (`app/lib/excel.test.ts`).
+
+### Opción B (robusta): mapeo guiado
+`ImportarExcel.tsx` recibe las hojas YA parseadas (`Sheet[]`) como prop — testeable
+sin la librería ni archivos reales. UI:
+1. **Selector de hoja** (solo si hay más de una).
+2. **Selector de fila-encabezado** (primeras ~10 filas, con preview para ubicarla).
+3. **3 dropdowns de mapeo de columnas** (Nombre*, Cantidad*, Categoría). Se
+   pre-rellenan con `detectColumns` (sinónimos por substring, tolerante a acentos:
+   "Categoría" → categoria). "—" = sin mapear.
+4. **Preview** de las primeras 5 filas mapeadas.
+5. Botón **"Importar N insumos"** (deshabilitado hasta mapear Nombre y Cantidad).
+
+Coerciones en `rowsToItems`: nombre vacío → fila saltada; cantidad → entero `>= 0`
+(NaN/negativo → 0, "3.7" → 3); categoría → match al enum o `""`.
+
+### Tope de filas
+`MAX_FILAS = 500` (`// ponytail:` shortcut). Si la planilla trae más, se importan las
+primeras 500 y se avisa (`truncado`). Upgrade path: parsear/renderizar en chunks o en
+un web worker.
+
+### Inyección en el field array
+`onImport(items)`: si las filas actuales son solo la fila default en blanco →
+`replace(items)`; si no → `append(items)`. Los insumos importados aparecen como filas
+editables normales y siguen el camino de envío existente.
+
+### Por qué no hay cambio de backend
+`create()` del servidor ya deduplica y valida los insumos; el import solo pre-llena el
+formulario que ya alimenta ese endpoint. Errores de parseo (archivo inválido / sin
+filas) se muestran inline sin romper el flujo.
