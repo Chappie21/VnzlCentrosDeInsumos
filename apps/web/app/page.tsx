@@ -127,6 +127,7 @@ function Home() {
       ) : (
         <LoginForm
           onDone={(id) => setIdentityState(id)}
+          onDonate={() => router.push(ROUTES.donar)}
           onObserve={() => {
             setAnon();
             router.push(next);
@@ -221,9 +222,11 @@ type LoginInput = { cedula: string; password: string };
 
 function LoginForm({
   onDone,
+  onDonate,
   onObserve,
 }: {
   onDone: (id: Identity) => void;
+  onDonate: () => void;
   onObserve: () => void;
 }) {
   const [apiError, setApiError] = useState<string | null>(null);
@@ -310,6 +313,27 @@ function LoginForm({
               Regístrate
             </Link>
           </p>
+
+          {/* Acciones sin cuenta: donar y observar no requieren autenticación. */}
+          <div className="relative py-1">
+            <div className="absolute inset-0 flex items-center" aria-hidden>
+              <span className="w-full border-t border-outline-variant" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-surface-container-lowest px-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                Sin cuenta
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onDonate}
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98]"
+          >
+            <Icon name="volunteer_activism" />
+            Quiero Donar
+          </button>
 
           <button
             type="button"
