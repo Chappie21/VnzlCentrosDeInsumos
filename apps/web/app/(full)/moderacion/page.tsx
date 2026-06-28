@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Icon } from "../../_components";
 import {
   API,
@@ -9,6 +10,9 @@ import {
   verificarCentro,
   type CentroModeracion,
 } from "../../lib/api";
+
+// Leaflet usa window → solo en cliente.
+const MiniMapa = dynamic(() => import("./_components/MiniMapa"), { ssr: false });
 
 const TOKEN_KEY = "acopio-admin-token";
 
@@ -144,6 +148,13 @@ export default function Moderacion() {
 
       {items?.map((c) => {
         const dist = distancia(c.distanciaGeoM);
+        // Punto a mapear: la geo de registro (evidencia) o, si no, la dirección declarada.
+        const punto =
+          c.geoLat != null && c.geoLng != null
+            ? { lat: c.geoLat, lng: c.geoLng, tipo: "Geo de registro" }
+            : c.latitud != null && c.longitud != null
+              ? { lat: c.latitud, lng: c.longitud, tipo: "Dirección" }
+              : null;
         return (
           <article
             key={c.id}
@@ -174,27 +185,36 @@ export default function Moderacion() {
                   ? `${c.responsable.nombre ?? "—"} (${c.responsable.cedula ?? "s/c"}, ${c.responsable.telefono ?? "s/t"})`
                   : "—"}
               </div>
-              <div>
-                <span className="font-semibold text-on-surface">Geo de registro: </span>
-                {c.geoLat != null && c.geoLng != null ? (
-                  <a
-                    className="text-safety underline"
-                    href={`https://www.google.com/maps?q=${c.geoLat},${c.geoLng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    ver en mapa
-                  </a>
-                ) : (
-                  "no capturada"
-                )}
-                {dist && (
-                  <span className={c.distanciaGeoM! > 2000 ? " text-emergency" : ""}>
-                    {" "}· a {dist} de la dirección
+              {dist && (
+                <div>
+                  <span className="font-semibold text-on-surface">Distancia: </span>
+                  <span className={c.distanciaGeoM! > 2000 ? "text-emergency" : ""}>
+                    {dist} entre la geo de registro y la dirección
                   </span>
-                )}
-              </div>
+                </div>
+              )}
             </dl>
+
+            {/* Punto exacto en el mapa (evidencia para aprobar/rechazar) */}
+            {punto ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                  {punto.tipo} · {punto.lat.toFixed(6)}, {punto.lng.toFixed(6)}
+                </p>
+                <MiniMapa lat={punto.lat} lng={punto.lng} />
+                <a
+                  href={`https://www.google.com/maps?q=${punto.lat},${punto.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant text-sm font-semibold text-safety transition-colors hover:bg-surface-container"
+                >
+                  <Icon name="map" />
+                  Ver en Google Maps
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs italic text-on-surface-variant">Sin coordenadas</p>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <button
