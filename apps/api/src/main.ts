@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "./instrument"; // Sentry: debe ir antes de importar el resto de la app.
 import "reflect-metadata";
 import { join } from "path";
 import * as express from "express";
