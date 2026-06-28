@@ -13,7 +13,7 @@ import type { MapaPunto } from "../../../_hooks";
 const dotIcon = (activo: boolean) =>
   L.divIcon({
     className: "",
-    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);background:${activo ? "#16a34a" : "#9ca3af"}"></span>`,
+    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);background:${activo ? "#4a7c59" : "#9ca3af"}"></span>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
     popupAnchor: [0, -8],

@@ -174,7 +174,7 @@ function NuevoEnvio() {
           <button
             type="button"
             onClick={descargarQr}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white hover:bg-[#b70011] active:scale-[0.98]"
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white hover:bg-[#5a4a26] active:scale-[0.98]"
           >
             <Icon name="download" />
             Descargar QR
@@ -317,7 +317,7 @@ function NuevoEnvio() {
         type="button"
         disabled={!valido || submitting}
         onClick={generar}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-emergency font-semibold text-white shadow-sm transition-colors hover:bg-[#b70011] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-action font-semibold text-white shadow-sm transition-colors hover:bg-[#5a4a26] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon name="send" />
         {submitting ? "Generando…" : "Generar Guía de Envío"}
