@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { BadRequestException } from "@nestjs/common";
 import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 
@@ -27,7 +28,11 @@ vi.mock("@vnzl/database", () => ({
   NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
   CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
+  EstadoVerificacion: { PENDIENTE: "PENDIENTE", VERIFICADO: "VERIFICADO", RECHAZADO: "RECHAZADO" },
 }));
+
+// No tocar disco al subir fotos en los tests.
+vi.mock("fs", () => ({ mkdirSync: vi.fn(), writeFileSync: vi.fn() }));
 
 import {
   CentrosService,
@@ -466,5 +471,76 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => 
   it("rechaza ciudad que no pertenece al estado", async () => {
     const e = await errores({ ...base, estado: "Miranda", ciudad: "Maracaibo" });
     expect(e).toContain("isCiudadDeEstado");
+  });
+});
+
+describe("CentrosService.verificar", () => {
+  it("setea estado + verificadoEn y bumpea el directorio", async () => {
+    prismaMock.centro.update.mockResolvedValue({});
+    await service.verificar("c1", "VERIFICADO" as any);
+    const arg = prismaMock.centro.update.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: "c1" });
+    expect(arg.data.verificacion).toBe("VERIFICADO");
+    expect(arg.data.verificadoEn).toBeInstanceOf(Date);
+    expect(redis.bumpCentros).toHaveBeenCalled();
+  });
+});
+
+describe("CentrosService.moderacion", () => {
+  it("calcula distanciaGeoM (haversine) y mapea al responsable", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        nombre: "Centro",
+        estado: "DC",
+        ciudad: "Caracas",
+        direccion: "Av 1",
+        verificacion: "PENDIENTE",
+        verificadoEn: null,
+        creadoEn: new Date(),
+        fotoUrl: null,
+        latitud: 10.5061,
+        longitud: -66.9146,
+        geoLat: 10.4339,
+        geoLng: -66.8758,
+        voluntarios: [{ usuario: { nombre: "Ana", cedula: "V-1", telefono: "0412" } }],
+      },
+    ]);
+    const [m] = await service.moderacion("PENDIENTE" as any);
+    expect(m.distanciaGeoM).toBeGreaterThan(7000);
+    expect(m.distanciaGeoM).toBeLessThan(10000);
+    expect(m.responsable).toEqual({ nombre: "Ana", cedula: "V-1", telefono: "0412" });
+  });
+
+  it("distanciaGeoM null si falta alguna coordenada", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([
+      {
+        id: "c1", nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
+        verificacion: "PENDIENTE", verificadoEn: null, creadoEn: new Date(),
+        fotoUrl: null, latitud: 10.5, longitud: -66.9, geoLat: null, geoLng: null,
+        voluntarios: [],
+      },
+    ]);
+    const [m] = await service.moderacion();
+    expect(m.distanciaGeoM).toBeNull();
+    expect(m.responsable).toBeNull();
+  });
+});
+
+describe("CentrosService.setFoto", () => {
+  it("rechaza un data URL que no es imagen", async () => {
+    await expect(service.setFoto("c1", "data:text/plain;base64,aaaa")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it("acepta una imagen válida, guarda y apunta fotoUrl", async () => {
+    prismaMock.centro.update.mockResolvedValue({});
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    const res = await service.setFoto("c1", png);
+    expect(res.fotoUrl).toMatch(/^\/uploads\/centros\/c1-\d+\.png$/);
+    expect(prismaMock.centro.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
+    );
   });
 });

@@ -2,6 +2,7 @@ export const FILTERS = {
   cerca: "cerca",
   abiertos: "soloAbiertos",
   urgencia: "urgenciaAlta",
+  verificado: "verificado",
 } as const;
 
 export type FilterId = (typeof FILTERS)[keyof typeof FILTERS];
@@ -10,6 +11,7 @@ export const FILTER_CHIPS: { id: FilterId; label: string; icon: string }[] = [
   { id: FILTERS.cerca, label: "Cerca de mí", icon: "near_me" },
   { id: FILTERS.abiertos, label: "Solo Abiertos", icon: "check_circle" },
   { id: FILTERS.urgencia, label: "Urgencia Alta", icon: "priority_high" },
+  { id: FILTERS.verificado, label: "Verificados", icon: "verified" },
 ];
 
 export const DEBOUNCE_MS = 300;

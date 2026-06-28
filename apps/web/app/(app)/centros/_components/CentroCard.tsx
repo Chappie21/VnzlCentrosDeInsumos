@@ -11,7 +11,17 @@ export default function CentroCard({ centro }: { centro: Centro }) {
 
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-on-surface">{centro.nombre}</h2>
+          <h2 className="flex items-center gap-1.5 text-xl font-semibold text-on-surface">
+            <span className="truncate">{centro.nombre}</span>
+            {centro.verificado && (
+              <Icon
+                name="verified"
+                filled
+                className="shrink-0 text-[18px] text-safety"
+                aria-label="Centro verificado"
+              />
+            )}
+          </h2>
           <p className="mt-1 flex items-center gap-1 text-on-surface-variant">
             <Icon name="location_on" className="text-[18px]" />
             {centro.direccion}

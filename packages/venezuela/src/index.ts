@@ -1,6 +1,9 @@
 import { VENEZUELA } from "./data";
 
 export { VENEZUELA };
+export { parseCedula } from "./cedula";
+export type { TipoCedula, CedulaParseada, CedulaParseResult } from "./cedula";
+export { distanciaMetros } from "./geo";
 
 export const ESTADOS: readonly string[] = Object.keys(VENEZUELA);
 

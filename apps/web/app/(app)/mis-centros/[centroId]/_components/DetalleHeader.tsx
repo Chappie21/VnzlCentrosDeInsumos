@@ -28,17 +28,38 @@ export default function DetalleHeader({ centro }: { centro: CentroDetalle }) {
       </p>
       <p className="mt-0.5 text-sm text-on-surface-variant">{centro.direccion}</p>
 
-      {centro.recibiendoAhora ? (
-        <span className="mt-3 inline-flex items-center gap-1 rounded-badge bg-emergency/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-emergency">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emergency" aria-hidden />
-          Activo
-        </span>
-      ) : (
-        <span className="mt-3 inline-flex items-center gap-1 rounded-badge bg-surface-container px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
-          <Icon name="schedule" className="text-[14px]" />
-          {centro.horarioCierre ? `Cierra ${centro.horarioCierre}` : "Cerrado"}
-        </span>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {centro.recibiendoAhora ? (
+          <span className="inline-flex items-center gap-1 rounded-badge bg-emergency/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-emergency">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emergency" aria-hidden />
+            Activo
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-badge bg-surface-container px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+            <Icon name="schedule" className="text-[14px]" />
+            {centro.horarioCierre ? `Cierra ${centro.horarioCierre}` : "Cerrado"}
+          </span>
+        )}
+
+        {centro.verificacion === "VERIFICADO" && (
+          <span className="inline-flex items-center gap-1 rounded-badge bg-safety/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-safety">
+            <Icon name="verified" filled className="text-[14px]" />
+            Verificado
+          </span>
+        )}
+        {centro.verificacion === "PENDIENTE" && (
+          <span className="inline-flex items-center gap-1 rounded-badge bg-surface-container px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+            <Icon name="hourglass_empty" className="text-[14px]" />
+            Sin verificar
+          </span>
+        )}
+        {centro.verificacion === "RECHAZADO" && (
+          <span className="inline-flex items-center gap-1 rounded-badge bg-emergency/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-emergency">
+            <Icon name="gpp_bad" className="text-[14px]" />
+            Rechazado
+          </span>
+        )}
+      </div>
     </header>
   );
 }

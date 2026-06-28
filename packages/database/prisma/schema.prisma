@@ -33,6 +33,13 @@ model Centro {
   horarioCierre   String? // "20:00" — solo display, nunca se filtra por él
   creadoEn    DateTime     @default(now())
 
+  // Verificación manual (etiqueta, no portón): el centro opera desde PENDIENTE.
+  verificacion EstadoVerificacion @default(PENDIENTE)
+  verificadoEn DateTime?
+  fotoUrl      String? // foto del local/cartel (evidencia para el verificador)
+  geoLat       Float? // geo del dispositivo al registrar (vs dirección declarada)
+  geoLng       Float?
+
   voluntarios   Voluntario[]
   insumos       Insumo[]
   enviosOrigen  Envio[] @relation("EnviosOrigen")
@@ -87,6 +94,12 @@ enum CategoriaInsumo {
 enum RolVoluntario {
   JEFE        // creador del centro (dueño)
   VOLUNTARIO  // agregado vía invitación
+}
+
+enum EstadoVerificacion {
+  PENDIENTE   // recién creado, sin revisar (igual opera)
+  VERIFICADO  // el equipo confirmó que existe
+  RECHAZADO   // el equipo lo marcó como no legítimo
 }
 
 // Origen de un movimiento de Historial (para auditoría).

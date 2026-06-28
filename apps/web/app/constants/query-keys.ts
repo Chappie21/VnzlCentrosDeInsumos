@@ -4,6 +4,7 @@ export type CentrosFilters = {
   q: string;
   soloAbiertos: boolean;
   urgenciaAlta: boolean;
+  verificado: boolean;
   lat: number | null;
   lng: number | null;
 };

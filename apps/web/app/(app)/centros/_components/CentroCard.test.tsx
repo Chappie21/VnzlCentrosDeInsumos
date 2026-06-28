@@ -11,6 +11,7 @@ const base: Centro = {
   direccion: "Av 1",
   recibiendoAhora: true,
   horarioCierre: null,
+  verificado: false,
   distanciaKm: null,
   prioridadAlta: false,
   necesidades: [],

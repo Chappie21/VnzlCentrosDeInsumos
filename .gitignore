@@ -7,3 +7,6 @@ dist
 
 # TS incremental build cache
 *.tsbuildinfo
+
+# fotos subidas (CEN-21)
+apps/api/uploads/

@@ -74,6 +74,21 @@ export class JefeGuard implements CanActivate {
   }
 }
 
+// Acceso de moderación del equipo. ponytail: secreto compartido (ADMIN_TOKEN env,
+// header x-admin-token) — alcanza para "solo nosotros"; upgrade a roles reales
+// cuando haya más moderadores. Sin ADMIN_TOKEN configurado, niega todo.
+@Injectable()
+export class AdminGuard implements CanActivate {
+  canActivate(ctx: ExecutionContext): boolean {
+    const req = ctx.switchToHttp().getRequest();
+    const expected = process.env.ADMIN_TOKEN;
+    const token = req.header("x-admin-token");
+    if (!expected || token !== expected)
+      throw new ForbiddenException("Acceso de moderación inválido");
+    return true;
+  }
+}
+
 // Redis-backed rate limit for create-heavy endpoints (spec §6.5).
 @Injectable()
 export class RateLimitGuard implements CanActivate {

@@ -38,10 +38,24 @@ export default function NuevoCentro() {
     },
   });
 
+  // Geo del dispositivo al registrar (anti-fraude). Best-effort: si la deniegan o
+  // tarda, se crea igual sin geo.
+  function capturarGeo(): Promise<{ geoLat?: number; geoLng?: number }> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ geoLat: pos.coords.latitude, geoLng: pos.coords.longitude }),
+        () => resolve({}),
+        { timeout: 8000, enableHighAccuracy: true },
+      );
+    });
+  }
+
   async function onSubmit(body: CreateCentroBody) {
     setApiError(null);
     try {
-      const res = await mutation.mutateAsync(body);
+      const geo = await capturarGeo();
+      const res = await mutation.mutateAsync({ ...body, ...geo });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         const msg = Array.isArray(data?.message) ? data.message.join(" ") : data?.message;

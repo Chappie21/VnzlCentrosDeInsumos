@@ -15,6 +15,7 @@ import {
 } from "@nestjs/common";
 import {
   IsBoolean,
+  IsEnum,
   IsIn,
   IsInt,
   IsLatitude,
@@ -30,10 +31,12 @@ import {
   type ValidationArguments,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
-import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario } from "@vnzl/database";
-import { ESTADOS, municipiosDe } from "@vnzl/venezuela";
+import { mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
+import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion } from "@vnzl/database";
+import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
-import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, fingerprintOf } from "./guards";
+import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, fingerprintOf } from "./guards";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
 
@@ -72,6 +75,20 @@ export class CreateCentroDto {
   @IsString() direccion: string;
   @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
   @IsOptional() @Type(() => Number) @IsLongitude() longitud?: number;
+  // Geo del dispositivo al registrar (anti-fraude: se compara con la dirección).
+  @IsOptional() @Type(() => Number) @IsLatitude() geoLat?: number;
+  @IsOptional() @Type(() => Number) @IsLongitude() geoLng?: number;
+}
+
+// Moderación (solo equipo): marcar un centro verificado o rechazado.
+export class VerificarDto {
+  @IsEnum(EstadoVerificacion) estado: EstadoVerificacion;
+}
+
+// Foto del local/cartel como data URL (base64). ponytail: JSON en vez de multipart
+// para no sumar multer; el cliente la comprime antes de enviar.
+export class FotoDto {
+  @IsString() foto: string; // "data:image/jpeg;base64,...."
 }
 
 // Edición de datos principales (solo JEFE). Todo opcional: se actualiza solo lo
@@ -118,6 +135,9 @@ class ListCentrosQueryDto {
 
   @IsOptional() @toOptionalBool() @IsBoolean()
   urgenciaAlta?: boolean; // >=1 insumo nivel URGENTE
+
+  @IsOptional() @toOptionalBool() @IsBoolean()
+  verificado?: boolean; // solo centros verificados por el equipo
 }
 
 // Proyección de card: solo lo que la UI necesita. Nunca fingerprint ni voluntarios.
@@ -130,6 +150,7 @@ export type CentroCard = {
   direccion: string;
   recibiendoAhora: boolean;
   horarioCierre: string | null;
+  verificado: boolean;
   distanciaKm: number | null;
   prioridadAlta: boolean;
   necesidades: Necesidad[];
@@ -152,6 +173,7 @@ const cardSelect = {
   direccion: true,
   recibiendoAhora: true,
   horarioCierre: true,
+  verificacion: true,
   insumos: { select: { nombre: true, nivel: true, categoria: true } },
 } satisfies Prisma.CentroSelect;
 
@@ -172,6 +194,7 @@ function toCard(c: CentroRow, distanciaKm: number | null): CentroCard {
     direccion: c.direccion,
     recibiendoAhora: c.recibiendoAhora,
     horarioCierre: c.horarioCierre,
+    verificado: c.verificacion === EstadoVerificacion.VERIFICADO,
     distanciaKm,
     prioridadAlta: ordenadas.some((i) => i.nivel === NivelInsumo.URGENTE),
     necesidades: ordenadas.slice(0, PAGINATION.maxBadges).map((i) => ({
@@ -256,6 +279,8 @@ const detalleSelect = (fingerprint: string) =>
     longitud: true,
     recibiendoAhora: true,
     horarioCierre: true,
+    verificacion: true,
+    fotoUrl: true,
     creadoEn: true,
     insumos: {
       select: { id: true, nombre: true, descripcion: true, nivel: true, categoria: true, cantidadTotal: true },
@@ -285,6 +310,8 @@ export type CentroDetalle = {
   longitud: number | null;
   recibiendoAhora: boolean;
   horarioCierre: string | null;
+  verificacion: EstadoVerificacion;
+  fotoUrl: string | null;
   creadoEn: Date;
   voluntarios: number;
   donaciones: number;
@@ -303,6 +330,8 @@ function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
     longitud: c.longitud,
     recibiendoAhora: c.recibiendoAhora,
     horarioCierre: c.horarioCierre,
+    verificacion: c.verificacion,
+    fotoUrl: c.fotoUrl,
     creadoEn: c.creadoEn,
     voluntarios: c._count.voluntarios,
     donaciones,
@@ -343,6 +372,73 @@ function toVoluntarioItem(v: VoluntarioRow): VoluntarioItem {
   };
 }
 
+// Proyección para el panel de moderación (solo equipo, AdminGuard). Incluye
+// evidencia (foto, geo) + PII del responsable (JEFE) para poder juzgar legitimidad.
+const moderacionSelect = {
+  id: true,
+  nombre: true,
+  estado: true,
+  ciudad: true,
+  direccion: true,
+  verificacion: true,
+  verificadoEn: true,
+  creadoEn: true,
+  fotoUrl: true,
+  latitud: true,
+  longitud: true,
+  geoLat: true,
+  geoLng: true,
+  voluntarios: {
+    where: { rol: RolVoluntario.JEFE },
+    select: { usuario: { select: { nombre: true, cedula: true, telefono: true } } },
+    take: 1,
+  },
+} satisfies Prisma.CentroSelect;
+
+type ModeracionRow = Prisma.CentroGetPayload<{ select: typeof moderacionSelect }>;
+
+export type CentroModeracion = {
+  id: string;
+  nombre: string;
+  estado: string;
+  ciudad: string;
+  direccion: string;
+  verificacion: EstadoVerificacion;
+  verificadoEn: Date | null;
+  creadoEn: Date;
+  fotoUrl: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  geoLat: number | null;
+  geoLng: number | null;
+  distanciaGeoM: number | null; // entre dirección (mapa) y geo de registro
+  responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+};
+
+function toModeracion(c: ModeracionRow): CentroModeracion {
+  const tieneAmbas =
+    c.latitud != null && c.longitud != null && c.geoLat != null && c.geoLng != null;
+  return {
+    id: c.id,
+    nombre: c.nombre,
+    estado: c.estado,
+    ciudad: c.ciudad,
+    direccion: c.direccion,
+    verificacion: c.verificacion,
+    verificadoEn: c.verificadoEn,
+    creadoEn: c.creadoEn,
+    fotoUrl: c.fotoUrl,
+    latitud: c.latitud,
+    longitud: c.longitud,
+    geoLat: c.geoLat,
+    geoLng: c.geoLng,
+    distanciaGeoM: tieneAmbas
+      ? distanciaMetros(c.latitud!, c.longitud!, c.geoLat!, c.geoLng!)
+      : null,
+    responsable: c.voluntarios[0]?.usuario ?? null,
+  };
+}
+
 @Injectable()
 export class CentrosService {
   constructor(private readonly redis: RedisService) {}
@@ -357,6 +453,7 @@ export class CentrosService {
       }),
       ...(q.soloAbiertos && { recibiendoAhora: true }),
       ...(q.urgenciaAlta && { insumos: { some: { nivel: NivelInsumo.URGENTE } } }),
+      ...(q.verificado && { verificacion: EstadoVerificacion.VERIFICADO }),
     };
   }
 
@@ -375,6 +472,7 @@ export class CentrosService {
       radiusKm: q.radiusKm ?? null,
       soloAbiertos: q.soloAbiertos ?? false,
       urgenciaAlta: q.urgenciaAlta ?? false,
+      verificado: q.verificado ?? false,
     })}`;
 
     return this.redis.cached(key, TTL.centrosList, () =>
@@ -531,6 +629,46 @@ export class CentrosService {
     await this.redis.bumpCentros();
     return { ok: true };
   }
+
+  // Lista para moderación (solo equipo). `estado` filtra (default: todos).
+  async moderacion(estado?: EstadoVerificacion): Promise<CentroModeracion[]> {
+    const rows = await prisma.centro.findMany({
+      where: estado ? { verificacion: estado } : {},
+      select: moderacionSelect,
+      orderBy: { creadoEn: "desc" },
+    });
+    return rows.map(toModeracion);
+  }
+
+  // Marcar verificado/rechazado (solo equipo). bumpCentros: el badge viaja en el directorio.
+  async verificar(centroId: string, estado: EstadoVerificacion): Promise<{ ok: true }> {
+    await prisma.centro.update({
+      where: { id: centroId },
+      data: { verificacion: estado, verificadoEn: new Date() },
+    });
+    await this.redis.bumpCentros();
+    return { ok: true };
+  }
+
+  // Guardar la foto del local (data URL base64) en disco y apuntar fotoUrl.
+  // ponytail: disco local; mover a object storage para prod multi-instancia.
+  async setFoto(centroId: string, dataUrl: string): Promise<{ fotoUrl: string }> {
+    const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/);
+    if (!m) throw new BadRequestException("Formato de imagen inválido (png, jpg o webp)");
+    const ext = m[1] === "jpeg" ? "jpg" : m[1];
+    const buf = Buffer.from(m[2], "base64");
+    if (buf.length > 3 * 1024 * 1024) throw new BadRequestException("La imagen supera 3 MB");
+
+    const dir = join(process.cwd(), "uploads", "centros");
+    mkdirSync(dir, { recursive: true });
+    const filename = `${centroId}-${Date.now()}.${ext}`;
+    writeFileSync(join(dir, filename), buf);
+
+    const fotoUrl = `/uploads/centros/${filename}`;
+    await prisma.centro.update({ where: { id: centroId }, data: { fotoUrl } });
+    await this.redis.bumpCentros();
+    return { fotoUrl };
+  }
 }
 
 @Controller("centros")
@@ -548,6 +686,17 @@ export class CentrosController {
   @UseGuards(IdentidadGuard)
   mias(@Req() req: any) {
     return this.service.mias(fingerprintOf(req));
+  }
+
+  // Panel de moderación (solo equipo, token admin). DEBE ir antes de ":centroId".
+  @Get("moderacion")
+  @UseGuards(AdminGuard)
+  moderacion(@Query("estado") estado?: string) {
+    const valido =
+      estado && (Object.values(EstadoVerificacion) as string[]).includes(estado)
+        ? (estado as EstadoVerificacion)
+        : undefined;
+    return this.service.moderacion(valido);
   }
 
   // Identified users only (fingerprint header). Rate-limited (spec §6.5).
@@ -577,6 +726,20 @@ export class CentrosController {
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   actualizarOperativo(@Param("centroId") centroId: string, @Body() dto: UpdateOperativoDto) {
     return this.service.actualizarOperativo(centroId, dto);
+  }
+
+  // Verificar / rechazar un centro: solo el equipo (token admin).
+  @Patch(":centroId/verificacion")
+  @UseGuards(AdminGuard)
+  verificar(@Param("centroId") centroId: string, @Body() dto: VerificarDto) {
+    return this.service.verificar(centroId, dto.estado);
+  }
+
+  // Subir la foto del local/cartel: solo el JEFE del centro.
+  @Post(":centroId/foto")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  subirFoto(@Param("centroId") centroId: string, @Body() dto: FotoDto) {
+    return this.service.setFoto(centroId, dto.foto);
   }
 
   // Gestión de voluntarios: listar miembros del centro. Solo el JEFE.

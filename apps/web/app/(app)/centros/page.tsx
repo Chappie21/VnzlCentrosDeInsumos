@@ -28,6 +28,7 @@ export default function DirectorioCentros() {
     [FILTERS.cerca]: false,
     [FILTERS.abiertos]: false,
     [FILTERS.urgencia]: false,
+    [FILTERS.verificado]: false,
   });
 
   const { coords, request, clear } = useGeolocation();
@@ -47,6 +48,7 @@ export default function DirectorioCentros() {
       q: debouncedQ.trim(),
       soloAbiertos: active[FILTERS.abiertos],
       urgenciaAlta: active[FILTERS.urgencia],
+      verificado: active[FILTERS.verificado],
       lat: usandoCerca ? round(coords!.lat) : null,
       lng: usandoCerca ? round(coords!.lng) : null,
     }),
