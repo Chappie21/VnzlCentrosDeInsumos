@@ -10,6 +10,7 @@ export type MapaPunto = {
   ciudad: string;
   latitud: number;
   longitud: number;
+  recibiendoAhora: boolean;
 };
 
 // Todos los centros con coordenadas, para pintarlos en el mapa público.

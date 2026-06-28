@@ -163,6 +163,7 @@ export type MapaPunto = {
   ciudad: string;
   latitud: number;
   longitud: number;
+  recibiendoAhora: boolean;
 };
 
 // allowlist de campos (Prisma `select`): garantiza que no se filtre PII
@@ -409,7 +410,7 @@ export class CentrosService {
   async mapaCoords(): Promise<MapaPunto[]> {
     const rows = await prisma.centro.findMany({
       where: { latitud: { not: null }, longitud: { not: null } },
-      select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true },
+      select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
       take: 1000,
     });
     return rows.map((r) => ({
@@ -418,6 +419,7 @@ export class CentrosService {
       ciudad: r.ciudad,
       latitud: r.latitud!,
       longitud: r.longitud!,
+      recibiendoAhora: r.recibiendoAhora,
     }));
   }
 

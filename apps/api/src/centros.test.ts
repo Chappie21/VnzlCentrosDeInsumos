@@ -521,7 +521,7 @@ describe("CentrosService.mapaCoords", () => {
 
   it("pide solo centros con coords y proyecta el punto del mapa", async () => {
     prismaMock.centro.findMany.mockResolvedValue([
-      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9 },
+      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
     ]);
 
     const puntos = await service.mapaCoords();
@@ -532,7 +532,7 @@ describe("CentrosService.mapaCoords", () => {
       }),
     );
     expect(puntos).toEqual([
-      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9 },
+      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
     ]);
   });
 });

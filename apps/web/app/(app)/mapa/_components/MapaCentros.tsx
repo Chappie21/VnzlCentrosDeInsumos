@@ -2,19 +2,20 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import iconUrl from "leaflet/dist/images/marker-icon.png";
-import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
-import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import type { MapaPunto } from "../../../_hooks";
 
-// Fix de íconos del marker bajo Turbopack (PNG -> StaticImageData, usar .src).
-L.Icon.Default.mergeOptions({
-  iconUrl: (iconUrl as { src: string }).src,
-  iconRetinaUrl: (iconRetinaUrl as { src: string }).src,
-  shadowUrl: (shadowUrl as { src: string }).src,
-});
+// Punto coloreado por estado (verde=recibiendo, gris=inactivo). DivIcon en vez de
+// la imagen default de leaflet: evita el marker roto y es literalmente un punto.
+const dotIcon = (activo: boolean) =>
+  L.divIcon({
+    className: "",
+    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);background:${activo ? "#16a34a" : "#9ca3af"}"></span>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+    popupAnchor: [0, -8],
+  });
 
 // Vista inicial: Venezuela completa (se ajusta a los marcadores si hay).
 const VENEZUELA: [number, number] = [8, -66];
@@ -42,11 +43,17 @@ export default function MapaCentros({ puntos }: { puntos: MapaPunto[] }) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {puntos.map((p) => (
-        <Marker key={p.id} position={[p.latitud, p.longitud]}>
+        <Marker
+          key={p.id}
+          position={[p.latitud, p.longitud]}
+          icon={dotIcon(p.recibiendoAhora)}
+        >
           <Popup>
             <strong>{p.nombre}</strong>
             <br />
             {p.ciudad}
+            <br />
+            {p.recibiendoAhora ? "🟢 Recibiendo ahora" : "⚪ Inactivo"}
             <br />
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`}
