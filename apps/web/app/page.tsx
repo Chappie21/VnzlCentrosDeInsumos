@@ -35,6 +35,30 @@ function Shell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <footer className="mx-auto w-full max-w-[1024px] px-4 pb-6 text-center text-xs text-on-surface-variant">
+        <p>
+          Hecho por:{" "}
+          <a
+            href="https://www.linkedin.com/in/andr%C3%A9s-chaparro/"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary-container underline hover:no-underline"
+          >
+            Andres Chaparro
+          </a>{" "}
+          y{" "}
+          <a
+            href="https://www.linkedin.com/in/victor-atencio/"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary-container underline hover:no-underline"
+          >
+            Victor Atencio
+          </a>
+        </p>
+        <p className="mt-1">Dios bendiga a Venezuela</p>
+      </footer>
     </div>
   );
 }
