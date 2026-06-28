@@ -11,7 +11,6 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#ffffff",
     theme_color: THEME_COLOR,
     lang: "es",
-    // ponytail: sin assets de ícono todavía; agregar icons[] cuando exista el logo.
-    icons: [],
+    icons: [{ src: "/icon.svg", type: "image/svg+xml", sizes: "any" }],
   };
 }
