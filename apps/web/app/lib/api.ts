@@ -309,6 +309,9 @@ export type CentroModeracion = {
   geoLng: number | null;
   distanciaGeoM: number | null;
   responsable: { nombre: string | null; cedula: string | null; telefono: string | null } | null;
+  reportesCount: number;
+  reportado: boolean;
+  reportes: { motivo: MotivoReporte; comentario: string | null; creadoEn: string }[];
 };
 
 export async function getModeracion(
@@ -335,4 +338,21 @@ export async function verificarCentro(
     body: JSON.stringify({ estado }),
   });
   if (!res.ok) throw new Error("No se pudo actualizar la verificación");
+}
+
+// ---- Reporte comunitario (CEN-22) ----
+
+export type MotivoReporte = "NO_EXISTE" | "INFO_INCORRECTA" | "ENGANOSO";
+
+// Reportar un centro inválido. Anónimo (fingerprint en el header, vía apiFetch).
+export async function reportarCentro(
+  centroId: string,
+  motivo: MotivoReporte,
+  comentario?: string,
+): Promise<void> {
+  const res = await apiFetch(`/centros/${centroId}/reportes`, {
+    method: "POST",
+    body: JSON.stringify({ motivo, ...(comentario ? { comentario } : {}) }),
+  });
+  if (!res.ok) throw new Error("No se pudo enviar el reporte");
 }
