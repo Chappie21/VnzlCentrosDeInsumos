@@ -27,7 +27,7 @@ export default function QrScanner({ onScan }: { onScan: (text: string) => void }
         );
         if (cancelled) await s.stop().catch(() => {});
       } catch {
-        if (!cancelled) setError("No se pudo acceder a la cámara. Revisá los permisos del navegador.");
+        if (!cancelled) setError("No se pudo acceder a la cámara. Revisa los permisos del navegador.");
       }
     })();
 

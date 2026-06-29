@@ -54,15 +54,15 @@ export default function GeolocationCard({
 
       {denied && (
         <p className="text-xs text-emergency">
-          Permiso de ubicación denegado. Tocá el mapa para marcar la ubicación o
-          intentá de nuevo desde los ajustes del navegador.
+          Permiso de ubicación denegado. Toca el mapa para marcar la ubicación o
+          intenta de nuevo desde los ajustes del navegador.
         </p>
       )}
 
       {/* Mapa interactivo: tocar o arrastrar el marcador fija lat/lng. */}
       <Map value={coords} onChange={onPick} recenterKey={recenterKey} />
       <p className="text-xs text-on-surface-variant">
-        Tocá el mapa o arrastrá el marcador para fijar la ubicación.
+        Toca el mapa o arrastra el marcador para fijar la ubicación.
       </p>
 
       <div className="grid grid-cols-2 gap-4">

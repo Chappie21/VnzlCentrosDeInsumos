@@ -17,7 +17,7 @@ export default function MapaPage() {
       <EmptyState
         icon="error"
         title="No se pudo cargar el mapa"
-        subtitle="Revisá tu conexión e intentá de nuevo."
+        subtitle="Revisa tu conexión e intenta de nuevo."
       />
     );
 

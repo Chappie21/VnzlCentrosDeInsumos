@@ -21,6 +21,7 @@ import { Type } from "class-transformer";
 import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, JefeGuard, userIdOf } from "./guards";
+import { calcularNivel } from "./constants/insumos";
 
 class MovimientoDto {
   @IsString() insumoId: string;
@@ -88,6 +89,24 @@ export class HistorialService {
     ];
   }
 
+  // Recalcula `nivel` de los insumos cuyos umbrales aplican, tras mover stock.
+  // ponytail: corre justo después de la $transaction de stock, no dentro. El nivel
+  // es cosmético (no afecta la regla de oro de cantidadTotal), así que una ventana
+  // de carrera ínfima es aceptable y converge. Si molesta, mover dentro de cada tx.
+  private async recalcularNiveles(insumoIds: string[]) {
+    const insumos = await prisma.insumo.findMany({
+      where: { id: { in: insumoIds } },
+      select: { id: true, cantidadTotal: true, nivel: true, umbralUrgente: true, umbralSuficiente: true },
+    });
+    await Promise.all(
+      insumos.map((i) => {
+        const nuevo = calcularNivel(i.cantidadTotal, i.umbralUrgente, i.umbralSuficiente);
+        if (nuevo == null || nuevo === i.nivel) return Promise.resolve();
+        return prisma.insumo.update({ where: { id: i.id }, data: { nivel: nuevo } });
+      }),
+    );
+  }
+
   // Ajuste manual (solo JEFE). Valida pertenencia al centro y que el stock no
   // quede negativo. Movimiento etiquetado AJUSTE (no cuenta como donación).
   async ajuste(usuarioId: string, dto: AjusteDto) {
@@ -106,6 +125,7 @@ export class HistorialService {
     const [hist] = await prisma.$transaction(
       this.moveOps(prisma, dto.insumoId, usuarioId, dto.cantidad, TipoMovimiento.AJUSTE),
     );
+    await this.recalcularNiveles([dto.insumoId]);
     await this.redis.bumpCentros();
     return hist;
   }
@@ -120,6 +140,7 @@ export class HistorialService {
     }
 
     const [hist] = await prisma.$transaction(this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad));
+    await this.recalcularNiveles([m.insumoId]);
     await this.redis.bumpCentros();
     return hist;
   }
@@ -137,6 +158,7 @@ export class HistorialService {
     await prisma.$transaction(
       dto.movimientos.flatMap((m) => this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad)),
     );
+    await this.recalcularNiveles(dto.movimientos.map((m) => m.insumoId));
     await this.redis.bumpCentros();
     return { ok: true, aplicados: dto.movimientos.length };
   }
@@ -155,7 +177,8 @@ export class HistorialService {
     }
     const items = [...byKey.values()];
 
-    await prisma.$transaction(async (tx) => {
+    const insumoIds = await prisma.$transaction(async (tx) => {
+      const ids: string[] = [];
       for (const it of items) {
         let insumo = await tx.insumo.findFirst({
           where: { centroId: dto.centroId, nombre: { equals: it.nombre, mode: "insensitive" } },
@@ -180,8 +203,11 @@ export class HistorialService {
           where: { id: insumo.id },
           data: { cantidadTotal: { increment: it.cantidad } },
         });
+        ids.push(insumo.id);
       }
+      return ids;
     });
+    await this.recalcularNiveles(insumoIds);
     await this.redis.bumpCentros();
     return { ok: true, recibidos: items.length };
   }

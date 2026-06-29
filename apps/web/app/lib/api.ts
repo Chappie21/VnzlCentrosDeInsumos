@@ -189,6 +189,10 @@ export type InsumoDetalle = {
   nivel: NivelInsumo;
   categoria: string | null;
   cantidadTotal: number;
+  // Umbrales del nivel automático. Si ambos != null el nivel se autocalcula y la UI
+  // lo muestra de solo lectura. null = nivel manual.
+  umbralUrgente: number | null;
+  umbralSuficiente: number | null;
 };
 
 export type CentroDetalle = {
@@ -265,6 +269,20 @@ export type UpdateInsumoBody = {
 };
 export function updateInsumo(id: string, body: UpdateInsumoBody) {
   return apiFetch(`/insumos/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+// Configurar umbrales por insumo (solo JEFE). null en cualquiera de los dos = limpiar
+// (insumo vuelve a nivel manual). El backend recalcula `nivel` con el stock actual.
+export type UmbralFila = {
+  insumoId: string;
+  umbralUrgente: number | null;
+  umbralSuficiente: number | null;
+};
+export function updateUmbrales(centroId: string, insumos: UmbralFila[]) {
+  return apiFetch(`/centros/${centroId}/umbrales`, {
+    method: "PATCH",
+    body: JSON.stringify({ insumos }),
+  });
 }
 
 // Ajuste manual de stock (solo JEFE). cantidad ≠ 0 (+/-). Devuelve el Response para
