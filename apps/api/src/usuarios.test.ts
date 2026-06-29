@@ -6,6 +6,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     voluntario: { upsert: vi.fn() },
     centro: { findUnique: vi.fn() },
+    usuario: { update: vi.fn() },
   },
 }));
 
@@ -25,10 +26,26 @@ const jwt = {
   verify: vi.fn(),
 } as any;
 
-const service = new UsuariosService(jwt);
+const cedula = { validarYGuardar: vi.fn().mockResolvedValue(undefined) } as any;
+const service = new UsuariosService(jwt, cedula);
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("UsuariosService.onboard", () => {
+  it("actualiza la fila, dispara la validación de cédula y devuelve el usuario", async () => {
+    const updated = { id: "u1", nombre: "Ana", cedula: "V12345678", telefono: "04141234567" };
+    prismaMock.usuario.update.mockResolvedValue(updated);
+
+    const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+    const res = await service.onboard("u1", dto);
+
+    expect(prismaMock.usuario.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: dto });
+    // CEN-23: onboarding (path Google) dispara la validación (fire-and-forget)
+    expect(cedula.validarYGuardar).toHaveBeenCalledWith("u1");
+    expect(res).toBe(updated);
+  });
 });
 
 describe("UsuariosService.invite", () => {

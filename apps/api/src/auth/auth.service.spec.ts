@@ -26,7 +26,8 @@ import { AuthService } from "./auth.service";
 import { verifyUserToken } from "./jwt-session";
 
 const jwt = new JwtService({ secret: "test-secret" });
-const service = new AuthService(jwt);
+const cedula = { validarYGuardar: vi.fn().mockResolvedValue(undefined) } as any;
+const service = new AuthService(jwt, cedula);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -73,6 +74,9 @@ describe("AuthService.register", () => {
       telefono: "04141234567",
     });
     expect(res.usuario).toHaveProperty("identidadCompleta");
+
+    // CEN-23: el registro dispara la validación de cédula (fire-and-forget)
+    expect(cedula.validarYGuardar).toHaveBeenCalledWith("user-uuid-1");
   });
 
   it("lanza ConflictException si la cédula ya existe", async () => {

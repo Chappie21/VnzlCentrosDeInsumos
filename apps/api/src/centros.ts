@@ -37,7 +37,7 @@ import { Transform, Type } from "class-transformer";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
-import { ESTADOS, municipiosDe, distanciaMetros, parseCedula } from "@vnzl/venezuela";
+import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
 import { CedulaService } from "./cedula";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
@@ -576,28 +576,6 @@ export class CentrosService {
     private readonly cedula: CedulaService,
   ) {}
 
-  // Valida la cédula del creador UNA sola vez y la cachea en Usuario (CEN-23).
-  // Best-effort y fire-and-forget: no bloquea ni demora la creación del centro.
-  private async validarCedulaCreador(userId: string): Promise<void> {
-    try {
-      const u = await prisma.usuario.findUnique({
-        where: { id: userId },
-        select: { cedula: true, cedulaVerificada: true },
-      });
-      if (!u?.cedula || u.cedulaVerificada != null) return; // ya validada o sin cédula
-      const parsed = parseCedula(u.cedula);
-      if (!parsed.valid || !parsed.data) return;
-      const r = await this.cedula.verificar(parsed.data.tipo, parsed.data.numero);
-      if (!r) return; // API caída/sin config → reintenta en el próximo centro
-      await prisma.usuario.update({
-        where: { id: userId },
-        data: { cedulaVerificada: r.existe, cedulaNombre: r.nombre, cedulaVerificadaEn: new Date() },
-      });
-    } catch {
-      /* best-effort */
-    }
-  }
-
   private buildWhere(q: ListCentrosQueryDto): Prisma.CentroWhereInput {
     return {
       ...(q.q && {
@@ -756,7 +734,7 @@ export class CentrosService {
       return c;
     });
     await this.redis.bumpCentros();
-    void this.validarCedulaCreador(userId); // CEN-23: en segundo plano
+    void this.cedula.validarYGuardar(userId); // CEN-23: en segundo plano
     return centro;
   }
 

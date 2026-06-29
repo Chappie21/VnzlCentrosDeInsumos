@@ -32,7 +32,9 @@ tres caminos: **Quiero Donar**, **Entrar y Ayudar** o **Solo quiero observar** (
 - **Backend**
   - `POST /usuarios/onboard` — guarda nombre/cédula/teléfono contra el fingerprint.
   - `GET /usuarios/me` — devuelve la identidad del fingerprint + `identidadCompleta`.
-- **Datos**: modelo `Usuario` (PK `fingerprint`, nombre/cédula/teléfono nullable).
+- **Datos**: modelo `Usuario` (PK `id` uuid; nombre/cédula/teléfono nullable). La cédula
+  se valida contra api.cedula.com.ve en segundo plano vía `CedulaService.validarYGuardar`
+  (CEN-23) tras register/onboard; sentinel `cedulaVerificadaEn` (null = pendiente de intentar).
 
 ## 4. Seguridad y edge cases
 - Toda request lleva `x-fingerprint` (lo exige `fingerprintOf` en el backend).

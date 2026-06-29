@@ -21,6 +21,7 @@ import {
   identidadCompleta,
 } from "./guards";
 import { INVITACION } from "./constants";
+import { CedulaService } from "./cedula";
 
 // ---------------------------------------------------------------------------
 // Normalizers (exported so AuthService can reuse them — DRY).
@@ -72,7 +73,10 @@ class AceptarInvitacionDto {
 
 @Injectable()
 export class UsuariosService {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly cedula: CedulaService,
+  ) {}
 
   // Public profile of the current user (spec §3). Returns nulls for incomplete identity.
   async me(userId: string) {
@@ -87,12 +91,14 @@ export class UsuariosService {
   }
 
   // Onboarding (spec §3): name/cedula/phone required before contributing.
-  onboard(userId: string, dto: OnboardDto) {
+  async onboard(userId: string, dto: OnboardDto) {
     // el JWT de sesión solo se emite tras crear el Usuario, así que la fila siempre existe
-    return prisma.usuario.update({
+    const usuario = await prisma.usuario.update({
       where: { id: userId },
       data: dto,
     });
+    void this.cedula.validarYGuardar(userId); // CEN-23: valida en segundo plano (path Google)
+    return usuario;
   }
 
   // Invitación = JWT corto ligado a un centro (spec §4). El front arma la URL absoluta.

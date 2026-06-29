@@ -1,5 +1,7 @@
 import * as https from "https";
 import { Injectable } from "@nestjs/common";
+import { prisma } from "@vnzl/database";
+import { parseCedula } from "@vnzl/venezuela";
 
 type CedulaData = {
   primer_nombre?: string;
@@ -40,6 +42,30 @@ export class CedulaService {
       return interpretarRespuesta(await this.getJson(url));
     } catch {
       return null;
+    }
+  }
+
+  // Valida la cédula de un usuario UNA sola vez y cachea el resultado en Usuario
+  // (CEN-23). Best-effort, fire-and-forget e idempotente: no bloquea el flujo.
+  // Sentinel "ya intentada" = `cedulaVerificadaEn` (timestamp). null = pendiente;
+  // si la API responde null (caída/sin config) no se escribe → se reintenta luego.
+  async validarYGuardar(userId: string): Promise<void> {
+    try {
+      const u = await prisma.usuario.findUnique({
+        where: { id: userId },
+        select: { cedula: true, cedulaVerificadaEn: true },
+      });
+      if (!u?.cedula || u.cedulaVerificadaEn != null) return; // ya intentada o sin cédula
+      const parsed = parseCedula(u.cedula);
+      if (!parsed.valid || !parsed.data) return;
+      const r = await this.verificar(parsed.data.tipo, parsed.data.numero);
+      if (!r) return; // API caída/sin config → reintenta en el próximo trigger
+      await prisma.usuario.update({
+        where: { id: userId },
+        data: { cedulaVerificada: r.existe, cedulaNombre: r.nombre, cedulaVerificadaEn: new Date() },
+      });
+    } catch {
+      /* best-effort */
     }
   }
 
