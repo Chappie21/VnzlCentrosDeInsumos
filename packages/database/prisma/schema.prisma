@@ -95,6 +95,11 @@ model Insumo {
   cantidadTotal Int             @default(0)
   nivel         NivelInsumo     @default(NORMAL) // color del badge (URGENTE/NORMAL/SUFICIENTE)
   categoria     CategoriaInsumo? // ícono del badge
+  // Umbrales opcionales: si AMBOS están seteados, `nivel` se autocalcula desde
+  // `cantidadTotal` (<= urgente -> URGENTE, >= suficiente -> SUFICIENTE, medio -> NORMAL).
+  // null en cualquiera = sin umbrales = nivel manual. Ver constants/insumos.ts calcularNivel.
+  umbralUrgente    Int? // <= -> URGENTE
+  umbralSuficiente Int? // >= -> SUFICIENTE
 
   centro      Centro      @relation(fields: [centroId], references: [id])
   movimientos Historial[]

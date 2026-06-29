@@ -35,7 +35,7 @@ export class InsumosService {
   async actualizar(userId: string, insumoId: string, dto: UpdateInsumoDto) {
     const insumo = await prisma.insumo.findUnique({
       where: { id: insumoId },
-      select: { centroId: true, nivel: true },
+      select: { centroId: true, nivel: true, umbralUrgente: true, umbralSuficiente: true },
     });
     if (!insumo) throw new NotFoundException("Insumo no encontrado");
 
@@ -43,6 +43,14 @@ export class InsumosService {
       where: { usuarioId_centroId: { usuarioId: userId, centroId: insumo.centroId } },
     });
     if (!link) throw new ForbiddenException("No eres voluntario de este centro");
+
+    // Si el insumo tiene umbrales, el nivel es automático: no se edita a mano.
+    if (
+      dto.nivel !== undefined &&
+      insumo.umbralUrgente != null &&
+      insumo.umbralSuficiente != null
+    )
+      throw new ForbiddenException("El nivel es automático para este insumo");
 
     const actualizado = await prisma.insumo.update({ where: { id: insumoId }, data: dto });
     if (dto.nivel !== undefined && dto.nivel !== insumo.nivel) await this.redis.bumpCentros();

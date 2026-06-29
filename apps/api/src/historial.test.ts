@@ -10,7 +10,7 @@ const { tx, prismaMock } = vi.hoisted(() => {
     tx,
     prismaMock: {
       $transaction: vi.fn(),
-      insumo: { findUnique: vi.fn(), update: vi.fn() },
+      insumo: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
       historial: { create: vi.fn() },
     },
   };
@@ -38,6 +38,8 @@ const service = new HistorialService(redis);
 beforeEach(() => {
   vi.clearAllMocks();
   prismaMock.$transaction.mockImplementation(async (fn: any) => fn(tx));
+  // recalcularNiveles() corre tras cada movimiento; sin filas no recalcula nada.
+  prismaMock.insumo.findMany.mockResolvedValue([]);
 });
 
 describe("HistorialService.recibir — donación por nombre", () => {
@@ -164,6 +166,39 @@ describe("HistorialService.addOne — movimiento simple", () => {
     await expect(
       service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 })
     ).rejects.toThrow(/no pertenece al centro/i);
+  });
+});
+
+describe("HistorialService — recálculo de nivel por evento", () => {
+  it("tras mover stock, recalcula el nivel del insumo con umbrales", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1" });
+    prismaMock.$transaction.mockResolvedValue(["hist"]);
+    // El stock ya cruzó el umbral suficiente (12 >= 10) y el nivel viejo era URGENTE.
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 12, nivel: "URGENTE", umbralUrgente: 3, umbralSuficiente: 10 },
+    ]);
+
+    await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 7 });
+
+    expect(prismaMock.insumo.update).toHaveBeenCalledWith({
+      where: { id: "i1" },
+      data: { nivel: "SUFICIENTE" },
+    });
+  });
+
+  it("no recalcula si el insumo no tiene umbrales (nivel manual)", async () => {
+    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1" });
+    prismaMock.$transaction.mockResolvedValue(["hist"]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 12, nivel: "URGENTE", umbralUrgente: null, umbralSuficiente: null },
+    ]);
+
+    await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 7 });
+
+    // El increment de moveOps sí ocurre; lo que NO debe ocurrir es un update de `nivel`.
+    expect(prismaMock.insumo.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ nivel: expect.anything() }) }),
+    );
   });
 });
 

@@ -14,6 +14,7 @@ const { prismaMock } = vi.hoisted(() => ({
       update: vi.fn(),
     },
     historial: { count: vi.fn() },
+    insumo: { findMany: vi.fn(), update: vi.fn() },
     voluntario: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -46,6 +47,7 @@ import {
   InsumoInicialDto,
   UpdateCentroDto,
   UpdateOperativoDto,
+  UpdateUmbralesDto,
 } from "./centros";
 
 // redis fake: cached() ejecuta el fn directo; version fija.
@@ -666,5 +668,58 @@ describe("CentrosService.mapaCoords", () => {
     expect(puntos).toEqual([
       { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
     ]);
+  });
+});
+
+describe("CentrosService.actualizarUmbrales — nivel automático (JEFE)", () => {
+  beforeEach(() => {
+    // forma array de $transaction: ejecuta los updates en paralelo.
+    prismaMock.$transaction.mockImplementation(async (ops: any) => Promise.all(ops));
+  });
+
+  it("setea umbrales y recalcula nivel con el stock actual", async () => {
+    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
+
+    await service.actualizarUmbrales("c1", {
+      insumos: [{ insumoId: "i1", umbralUrgente: 3, umbralSuficiente: 10 }],
+    });
+
+    // stock 2 <= 3 -> URGENTE; se persiste junto con los umbrales.
+    expect(prismaMock.insumo.update).toHaveBeenCalledWith({
+      where: { id: "i1" },
+      data: { umbralUrgente: 3, umbralSuficiente: 10, nivel: "URGENTE" },
+    });
+    expect(redis.bumpCentros).toHaveBeenCalled();
+  });
+
+  it("limpiar umbrales (null) no toca el nivel (vuelve a manual)", async () => {
+    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
+
+    await service.actualizarUmbrales("c1", {
+      insumos: [{ insumoId: "i1", umbralUrgente: null, umbralSuficiente: null }],
+    });
+
+    expect(prismaMock.insumo.update).toHaveBeenCalledWith({
+      where: { id: "i1" },
+      data: { umbralUrgente: null, umbralSuficiente: null },
+    });
+  });
+
+  it("rechaza umbralUrgente >= umbralSuficiente", async () => {
+    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
+    await expect(
+      service.actualizarUmbrales("c1", {
+        insumos: [{ insumoId: "i1", umbralUrgente: 10, umbralSuficiente: 5 }],
+      }),
+    ).rejects.toThrow(/menor que/i);
+  });
+
+  it("rechaza un insumo de otro centro", async () => {
+    prismaMock.insumo.findMany.mockResolvedValue([]); // no pertenece a c1
+    await expect(
+      service.actualizarUmbrales("c1", {
+        insumos: [{ insumoId: "ajeno", umbralUrgente: 1, umbralSuficiente: 5 }],
+      }),
+    ).rejects.toThrow(/no pertenece/i);
   });
 });

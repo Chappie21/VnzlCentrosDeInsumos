@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -40,6 +41,7 @@ import { ESTADOS, municipiosDe, distanciaMetros, parseCedula } from "@vnzl/venez
 import { RedisService } from "./redis.service";
 import { CedulaService } from "./cedula";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
+import { calcularNivel } from "./constants/insumos";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
 
@@ -132,6 +134,21 @@ export class UpdateCentroDto {
 export class UpdateOperativoDto {
   @IsOptional() @IsBoolean() recibiendoAhora?: boolean;
   @IsOptional() @IsString() horarioCierre?: string | null;
+}
+
+// Umbrales por insumo (solo JEFE). `null` en cualquiera de los dos = limpiar
+// (insumo vuelve a nivel manual). @ValidateIf deja pasar el null sin disparar @IsInt.
+class UmbralFilaDto {
+  @IsString() insumoId: string;
+  @ValidateIf((_, v) => v !== null) @IsOptional() @IsInt() @Min(0) umbralUrgente?: number | null;
+  @ValidateIf((_, v) => v !== null) @IsOptional() @IsInt() @Min(0) umbralSuficiente?: number | null;
+}
+
+export class UpdateUmbralesDto {
+  @IsArray() @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => UmbralFilaDto)
+  insumos: UmbralFilaDto[];
 }
 
 class ListCentrosQueryDto {
@@ -316,7 +333,7 @@ const detalleSelect = (userId: string) =>
     fotoUrl: true,
     creadoEn: true,
     insumos: {
-      select: { id: true, nombre: true, descripcion: true, nivel: true, categoria: true, cantidadTotal: true },
+      select: { id: true, nombre: true, descripcion: true, nivel: true, categoria: true, cantidadTotal: true, umbralUrgente: true, umbralSuficiente: true },
     },
     _count: { select: { voluntarios: true } },
     voluntarios: { where: { usuarioId: userId }, select: { rol: true }, take: 1 },
@@ -331,6 +348,8 @@ export type InsumoDetalle = {
   nivel: NivelInsumo;
   categoria: CategoriaInsumo | null;
   cantidadTotal: number;
+  umbralUrgente: number | null;
+  umbralSuficiente: number | null;
 };
 
 export type CentroDetalle = {
@@ -806,6 +825,42 @@ export class CentrosService {
     return centro;
   }
 
+  // Umbrales por insumo (solo JEFE). Valida pertenencia al centro y coherencia
+  // (urgente < suficiente). Recalcula `nivel` con el stock actual en la misma tx
+  // (reusa calcularNivel). Si se limpia (null) calcularNivel devuelve null y el
+  // nivel no se toca: el insumo vuelve a manual. bumpCentros: el badge va al directorio.
+  async actualizarUmbrales(centroId: string, dto: UpdateUmbralesDto) {
+    const ids = dto.insumos.map((f) => f.insumoId);
+    const propios = await prisma.insumo.findMany({
+      where: { id: { in: ids }, centroId },
+      select: { id: true, cantidadTotal: true },
+    });
+    const owned = new Map(propios.map((i) => [i.id, i]));
+
+    for (const f of dto.insumos) {
+      if (!owned.has(f.insumoId))
+        throw new BadRequestException("Insumo no pertenece al centro");
+      const u = f.umbralUrgente ?? null;
+      const s = f.umbralSuficiente ?? null;
+      if (u != null && s != null && u >= s)
+        throw new BadRequestException("umbralUrgente debe ser menor que umbralSuficiente");
+    }
+
+    await prisma.$transaction(
+      dto.insumos.map((f) => {
+        const u = f.umbralUrgente ?? null;
+        const s = f.umbralSuficiente ?? null;
+        const nivel = calcularNivel(owned.get(f.insumoId)!.cantidadTotal, u, s);
+        return prisma.insumo.update({
+          where: { id: f.insumoId },
+          data: { umbralUrgente: u, umbralSuficiente: s, ...(nivel != null ? { nivel } : {}) },
+        });
+      }),
+    );
+    await this.redis.bumpCentros();
+    return { ok: true, actualizados: dto.insumos.length };
+  }
+
   // Miembros de un centro (solo JEFE, garantizado por JefeGuard). El JEFE primero
   // ("JEFE" < "VOLUNTARIO"), luego por antigüedad. Sin cache: data sensible y chica.
   async listarVoluntarios(centroId: string): Promise<VoluntarioItem[]> {
@@ -976,6 +1031,13 @@ export class CentrosController {
   @UseGuards(IdentidadGuard, VoluntarioGuard)
   actualizarOperativo(@Param("centroId") centroId: string, @Body() dto: UpdateOperativoDto) {
     return this.service.actualizarOperativo(centroId, dto);
+  }
+
+  // Configurar umbrales por insumo (nivel automático): solo el JEFE.
+  @Patch(":centroId/umbrales")
+  @UseGuards(IdentidadGuard, JefeGuard)
+  actualizarUmbrales(@Param("centroId") centroId: string, @Body() dto: UpdateUmbralesDto) {
+    return this.service.actualizarUmbrales(centroId, dto);
   }
 
   // Verificar / rechazar un centro: solo el equipo (sesión JWT de admin).
