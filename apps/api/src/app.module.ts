@@ -3,6 +3,7 @@ import { APP_FILTER } from "@nestjs/core";
 import { JwtModule } from "@nestjs/jwt";
 import { SentryModule, SentryGlobalFilter } from "@sentry/nestjs/setup";
 import { RedisService } from "./redis.service";
+import { EmailService } from "./email.service";
 import { RateLimitGuard, VoluntarioGuard, JefeGuard, IdentidadGuard, AdminGuard } from "./guards";
 import { CentrosController, CentrosService } from "./centros";
 import { HistorialController, HistorialService } from "./historial";
@@ -35,6 +36,7 @@ import { AuthService } from "./auth/auth.service";
     // Captura excepciones no manejadas (500s) en Sentry; ignora 4xx esperados.
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     RedisService,
+    EmailService,
     RateLimitGuard,
     VoluntarioGuard,
     JefeGuard,

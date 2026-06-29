@@ -39,6 +39,7 @@ import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
 import { ESTADOS, municipiosDe, distanciaMetros, parseCedula } from "@vnzl/venezuela";
 import { RedisService } from "./redis.service";
+import { EmailService } from "./email.service";
 import { CedulaService } from "./cedula";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
 import { calcularNivel } from "./constants/insumos";
@@ -574,6 +575,7 @@ export class CentrosService {
   constructor(
     private readonly redis: RedisService,
     private readonly cedula: CedulaService,
+    private readonly email: EmailService,
   ) {}
 
   // Valida la cédula del creador UNA sola vez y la cachea en Usuario (CEN-23).
@@ -757,6 +759,7 @@ export class CentrosService {
     });
     await this.redis.bumpCentros();
     void this.validarCedulaCreador(userId); // CEN-23: en segundo plano
+    void this.email.notificarCentroNuevo(centro); // avisa a moderadores, best-effort
     return centro;
   }
 
