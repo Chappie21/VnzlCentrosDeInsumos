@@ -113,6 +113,10 @@ function Fila({
 
   const [abierto, setAbierto] = useState(false);
 
+  // Nivel automático: el insumo tiene ambos umbrales configurados. La UI lo muestra
+  // de solo lectura (el backend lo recalcula con el stock; editarlo a mano da 403).
+  const auto = insumo.umbralUrgente != null && insumo.umbralSuficiente != null;
+
   return (
     <li className="border-b border-outline-variant py-3 last:border-b-0">
       <div className="flex items-center justify-between gap-3">
@@ -121,19 +125,29 @@ function Fila({
           <p className="text-sm text-on-surface-variant">{insumo.cantidadTotal} en stock</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <select
-            aria-label={`Nivel de ${insumo.nombre}`}
-            value={insumo.nivel}
-            disabled={mutation.isPending}
-            onChange={(e) => mutation.mutate(e.target.value as NivelInsumo)}
-            className={`rounded-badge px-2 py-1 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 ${NIVEL_BADGE[insumo.nivel]}`}
-          >
-            {NIVELES.map((n) => (
-              <option key={n} value={n}>
-                {NIVEL_LABEL[n]}
-              </option>
-            ))}
-          </select>
+          {auto ? (
+            <span
+              title="Nivel automático según umbrales"
+              className={`inline-flex items-center gap-1 rounded-badge px-2 py-1 text-[11px] font-bold uppercase tracking-wider ${NIVEL_BADGE[insumo.nivel]}`}
+            >
+              <Icon name="bolt" className="text-[14px]" />
+              {NIVEL_LABEL[insumo.nivel]}
+            </span>
+          ) : (
+            <select
+              aria-label={`Nivel de ${insumo.nombre}`}
+              value={insumo.nivel}
+              disabled={mutation.isPending}
+              onChange={(e) => mutation.mutate(e.target.value as NivelInsumo)}
+              className={`rounded-badge px-2 py-1 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 ${NIVEL_BADGE[insumo.nivel]}`}
+            >
+              {NIVELES.map((n) => (
+                <option key={n} value={n}>
+                  {NIVEL_LABEL[n]}
+                </option>
+              ))}
+            </select>
+          )}
           {rol === "JEFE" && (
             <button
               type="button"

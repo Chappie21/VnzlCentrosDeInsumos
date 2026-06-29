@@ -97,13 +97,13 @@ export default function DirectorioCentros() {
             <EmptyState
               icon="error"
               title="No se pudo cargar el directorio"
-              subtitle="Revisá tu conexión e intentá de nuevo."
+              subtitle="Revisa tu conexión e intenta de nuevo."
             />
           ) : (
             <EmptyState
               icon="search_off"
               title="Sin resultados"
-              subtitle="Probá con otra búsqueda o quitá filtros."
+              subtitle="Prueba con otra búsqueda o quita filtros."
             />
           ))}
 

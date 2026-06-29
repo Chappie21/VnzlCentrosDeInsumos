@@ -87,15 +87,14 @@ export default function CentroForm({
     setValue("longitud", point.lng, { shouldValidate: true });
   }, [point, setValue]);
 
-  // Cascada: al cambiar el estado, la ciudad deja de ser válida. NO se limpia en
-  // el montaje para preservar la ciudad precargada al editar.
+  // Cascada: al CAMBIAR el estado, la ciudad deja de ser válida. Comparamos contra el
+  // estado previo (no un flag de montaje): así preserva la ciudad precargada al editar
+  // y es inmune al doble-efecto de StrictMode (que con un flag booleano la borraba).
   const estado = watch("estado");
-  const montado = useRef(false);
+  const estadoPrevio = useRef(estado);
   useEffect(() => {
-    if (!montado.current) {
-      montado.current = true;
-      return;
-    }
+    if (estadoPrevio.current === estado) return; // montaje o sin cambio real
+    estadoPrevio.current = estado;
     setValue("ciudad", "", { shouldValidate: true });
   }, [estado, setValue]);
 
@@ -140,7 +139,7 @@ export default function CentroForm({
           <SelectField
             label="Ciudad"
             icon="location_city"
-            placeholder={estado ? "Ciudad" : "Elegí estado"}
+            placeholder={estado ? "Ciudad" : "Elige estado"}
             options={municipiosDe(estado)}
             defaultValue=""
             disabled={!estado}

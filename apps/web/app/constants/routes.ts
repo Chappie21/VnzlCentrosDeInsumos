@@ -9,6 +9,7 @@ export const ROUTES = {
   misCentroEditar: (id: string) => `/mis-centros/${id}/editar`,
   invitarVoluntarios: (id: string) => `/mis-centros/${id}/invitar`,
   gestionarVoluntarios: (id: string) => `/mis-centros/${id}/voluntarios`,
+  configurarUmbrales: (id: string) => `/mis-centros/${id}/umbrales`,
   reporteInventario: (id: string) => `/reporte/${id}`,
   unirse: (token: string) => `/unirse/${token}`,
   nuevoEnvio: (centroId: string) => `/envios/nuevo?centro=${centroId}`,

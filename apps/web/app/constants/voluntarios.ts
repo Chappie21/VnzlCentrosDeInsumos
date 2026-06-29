@@ -6,10 +6,10 @@ export const VOLUNTARIOS = {
   buscar: "Buscar por nombre o contacto…",
   cargando: "Cargando voluntarios…",
   vacioTitulo: "Sin voluntarios todavía",
-  vacioSubtitulo: "Invitá a tu equipo para que se una al centro.",
+  vacioSubtitulo: "Invita a tu equipo para que se una al centro.",
   sinResultados: "Ningún voluntario coincide con la búsqueda.",
   errorTitulo: "No se pudieron cargar los voluntarios",
-  errorSubtitulo: "Revisá tu conexión e intentá de nuevo.",
+  errorSubtitulo: "Revisa tu conexión e intenta de nuevo.",
   // Gate de rol (la API igual lo refuerza con JefeGuard).
   soloJefeTitulo: "Solo el jefe gestiona voluntarios",
   soloJefeSubtitulo: "Esta sección está disponible para el responsable del centro.",

@@ -39,7 +39,7 @@ export default function MisCentros() {
       <EmptyState
         icon="error"
         title="No se pudieron cargar tus centros"
-        subtitle="Revisá tu conexión e intentá de nuevo."
+        subtitle="Revisa tu conexión e intenta de nuevo."
       />
     );
   }
@@ -53,8 +53,8 @@ export default function MisCentros() {
       <>
         <EmptyState
           icon="home_work"
-          title="Todavía no tenés centros"
-          subtitle="Creá un centro de acopio o sumate como voluntario a uno existente."
+          title="Todavía no tienes centros"
+          subtitle="Crea un centro de acopio o súmate como voluntario a uno existente."
         />
         <Fab icon="add" label="Crear centro de acopio" onClick={crear} />
       </>

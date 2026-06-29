@@ -1,7 +1,7 @@
 // Textos de la invitación de voluntarios (vista invitar + página de unión).
 export const INVITAR = {
   titulo: "Invitar Ayudantes",
-  subtitulo: "Compartí este QR o enlace para que se unan como voluntarios.",
+  subtitulo: "Comparte este QR o enlace para que se unan como voluntarios.",
   escanear: "Escanear para unirse",
   enlace: "Compartir enlace de invitación",
   copiar: "Copiar",
