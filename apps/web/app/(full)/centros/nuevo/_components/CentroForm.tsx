@@ -139,7 +139,7 @@ export default function CentroForm({
           <SelectField
             label="Ciudad"
             icon="location_city"
-            placeholder={estado ? "Ciudad" : "Elegí estado"}
+            placeholder={estado ? "Ciudad" : "Elige estado"}
             options={municipiosDe(estado)}
             defaultValue=""
             disabled={!estado}

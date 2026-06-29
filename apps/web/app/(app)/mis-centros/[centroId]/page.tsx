@@ -59,7 +59,7 @@ export default function CentroDetallePage() {
             className="flex h-12 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high"
           >
             <Icon name="tune" />
-            Configurar umbrales
+            Configurar umbrales de suministros
           </Link>
           <Link
             href={ROUTES.reporteInventario(data.id)}

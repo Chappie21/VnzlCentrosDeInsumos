@@ -57,7 +57,7 @@ export default function InventarioInicialForm({ onSubmit, onBack, pending, apiEr
       }
       setSheets(parsed);
     } catch {
-      setImportError("No se pudo leer el archivo. Verificá que sea un Excel válido.");
+      setImportError("No se pudo leer el archivo. Verifica que sea un Excel válido.");
     }
   }
 

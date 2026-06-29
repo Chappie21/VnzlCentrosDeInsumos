@@ -89,13 +89,13 @@ export default function UmbralesPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-on-surface">Configurar umbrales</h1>
         <p className="text-on-surface-variant">
-          Definí el stock esperado por insumo. Con ambos valores, el nivel (urgente / normal /
-          suficiente) se ajusta solo según el stock. Dejá un campo vacío para volver al nivel manual.
+          Define el stock esperado por insumo. Con ambos valores, el nivel (urgente / normal /
+          suficiente) se ajusta solo según el stock. Deja un campo vacío para volver al nivel manual.
         </p>
       </header>
 
       {data.insumos.length === 0 ? (
-        <EmptyState icon="inventory_2" title="Sin insumos" subtitle="Cargá inventario para configurar umbrales." />
+        <EmptyState icon="inventory_2" title="Sin insumos" subtitle="Carga inventario para configurar umbrales." />
       ) : (
         <ul className="flex flex-col gap-3">
           {data.insumos.map((i) => {
