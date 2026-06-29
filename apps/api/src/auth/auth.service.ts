@@ -6,13 +6,17 @@ import { prisma } from "@vnzl/database";
 import { signUserToken } from "./jwt-session";
 import { normalizarCedula, normalizarTelefono } from "../usuarios";
 import { RegisterDto, LoginDto } from "./dto";
+import { CedulaService } from "../cedula";
 
 @Injectable()
 export class AuthService {
   // ponytail: cliente real en runtime, mock en test
   private googleClient: Pick<OAuth2Client, "verifyIdToken"> = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly cedula: CedulaService,
+  ) {}
 
   async register(dto: RegisterDto) {
     const cedula = normalizarCedula(dto.cedula);
@@ -22,6 +26,7 @@ export class AuthService {
     const usuario = await prisma.usuario.create({
       data: { nombre: dto.nombre.trim(), cedula, telefono, passwordHash: await hash(dto.password, 10) },
     });
+    void this.cedula.validarYGuardar(usuario.id); // CEN-23: valida en segundo plano
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
   }
 
