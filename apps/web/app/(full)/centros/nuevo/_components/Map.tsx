@@ -2,9 +2,6 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import iconUrl from "leaflet/dist/images/marker-icon.png";
-import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
-import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 import { useEffect } from "react";
 import {
   MapContainer,
@@ -15,12 +12,15 @@ import {
 } from "react-leaflet";
 import type { Coords } from "../../../../_hooks";
 
-// Fix de íconos del marker bajo Turbopack (los imports de PNG son StaticImageData
-// -> hay que usar .src). Corre una vez a nivel módulo.
-L.Icon.Default.mergeOptions({
-  iconUrl: (iconUrl as { src: string }).src,
-  iconRetinaUrl: (iconRetinaUrl as { src: string }).src,
-  shadowUrl: (shadowUrl as { src: string }).src,
+// Marker como divIcon (pin de Material Symbols, fuente ya cargada global) en vez de
+// la imagen PNG default de Leaflet: bajo Turbopack esos assets no resuelven y el
+// marcador queda invisible. Mismo enfoque que MapaCentros. iconAnchor = punta abajo.
+const pinIcon = L.divIcon({
+  className: "",
+  html: `<span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;font-size:40px;line-height:1;display:block;color:#b3261e;text-shadow:0 1px 2px rgba(0,0,0,.4)">location_on</span>`,
+  iconSize: [40, 40],
+  iconAnchor: [20, 38],
+  popupAnchor: [0, -36],
 });
 
 // Centro por defecto: Caracas (el usuario reposiciona clickeando o arrastrando).
@@ -69,6 +69,7 @@ export default function Map({ value, onChange, recenterKey, zoom = 13 }: MapProp
       {value && (
         <Marker
           position={[value.lat, value.lng]}
+          icon={pinIcon}
           draggable
           eventHandlers={{
             dragend(e) {

@@ -4,11 +4,8 @@ import type { ReactNode } from "react";
 
 // Mock de Leaflet y assets: jsdom no puede inicializar un mapa real.
 vi.mock("leaflet/dist/leaflet.css", () => ({}));
-vi.mock("leaflet/dist/images/marker-icon.png", () => ({ default: { src: "i" } }));
-vi.mock("leaflet/dist/images/marker-icon-2x.png", () => ({ default: { src: "i2" } }));
-vi.mock("leaflet/dist/images/marker-shadow.png", () => ({ default: { src: "s" } }));
 vi.mock("leaflet", () => ({
-  default: { Icon: { Default: { mergeOptions: vi.fn() } } },
+  default: { divIcon: vi.fn(() => ({})) },
 }));
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: ReactNode }) => (
