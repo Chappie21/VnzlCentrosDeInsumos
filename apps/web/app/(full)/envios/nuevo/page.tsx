@@ -41,7 +41,7 @@ function NuevoEnvio() {
     (async () => {
       const ok = hasFullIdentity() || (await syncIdentity()) != null;
       if (!ok) {
-        router.replace(`/?next=${encodeURIComponent("/envios/nuevo")}`);
+        router.replace(`/login?next=${encodeURIComponent("/envios/nuevo")}`);
         return;
       }
       try {

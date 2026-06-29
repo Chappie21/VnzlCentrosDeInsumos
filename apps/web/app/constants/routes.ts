@@ -1,5 +1,6 @@
 export const ROUTES = {
   home: "/",
+  login: "/login",
   donar: "/donar",
   centros: "/centros",
   centroDetalle: (id: string) => `/centros/${id}`,

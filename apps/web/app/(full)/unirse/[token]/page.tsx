@@ -23,7 +23,7 @@ export default function UnirsePage() {
     (async () => {
       const ok = hasFullIdentity() || (await syncIdentity()) != null;
       if (!ok) {
-        router.replace(`/?next=${encodeURIComponent(ROUTES.unirse(token))}`);
+        router.replace(`/login?next=${encodeURIComponent(ROUTES.unirse(token))}`);
         return;
       }
       try {
