@@ -25,7 +25,10 @@ const jwt = {
   verify: vi.fn(),
 } as any;
 
-const service = new UsuariosService(jwt);
+// CedulaService solo se usa en onboard (no en invite/accept); mock mínimo.
+const cedula = { validarParaRegistro: vi.fn() } as any;
+
+const service = new UsuariosService(jwt, cedula);
 
 beforeEach(() => {
   vi.clearAllMocks();

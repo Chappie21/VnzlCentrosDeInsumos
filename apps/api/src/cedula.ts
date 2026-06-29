@@ -1,5 +1,13 @@
 import * as https from "https";
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { parseCedula } from "@vnzl/venezuela";
+
+// Resultado del portón de registro: nombre a usar + estado de verificación.
+export type ValidacionRegistro = {
+  nombre: string | null; // oficial si se verificó, tecleado si fail-open
+  cedulaVerificada: boolean | null; // true=real, null=no se pudo consultar (fail-open)
+  cedulaNombre: string | null; // nombre oficial del registro (si se verificó)
+};
 
 type CedulaData = {
   primer_nombre?: string;
@@ -28,6 +36,36 @@ export function interpretarRespuesta(body: any): CedulaResultado {
 
 @Injectable()
 export class CedulaService {
+  // Portón de registro: valida la cédula contra el registro real.
+  // - Formato inválido → 400.
+  // - Cédula que NO corresponde a una persona real → 400 (no se puede registrar).
+  // - API caída / sin configurar → fail-open: deja pasar, marca no verificado (null).
+  // Si se verifica, devuelve el NOMBRE OFICIAL (decisión: ignorar el tecleado).
+  async validarParaRegistro(
+    cedula: string,
+    nombreTecleado?: string,
+  ): Promise<ValidacionRegistro> {
+    const parsed = parseCedula(cedula);
+    if (!parsed.valid || !parsed.data) {
+      throw new BadRequestException("Cédula inválida");
+    }
+    const r = await this.verificar(parsed.data.tipo, parsed.data.numero);
+    if (r === null) {
+      // fail-open: no se pudo consultar ahora
+      return { nombre: nombreTecleado?.trim() || null, cedulaVerificada: null, cedulaNombre: null };
+    }
+    if (!r.existe) {
+      throw new BadRequestException(
+        "La cédula no corresponde a una persona real. Verifica el número.",
+      );
+    }
+    return {
+      nombre: r.nombre || nombreTecleado?.trim() || null,
+      cedulaVerificada: true,
+      cedulaNombre: r.nombre,
+    };
+  }
+
   // Resultado, o null si no se pudo consultar (sin config / API caída / timeout).
   async verificar(nacionalidad: "V" | "E", numero: number): Promise<CedulaResultado | null> {
     const appId = process.env.APP_ID_CEDULA;

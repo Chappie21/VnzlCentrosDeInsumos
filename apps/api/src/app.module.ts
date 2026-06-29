@@ -14,12 +14,23 @@ import { CedulaService } from "./cedula";
 import { AuthController } from "./auth/auth.controller";
 import { AuthService } from "./auth/auth.service";
 
+// Secreto de los JWT. En producción DEBE estar definido y no ser el default,
+// si no la app no arranca (evita firmar tokens con un secreto público).
+function jwtSecret(): string {
+  const s = process.env.JWT_SECRET;
+  if (s && s !== "dev-only-change-me") return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET debe estar definido (y no ser el default) en producción");
+  }
+  return "dev-only-change-me";
+}
+
 @Module({
   imports: [
     SentryModule.forRoot(),
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET || "dev-only-change-me",
+      secret: jwtSecret(),
     }),
   ],
   controllers: [
