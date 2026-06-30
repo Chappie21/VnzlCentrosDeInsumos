@@ -139,9 +139,7 @@ function ProfileView({
         <h2 className="text-2xl font-semibold text-on-surface">
           Hola, {identity.nombre.split(" ")[0]}
         </h2>
-        <p className="text-base text-on-surface-variant">
-          Tu sesión está activa. Puedes usar tu cuenta en cualquier dispositivo.
-        </p>
+        <p className="text-base text-on-surface-variant">Tu sesión está activa.</p>
       </div>
 
       <div className="space-y-3">
