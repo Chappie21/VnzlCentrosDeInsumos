@@ -1,0 +1,12 @@
+# Secretos (nunca commitear)
+.eleven.key
+.eleven.voice
+
+# Artefactos generados (cada quien los regenera)
+shots/
+slides/
+slides_v/
+*.mp4
+*.log
+state.env
+__pycache__/
