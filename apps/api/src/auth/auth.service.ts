@@ -5,6 +5,7 @@ import { OAuth2Client } from "google-auth-library";
 import { prisma } from "@vnzl/database";
 import { signUserToken } from "./jwt-session";
 import { normalizarCedula, normalizarTelefono } from "../usuarios";
+import { CedulaService } from "../cedula";
 import { RegisterDto, LoginDto } from "./dto";
 
 @Injectable()
@@ -12,15 +13,29 @@ export class AuthService {
   // ponytail: cliente real en runtime, mock en test
   private googleClient: Pick<OAuth2Client, "verifyIdToken"> = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly cedula: CedulaService,
+  ) {}
 
   async register(dto: RegisterDto) {
     const cedula = normalizarCedula(dto.cedula);
     const telefono = normalizarTelefono(dto.telefono);
     const existe = await prisma.usuario.findUnique({ where: { cedula } });
     if (existe) throw new ConflictException("Ya existe una cuenta con esa cédula");
+    // Portón: la cédula debe ser de una persona real. El nombre sale del registro
+    // oficial (sin respaldo → si la API no responde, lanza 503).
+    const v = await this.cedula.validarParaRegistro(cedula);
     const usuario = await prisma.usuario.create({
-      data: { nombre: dto.nombre.trim(), cedula, telefono, passwordHash: await hash(dto.password, 10) },
+      data: {
+        nombre: v.nombre,
+        cedula,
+        telefono,
+        passwordHash: await hash(dto.password, 10),
+        cedulaVerificada: v.cedulaVerificada,
+        cedulaNombre: v.cedulaNombre,
+        cedulaVerificadaEn: v.cedulaVerificada ? new Date() : null,
+      },
     });
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
   }

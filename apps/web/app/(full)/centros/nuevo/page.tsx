@@ -26,7 +26,7 @@ export default function NuevoCentro() {
     (async () => {
       const ok = hasFullIdentity() || (await syncIdentity()) != null;
       if (!ok) {
-        router.replace(`/?next=${encodeURIComponent(ROUTES.crearCentro)}`);
+        router.replace(`/login?next=${encodeURIComponent(ROUTES.crearCentro)}`);
         return;
       }
       setLoading(false);

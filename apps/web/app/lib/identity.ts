@@ -77,5 +77,5 @@ export function requireHelp(router: Pushable, currentPath: string, action?: () =
     action?.();
     return;
   }
-  router.push(`/?next=${encodeURIComponent(currentPath)}`);
+  router.push(`/login?next=${encodeURIComponent(currentPath)}`);
 }

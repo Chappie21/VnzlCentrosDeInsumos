@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   Injectable,
@@ -12,6 +13,7 @@ import { JwtService } from "@nestjs/jwt";
 import { IsNotEmpty, IsString, Matches } from "class-validator";
 import { Transform } from "class-transformer";
 import { prisma } from "@vnzl/database";
+import { CedulaService } from "./cedula";
 import {
   IdentidadGuard,
   JefeGuard,
@@ -72,7 +74,10 @@ class AceptarInvitacionDto {
 
 @Injectable()
 export class UsuariosService {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly cedula: CedulaService,
+  ) {}
 
   // Public profile of the current user (spec §3). Returns nulls for incomplete identity.
   async me(userId: string) {
@@ -86,12 +91,24 @@ export class UsuariosService {
     };
   }
 
-  // Onboarding (spec §3): name/cedula/phone required before contributing.
-  onboard(userId: string, dto: OnboardDto) {
-    // el JWT de sesión solo se emite tras crear el Usuario, así que la fila siempre existe
+  // Completar perfil (Google): mismo portón de cédula que el registro.
+  async onboard(userId: string, dto: OnboardDto) {
+    // la cédula puede estar tomada por otra cuenta (cedula @unique)
+    const dueño = await prisma.usuario.findUnique({ where: { cedula: dto.cedula } });
+    if (dueño && dueño.id !== userId)
+      throw new ConflictException("Esa cédula ya está registrada en otra cuenta");
+    // Portón: cédula real + nombre oficial (fail-open si la API no responde).
+    const v = await this.cedula.validarParaRegistro(dto.cedula, dto.nombre);
     return prisma.usuario.update({
       where: { id: userId },
-      data: dto,
+      data: {
+        nombre: v.nombre,
+        cedula: dto.cedula,
+        telefono: dto.telefono,
+        cedulaVerificada: v.cedulaVerificada,
+        cedulaNombre: v.cedulaNombre,
+        cedulaVerificadaEn: v.cedulaVerificada ? new Date() : null,
+      },
     });
   }
 
