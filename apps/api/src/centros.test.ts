@@ -57,7 +57,10 @@ const redis = {
   bumpCentros: vi.fn(),
 } as any;
 
-const cedula = { verificar: vi.fn().mockResolvedValue(null) } as any;
+const cedula = {
+  verificar: vi.fn().mockResolvedValue(null),
+  validarYGuardar: vi.fn().mockResolvedValue(undefined),
+} as any;
 const service = new CentrosService(redis, cedula);
 
 const centroBase = {
@@ -193,6 +196,8 @@ describe("CentrosService.create — escritura transaccional", () => {
       data: { usuarioId: fingerprint, centroId: creado.id, rol: "JEFE" },
     });
     expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
+    // CEN-23: la creación dispara la validación de cédula del creador (fire-and-forget)
+    expect(cedula.validarYGuardar).toHaveBeenCalledWith(fingerprint);
     expect(res).toBe(creado);
   });
 

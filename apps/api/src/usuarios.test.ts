@@ -6,6 +6,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     voluntario: { upsert: vi.fn() },
     centro: { findUnique: vi.fn() },
+    usuario: { findUnique: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -32,6 +33,44 @@ const service = new UsuariosService(jwt, cedula);
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("UsuariosService.onboard", () => {
+  it("portón de cédula: valida, guarda el nombre oficial + verificación y devuelve el usuario", async () => {
+    const updated = { id: "u1", nombre: "ANA OFICIAL", cedula: "V12345678", telefono: "04141234567" };
+    prismaMock.usuario.findUnique.mockResolvedValue(null); // cédula libre
+    cedula.validarParaRegistro.mockResolvedValue({
+      nombre: "ANA OFICIAL",
+      cedulaVerificada: true,
+      cedulaNombre: "ANA OFICIAL",
+    });
+    prismaMock.usuario.update.mockResolvedValue(updated);
+
+    const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+    const res = await service.onboard("u1", dto);
+
+    expect(cedula.validarParaRegistro).toHaveBeenCalledWith("V12345678", "Ana");
+    expect(prismaMock.usuario.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: expect.objectContaining({
+        nombre: "ANA OFICIAL",
+        cedula: "V12345678",
+        telefono: "04141234567",
+        cedulaVerificada: true,
+        cedulaNombre: "ANA OFICIAL",
+      }),
+    });
+    expect(res).toBe(updated);
+  });
+
+  it("rechaza si la cédula ya pertenece a otra cuenta", async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue({ id: "otro" });
+    const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+
+    await expect(service.onboard("u1", dto)).rejects.toThrow();
+    expect(cedula.validarParaRegistro).not.toHaveBeenCalled();
+    expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("UsuariosService.invite", () => {
