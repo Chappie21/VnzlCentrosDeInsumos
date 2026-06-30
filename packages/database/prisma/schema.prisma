@@ -18,7 +18,7 @@ model Usuario {
   email        String? @unique // email verificado de Google
 
   // Validación de cédula contra api.cedula.com.ve (CEN-23).
-  cedulaVerificada   Boolean   @default(false)
+  cedulaVerificada   Boolean?  @default(false) // null = no se pudo consultar (fail-open, p.ej. Google)
   cedulaNombre       String?
   cedulaVerificadaEn DateTime? // sentinel "ya intentada": null = pendiente de validar
 

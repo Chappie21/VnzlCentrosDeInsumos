@@ -6,7 +6,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     voluntario: { upsert: vi.fn() },
     centro: { findUnique: vi.fn() },
-    usuario: { update: vi.fn() },
+    usuario: { findUnique: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -26,7 +26,9 @@ const jwt = {
   verify: vi.fn(),
 } as any;
 
-const cedula = { validarYGuardar: vi.fn().mockResolvedValue(undefined) } as any;
+// CedulaService solo se usa en onboard (no en invite/accept); mock mínimo.
+const cedula = { validarParaRegistro: vi.fn() } as any;
+
 const service = new UsuariosService(jwt, cedula);
 
 beforeEach(() => {
@@ -34,17 +36,40 @@ beforeEach(() => {
 });
 
 describe("UsuariosService.onboard", () => {
-  it("actualiza la fila, dispara la validación de cédula y devuelve el usuario", async () => {
-    const updated = { id: "u1", nombre: "Ana", cedula: "V12345678", telefono: "04141234567" };
+  it("portón de cédula: valida, guarda el nombre oficial + verificación y devuelve el usuario", async () => {
+    const updated = { id: "u1", nombre: "ANA OFICIAL", cedula: "V12345678", telefono: "04141234567" };
+    prismaMock.usuario.findUnique.mockResolvedValue(null); // cédula libre
+    cedula.validarParaRegistro.mockResolvedValue({
+      nombre: "ANA OFICIAL",
+      cedulaVerificada: true,
+      cedulaNombre: "ANA OFICIAL",
+    });
     prismaMock.usuario.update.mockResolvedValue(updated);
 
     const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
     const res = await service.onboard("u1", dto);
 
-    expect(prismaMock.usuario.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: dto });
-    // CEN-23: onboarding (path Google) dispara la validación (fire-and-forget)
-    expect(cedula.validarYGuardar).toHaveBeenCalledWith("u1");
+    expect(cedula.validarParaRegistro).toHaveBeenCalledWith("V12345678", "Ana");
+    expect(prismaMock.usuario.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: expect.objectContaining({
+        nombre: "ANA OFICIAL",
+        cedula: "V12345678",
+        telefono: "04141234567",
+        cedulaVerificada: true,
+        cedulaNombre: "ANA OFICIAL",
+      }),
+    });
     expect(res).toBe(updated);
+  });
+
+  it("rechaza si la cédula ya pertenece a otra cuenta", async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue({ id: "otro" });
+    const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+
+    await expect(service.onboard("u1", dto)).rejects.toThrow();
+    expect(cedula.validarParaRegistro).not.toHaveBeenCalled();
+    expect(prismaMock.usuario.update).not.toHaveBeenCalled();
   });
 });
 

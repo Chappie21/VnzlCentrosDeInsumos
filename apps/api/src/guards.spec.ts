@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { SesionGuard, VoluntarioGuard } from "./guards";

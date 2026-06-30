@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   Injectable,
@@ -12,6 +13,7 @@ import { JwtService } from "@nestjs/jwt";
 import { IsNotEmpty, IsString, Matches } from "class-validator";
 import { Transform } from "class-transformer";
 import { prisma } from "@vnzl/database";
+import { CedulaService } from "./cedula";
 import {
   IdentidadGuard,
   JefeGuard,
@@ -21,7 +23,6 @@ import {
   identidadCompleta,
 } from "./guards";
 import { INVITACION } from "./constants";
-import { CedulaService } from "./cedula";
 
 // ---------------------------------------------------------------------------
 // Normalizers (exported so AuthService can reuse them — DRY).
@@ -90,15 +91,25 @@ export class UsuariosService {
     };
   }
 
-  // Onboarding (spec §3): name/cedula/phone required before contributing.
+  // Completar perfil (Google): mismo portón de cédula que el registro.
   async onboard(userId: string, dto: OnboardDto) {
-    // el JWT de sesión solo se emite tras crear el Usuario, así que la fila siempre existe
-    const usuario = await prisma.usuario.update({
+    // la cédula puede estar tomada por otra cuenta (cedula @unique)
+    const dueño = await prisma.usuario.findUnique({ where: { cedula: dto.cedula } });
+    if (dueño && dueño.id !== userId)
+      throw new ConflictException("Esa cédula ya está registrada en otra cuenta");
+    // Portón: cédula real + nombre oficial (fail-open si la API no responde).
+    const v = await this.cedula.validarParaRegistro(dto.cedula, dto.nombre);
+    return prisma.usuario.update({
       where: { id: userId },
-      data: dto,
+      data: {
+        nombre: v.nombre,
+        cedula: dto.cedula,
+        telefono: dto.telefono,
+        cedulaVerificada: v.cedulaVerificada,
+        cedulaNombre: v.cedulaNombre,
+        cedulaVerificadaEn: v.cedulaVerificada ? new Date() : null,
+      },
     });
-    void this.cedula.validarYGuardar(userId); // CEN-23: valida en segundo plano (path Google)
-    return usuario;
   }
 
   // Invitación = JWT corto ligado a un centro (spec §4). El front arma la URL absoluta.

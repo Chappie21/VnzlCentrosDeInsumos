@@ -47,7 +47,7 @@ export default function CompletarPerfilPage() {
   useEffect(() => {
     (async () => {
       if (!getToken()) {
-        router.replace("/");
+        router.replace("/login");
         return;
       }
       try {

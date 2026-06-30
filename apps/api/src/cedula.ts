@@ -1,7 +1,14 @@
 import * as https from "https";
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { prisma } from "@vnzl/database";
 import { parseCedula } from "@vnzl/venezuela";
+
+// Resultado del portón de registro: nombre a usar + estado de verificación.
+export type ValidacionRegistro = {
+  nombre: string | null; // oficial si se verificó, tecleado si fail-open
+  cedulaVerificada: boolean | null; // true=real, null=no se pudo consultar (fail-open)
+  cedulaNombre: string | null; // nombre oficial del registro (si se verificó)
+};
 
 type CedulaData = {
   primer_nombre?: string;
@@ -30,6 +37,45 @@ export function interpretarRespuesta(body: any): CedulaResultado {
 
 @Injectable()
 export class CedulaService {
+  // Portón de registro: valida la cédula contra el registro real y toma de ahí el
+  // NOMBRE OFICIAL (decisión: el nombre no se teclea).
+  // - Formato inválido → 400.
+  // - Cédula que NO corresponde a una persona real → 400 (no se puede registrar).
+  // - API caída / sin configurar:
+  //     · con `nombreRespaldo` (flujo Google, el nombre lo da Google) → fail-open
+  //       (deja pasar, marca no verificado).
+  //     · sin respaldo (registro por cédula, ya no se teclea nombre) → 503: no se
+  //       puede registrar sin poder verificar, que reintente.
+  async validarParaRegistro(
+    cedula: string,
+    nombreRespaldo?: string,
+  ): Promise<ValidacionRegistro> {
+    const parsed = parseCedula(cedula);
+    if (!parsed.valid || !parsed.data) {
+      throw new BadRequestException("Cédula inválida");
+    }
+    const r = await this.verificar(parsed.data.tipo, parsed.data.numero);
+    if (r === null) {
+      const respaldo = nombreRespaldo?.trim();
+      if (respaldo) {
+        return { nombre: respaldo, cedulaVerificada: null, cedulaNombre: null };
+      }
+      throw new ServiceUnavailableException(
+        "No pudimos verificar tu cédula en este momento. Intenta de nuevo en un momento.",
+      );
+    }
+    if (!r.existe) {
+      throw new BadRequestException(
+        "La cédula no corresponde a una persona real. Verifica el número.",
+      );
+    }
+    return {
+      nombre: r.nombre || nombreRespaldo?.trim() || null,
+      cedulaVerificada: true,
+      cedulaNombre: r.nombre,
+    };
+  }
+
   // Resultado, o null si no se pudo consultar (sin config / API caída / timeout).
   async verificar(nacionalidad: "V" | "E", numero: number): Promise<CedulaResultado | null> {
     const appId = process.env.APP_ID_CEDULA;

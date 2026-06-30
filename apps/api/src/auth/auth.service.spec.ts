@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ConflictException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 
@@ -22,15 +22,23 @@ vi.mock("@vnzl/database", () => ({
 }));
 
 // ---------- imports after mock ----------
+import { BadRequestException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { verifyUserToken } from "./jwt-session";
 
 const jwt = new JwtService({ secret: "test-secret" });
-const cedula = { validarYGuardar: vi.fn().mockResolvedValue(undefined) } as any;
-const service = new AuthService(jwt, cedula);
+// Mock de CedulaService: el portón real se prueba en cedula.spec.ts.
+const cedulaMock = { validarParaRegistro: vi.fn(), verificar: vi.fn() };
+const service = new AuthService(jwt, cedulaMock as any);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Por defecto: cédula verificada, nombre oficial = el tecleado.
+  cedulaMock.validarParaRegistro.mockResolvedValue({
+    nombre: "John Doe",
+    cedulaVerificada: true,
+    cedulaNombre: "John Doe",
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -49,7 +57,6 @@ describe("AuthService.register", () => {
     prismaMock.usuario.create.mockResolvedValue(createdUser);
 
     const res = await service.register({
-      nombre: "John Doe",
       cedula: "V12345678",
       telefono: "04141234567",
       password: "securepassword",
@@ -74,9 +81,6 @@ describe("AuthService.register", () => {
       telefono: "04141234567",
     });
     expect(res.usuario).toHaveProperty("identidadCompleta");
-
-    // CEN-23: el registro dispara la validación de cédula (fire-and-forget)
-    expect(cedula.validarYGuardar).toHaveBeenCalledWith("user-uuid-1");
   });
 
   it("lanza ConflictException si la cédula ya existe", async () => {
@@ -84,7 +88,6 @@ describe("AuthService.register", () => {
 
     await expect(
       service.register({
-        nombre: "Jane Doe",
         cedula: "V12345678",
         telefono: "04141234567",
         password: "securepassword",
@@ -92,6 +95,44 @@ describe("AuthService.register", () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza el registro si la cédula no es real (no crea usuario)", async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(null);
+    cedulaMock.validarParaRegistro.mockRejectedValue(
+      new BadRequestException("La cédula no corresponde a una persona real."),
+    );
+
+    await expect(
+      service.register({
+        cedula: "V12345678",
+        telefono: "04141234567",
+        password: "securepassword",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+  });
+
+  it("guarda el nombre OFICIAL del registro y marca cédula verificada", async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(null);
+    cedulaMock.validarParaRegistro.mockResolvedValue({
+      nombre: "MARIA OFICIAL PEREZ",
+      cedulaVerificada: true,
+      cedulaNombre: "MARIA OFICIAL PEREZ",
+    });
+    prismaMock.usuario.create.mockResolvedValue({ id: "u1", nombre: "MARIA OFICIAL PEREZ", cedula: "V12345678", telefono: "04141234567" });
+
+    await service.register({
+      cedula: "V12345678",
+      telefono: "04141234567",
+      password: "securepassword",
+    });
+
+    const createArg = prismaMock.usuario.create.mock.calls[0][0];
+    expect(createArg.data.nombre).toBe("MARIA OFICIAL PEREZ");
+    expect(createArg.data.cedulaVerificada).toBe(true);
+    expect(createArg.data.cedulaNombre).toBe("MARIA OFICIAL PEREZ");
   });
 });
 

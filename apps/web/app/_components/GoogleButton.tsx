@@ -4,6 +4,7 @@ import { GoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
 import { googleLogin } from "../lib/authApi";
 import { syncIdentity } from "../lib/identity";
+import { ROUTES } from "../constants";
 
 const ENABLED = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 
@@ -23,7 +24,9 @@ export function GoogleButton() {
               return;
             }
             await syncIdentity(); // poblar cache del perfil
-            router.push("/");
+            // push a una ruta distinta de "/" para que navegue de verdad
+            // (push("/") desde la propia vista de login era no-op → quedaba ahí).
+            router.push(ROUTES.misCentros);
           } catch {
             alert("No se pudo iniciar sesión con Google");
           }

@@ -5,8 +5,8 @@ import { OAuth2Client } from "google-auth-library";
 import { prisma } from "@vnzl/database";
 import { signUserToken } from "./jwt-session";
 import { normalizarCedula, normalizarTelefono } from "../usuarios";
-import { RegisterDto, LoginDto } from "./dto";
 import { CedulaService } from "../cedula";
+import { RegisterDto, LoginDto } from "./dto";
 
 @Injectable()
 export class AuthService {
@@ -23,10 +23,20 @@ export class AuthService {
     const telefono = normalizarTelefono(dto.telefono);
     const existe = await prisma.usuario.findUnique({ where: { cedula } });
     if (existe) throw new ConflictException("Ya existe una cuenta con esa cédula");
+    // Portón: la cédula debe ser de una persona real. El nombre sale del registro
+    // oficial (sin respaldo → si la API no responde, lanza 503).
+    const v = await this.cedula.validarParaRegistro(cedula);
     const usuario = await prisma.usuario.create({
-      data: { nombre: dto.nombre.trim(), cedula, telefono, passwordHash: await hash(dto.password, 10) },
+      data: {
+        nombre: v.nombre,
+        cedula,
+        telefono,
+        passwordHash: await hash(dto.password, 10),
+        cedulaVerificada: v.cedulaVerificada,
+        cedulaNombre: v.cedulaNombre,
+        cedulaVerificadaEn: v.cedulaVerificada ? new Date() : null,
+      },
     });
-    void this.cedula.validarYGuardar(usuario.id); // CEN-23: valida en segundo plano
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
   }
 
