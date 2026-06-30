@@ -3,6 +3,7 @@ import "./instrument"; // Sentry: debe ir antes de importar el resto de la app.
 import "reflect-metadata";
 import { join } from "path";
 import * as express from "express";
+import helmet from "helmet";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";
@@ -17,6 +18,7 @@ async function bootstrap() {
     .map((s) => s.trim())
     .filter(Boolean);
   app.enableCors({ origin: origins.length ? origins : true, credentials: true });
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   // Foto del local va como data URL base64 en JSON → subir el límite (default 100kb).
   app.use(express.json({ limit: "5mb" }));
   // Servir las fotos subidas (ponytail: disco local; object storage para prod).
