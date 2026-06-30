@@ -201,6 +201,17 @@ export default function FaqPage() {
         </p>
       </header>
 
+      <div className="mb-8 aspect-video w-full overflow-hidden rounded-lg border border-outline-variant">
+        <iframe
+          className="h-full w-full"
+          src="https://www.youtube.com/embed/fCczWiT9DGs"
+          title="Guía visual de Red Acopio Venezuela"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+        />
+      </div>
+
       <div className="flex flex-col gap-8">
         {SECCIONES.map((sec) => (
           <section key={sec.titulo}>
