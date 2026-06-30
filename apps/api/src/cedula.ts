@@ -1,5 +1,5 @@
 import * as https from "https";
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { parseCedula } from "@vnzl/venezuela";
 
 // Resultado del portón de registro: nombre a usar + estado de verificación.
@@ -36,14 +36,18 @@ export function interpretarRespuesta(body: any): CedulaResultado {
 
 @Injectable()
 export class CedulaService {
-  // Portón de registro: valida la cédula contra el registro real.
+  // Portón de registro: valida la cédula contra el registro real y toma de ahí el
+  // NOMBRE OFICIAL (decisión: el nombre no se teclea).
   // - Formato inválido → 400.
   // - Cédula que NO corresponde a una persona real → 400 (no se puede registrar).
-  // - API caída / sin configurar → fail-open: deja pasar, marca no verificado (null).
-  // Si se verifica, devuelve el NOMBRE OFICIAL (decisión: ignorar el tecleado).
+  // - API caída / sin configurar:
+  //     · con `nombreRespaldo` (flujo Google, el nombre lo da Google) → fail-open
+  //       (deja pasar, marca no verificado).
+  //     · sin respaldo (registro por cédula, ya no se teclea nombre) → 503: no se
+  //       puede registrar sin poder verificar, que reintente.
   async validarParaRegistro(
     cedula: string,
-    nombreTecleado?: string,
+    nombreRespaldo?: string,
   ): Promise<ValidacionRegistro> {
     const parsed = parseCedula(cedula);
     if (!parsed.valid || !parsed.data) {
@@ -51,8 +55,13 @@ export class CedulaService {
     }
     const r = await this.verificar(parsed.data.tipo, parsed.data.numero);
     if (r === null) {
-      // fail-open: no se pudo consultar ahora
-      return { nombre: nombreTecleado?.trim() || null, cedulaVerificada: null, cedulaNombre: null };
+      const respaldo = nombreRespaldo?.trim();
+      if (respaldo) {
+        return { nombre: respaldo, cedulaVerificada: null, cedulaNombre: null };
+      }
+      throw new ServiceUnavailableException(
+        "No pudimos verificar tu cédula en este momento. Intenta de nuevo en un momento.",
+      );
     }
     if (!r.existe) {
       throw new BadRequestException(
@@ -60,7 +69,7 @@ export class CedulaService {
       );
     }
     return {
-      nombre: r.nombre || nombreTecleado?.trim() || null,
+      nombre: r.nombre || nombreRespaldo?.trim() || null,
       cedulaVerificada: true,
       cedulaNombre: r.nombre,
     };

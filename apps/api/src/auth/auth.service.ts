@@ -23,8 +23,9 @@ export class AuthService {
     const telefono = normalizarTelefono(dto.telefono);
     const existe = await prisma.usuario.findUnique({ where: { cedula } });
     if (existe) throw new ConflictException("Ya existe una cuenta con esa cédula");
-    // Portón: la cédula debe ser de una persona real. Usa el nombre OFICIAL.
-    const v = await this.cedula.validarParaRegistro(cedula, dto.nombre);
+    // Portón: la cédula debe ser de una persona real. El nombre sale del registro
+    // oficial (sin respaldo → si la API no responde, lanza 503).
+    const v = await this.cedula.validarParaRegistro(cedula);
     const usuario = await prisma.usuario.create({
       data: {
         nombre: v.nombre,

@@ -28,7 +28,6 @@ export async function login(cedula: string, password: string): Promise<{ token: 
 }
 
 export async function register(d: {
-  nombre: string;
   cedula: string;
   telefono: string;
   password: string;

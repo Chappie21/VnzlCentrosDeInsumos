@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
 import { CedulaService, interpretarRespuesta } from "./cedula";
 
 // Construye un CedulaService con `verificar` stubeado (sin red).
@@ -28,9 +28,15 @@ describe("CedulaService.validarParaRegistro", () => {
     );
   });
 
-  it("fail-open si no se puede consultar (null): deja pasar, no verificado", async () => {
+  it("fail-open CON nombre de respaldo (Google): deja pasar, no verificado", async () => {
     const r = await withVerificar(null).validarParaRegistro("V12345678", "Juan Perez");
     expect(r).toEqual({ nombre: "Juan Perez", cedulaVerificada: null, cedulaNombre: null });
+  });
+
+  it("SIN respaldo y API caída (null): lanza 503 (no registra)", async () => {
+    await expect(
+      withVerificar(null).validarParaRegistro("V12345678"),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it("rechaza si la cédula no corresponde a una persona real", async () => {

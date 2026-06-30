@@ -57,7 +57,6 @@ describe("AuthService.register", () => {
     prismaMock.usuario.create.mockResolvedValue(createdUser);
 
     const res = await service.register({
-      nombre: "John Doe",
       cedula: "V12345678",
       telefono: "04141234567",
       password: "securepassword",
@@ -89,7 +88,6 @@ describe("AuthService.register", () => {
 
     await expect(
       service.register({
-        nombre: "Jane Doe",
         cedula: "V12345678",
         telefono: "04141234567",
         password: "securepassword",
@@ -107,7 +105,6 @@ describe("AuthService.register", () => {
 
     await expect(
       service.register({
-        nombre: "Nombre Falso",
         cedula: "V12345678",
         telefono: "04141234567",
         password: "securepassword",
@@ -127,7 +124,6 @@ describe("AuthService.register", () => {
     prismaMock.usuario.create.mockResolvedValue({ id: "u1", nombre: "MARIA OFICIAL PEREZ", cedula: "V12345678", telefono: "04141234567" });
 
     await service.register({
-      nombre: "maria",
       cedula: "V12345678",
       telefono: "04141234567",
       password: "securepassword",

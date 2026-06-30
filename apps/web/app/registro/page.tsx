@@ -13,8 +13,8 @@ import {
   validateOnboarding,
 } from "../lib/validate";
 
+// El nombre no se pide: se toma del registro oficial al validar la cédula.
 type RegistroInput = {
-  nombre: string;
   cedula: string;
   telefono: string;
   password: string;
@@ -31,15 +31,16 @@ export default function RegistroPage() {
     formState: { errors, isValid, isSubmitting },
   } = useForm<RegistroInput>({
     mode: "onChange",
-    defaultValues: { nombre: "", cedula: "", telefono: "", password: "", passwordConfirm: "" },
+    defaultValues: { cedula: "", telefono: "", password: "", passwordConfirm: "" },
     resolver: (values) => {
-      const fieldErrors: Record<string, string> = {
-        ...validateOnboarding({
-          nombre: values.nombre,
-          cedula: values.cedula,
-          telefono: values.telefono,
-        }),
-      };
+      // validateOnboarding también valida nombre; pasamos un placeholder válido
+      // porque el nombre real lo da la cédula (no se teclea).
+      const { nombre: _omit, ...rest } = validateOnboarding({
+        nombre: "Nombre Placeholder",
+        cedula: values.cedula,
+        telefono: values.telefono,
+      });
+      const fieldErrors: Record<string, string> = { ...rest };
       if (values.password.length < 8) {
         fieldErrors.password = "La contraseña debe tener al menos 8 caracteres.";
       }
@@ -63,7 +64,6 @@ export default function RegistroPage() {
     setApiError(null);
     try {
       await registerUser({
-        nombre: values.nombre.trim(),
         cedula: normalizeCedula(values.cedula),
         telefono: normalizeTelefono(values.telefono),
         password: values.password,
@@ -85,19 +85,12 @@ export default function RegistroPage() {
             </div>
             <h2 className="text-2xl font-semibold text-on-surface">Crear cuenta</h2>
             <p className="text-base text-on-surface-variant">
-              Con tu cuenta puedes usar la app en cualquier dispositivo.
+              Tu nombre se toma de tu cédula. Podrás usar la cuenta en cualquier dispositivo.
             </p>
           </div>
 
           <form onSubmit={handleSubmit(onValid)} className="space-y-6">
             <div className="space-y-4">
-              <Field
-                label="Nombre completo"
-                icon="person"
-                placeholder="Ingresa tu nombre"
-                error={errors.nombre?.message}
-                {...register("nombre")}
-              />
               <Field
                 label="Cédula de identidad"
                 icon="badge"
