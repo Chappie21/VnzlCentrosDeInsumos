@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
+import ProfileNavItem from "./ProfileNavItem";
 import { NAV_TABS, NAV_HIDDEN_PREFIXES } from "../constants";
 import { hasFullIdentity } from "../lib/identity";
 
@@ -43,6 +44,7 @@ export default function BottomNav() {
           </Link>
         );
       })}
+      <ProfileNavItem />
     </nav>
   );
 }
