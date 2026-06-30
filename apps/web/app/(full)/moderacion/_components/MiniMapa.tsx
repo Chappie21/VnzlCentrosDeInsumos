@@ -7,11 +7,15 @@ import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 import { MapContainer, Marker, TileLayer } from "react-leaflet";
 
-// Fix de íconos del marker bajo Turbopack (PNG -> StaticImageData, usar .src).
+// Fix de íconos del marker: el import del PNG puede ser un string (Turbopack)
+// o un StaticImageData {src} (Webpack). Resolver ambos casos.
+const asUrl = (m: unknown): string =>
+  typeof m === "string" ? m : ((m as { src?: string })?.src ?? "");
+
 L.Icon.Default.mergeOptions({
-  iconUrl: (iconUrl as { src: string }).src,
-  iconRetinaUrl: (iconRetinaUrl as { src: string }).src,
-  shadowUrl: (shadowUrl as { src: string }).src,
+  iconUrl: asUrl(iconUrl),
+  iconRetinaUrl: asUrl(iconRetinaUrl),
+  shadowUrl: asUrl(shadowUrl),
 });
 
 // Mapa read-only que muestra un punto exacto (evidencia de moderación).
