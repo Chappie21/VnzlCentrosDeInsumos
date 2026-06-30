@@ -90,6 +90,14 @@ export default function UserChip() {
               <Icon name="store" />
               Mis centros
             </Link>
+            <Link
+              href={ROUTES.faq}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-on-surface hover:bg-surface-container-high"
+            >
+              <Icon name="help" />
+              Ayuda / Cómo funciona
+            </Link>
             <button
               type="button"
               onClick={logout}
