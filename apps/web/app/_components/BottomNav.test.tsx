@@ -10,8 +10,12 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-// Anónimo sin identidad completa.
-vi.mock("../lib/identity", () => ({ hasFullIdentity: () => false }));
+// Anónimo sin identidad completa (ProfileNavItem usa getIdentity/syncIdentity).
+vi.mock("../lib/identity", () => ({
+  hasFullIdentity: () => false,
+  getIdentity: () => null,
+  syncIdentity: () => Promise.resolve(null),
+}));
 
 import BottomNav from "./BottomNav";
 
