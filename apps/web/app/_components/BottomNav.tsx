@@ -38,7 +38,7 @@ export default function BottomNav() {
             }`}
           >
             <Icon name={t.icon} filled={active} />
-            <span className="text-[11px] font-bold uppercase tracking-wider">
+            <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-normal">
               {t.label}
             </span>
           </Link>
