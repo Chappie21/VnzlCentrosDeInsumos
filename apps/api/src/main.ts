@@ -41,7 +41,26 @@ async function bootstrap() {
     );
     if (Object.keys(pub).length) paths[ruta] = pub;
   }
-  SwaggerModule.setup("docs", app, { ...full, paths });
+  // El plugin de Nest introspecta TODOS los DTOs a components.schemas (incluidos los
+  // internos: LoginDto, EnvioDto, etc.). Podar a solo los referenciados por las rutas
+  // públicas — si no, se filtra la superficie interna aunque paths esté filtrado.
+  const refs = (obj: unknown, acc = new Set<string>()): Set<string> => {
+    if (Array.isArray(obj)) obj.forEach((x) => refs(x, acc));
+    else if (obj && typeof obj === "object")
+      for (const [k, v] of Object.entries(obj)) {
+        if (k === "$ref" && typeof v === "string") acc.add(v.split("/").pop()!);
+        else refs(v, acc);
+      }
+    return acc;
+  };
+  const todas = full.components?.schemas ?? {};
+  const usados = refs(paths);
+  for (let n = -1; n !== usados.size; ) {
+    n = usados.size;
+    for (const s of [...usados]) refs(todas[s], usados); // transitivo
+  }
+  const schemas = Object.fromEntries(Object.entries(todas).filter(([k]) => usados.has(k)));
+  SwaggerModule.setup("docs", app, { ...full, paths, components: { ...full.components, schemas } });
   // PORT lo inyectan las plataformas (Render/Railway/Cloud Run); API_PORT para dev local.
   await app.listen(Number(process.env.PORT) || Number(process.env.API_PORT) || 3001, "0.0.0.0");
 }
