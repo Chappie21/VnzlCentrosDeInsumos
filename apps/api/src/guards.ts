@@ -43,6 +43,21 @@ export class SesionGuard implements CanActivate {
   }
 }
 
+// Auth opcional: si hay un Bearer válido pone `req.userId`; si no hay o es
+// inválido, deja `req.userId = null` y SIEMPRE deja pasar. Para endpoints públicos
+// que muestran más datos a un usuario identificado (p. ej. la guía de envío).
+@Injectable()
+export class OptionalSesionGuard implements CanActivate {
+  constructor(private readonly jwt: JwtService) {}
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest();
+    const auth: string = req.header("authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+    req.userId = token ? await verifyUserToken(this.jwt, token).catch(() => null) : null;
+    return true;
+  }
+}
+
 // Gate contribution endpoints behind a complete identity.
 @Injectable()
 export class IdentidadGuard implements CanActivate {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { UnauthorizedException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { SesionGuard, VoluntarioGuard } from "./guards";
+import { SesionGuard, VoluntarioGuard, OptionalSesionGuard } from "./guards";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -34,6 +34,28 @@ it("SesionGuard permite con token válido y pone userId en req", async () => {
   const g = new SesionGuard(jwt);
   await expect(g.canActivate(context)).resolves.toBe(true);
   expect(context._req.userId).toBe("user-z");
+});
+
+it("OptionalSesionGuard sin token: pasa con userId=null", async () => {
+  const g = new OptionalSesionGuard(jwt);
+  const context = ctx({});
+  await expect(g.canActivate(context)).resolves.toBe(true);
+  expect(context._req.userId).toBeNull();
+});
+
+it("OptionalSesionGuard con token válido: pasa y setea userId", async () => {
+  const token = await new JwtService({ secret: "test-secret" }).signAsync({ sub: "user-y", typ: "user" });
+  const g = new OptionalSesionGuard(jwt);
+  const context = ctx({ authorization: `Bearer ${token}` });
+  await expect(g.canActivate(context)).resolves.toBe(true);
+  expect(context._req.userId).toBe("user-y");
+});
+
+it("OptionalSesionGuard con token inválido: pasa con userId=null (no lanza)", async () => {
+  const g = new OptionalSesionGuard(jwt);
+  const context = ctx({ authorization: "Bearer basura" });
+  await expect(g.canActivate(context)).resolves.toBe(true);
+  expect(context._req.userId).toBeNull();
 });
 
 it("VoluntarioGuard rechaza sin Bearer", async () => {

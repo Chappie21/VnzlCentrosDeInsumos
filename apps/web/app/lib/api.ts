@@ -142,11 +142,12 @@ export type GuiaDestino = { nombre: string; ciudad: string } | { texto: string |
 export type Guia = {
   id: string;
   creadoEn: string;
-  transporte: string;
-  despachadoPor: string | null;
   origen: { nombre: string; ciudad: string; estado: string };
   destino: GuiaDestino;
   items: { nombre: string; cantidad: number }[];
+  // Solo presentes si el que consulta es JEFE del centro origen/destino (PII).
+  transporte?: string;
+  despachadoPor?: string | null;
 };
 export async function getGuia(id: string): Promise<Guia> {
   const res = await apiFetch(`/envios/${id}`);
