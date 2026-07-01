@@ -630,21 +630,27 @@ describe("CentrosService.setFoto", () => {
 describe("CentrosService.detallePublico", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("proyecta payload público: cantidad + voluntarios, ordena URGENTE primero, sin PII", async () => {
+  it("proyecta payload público: solo URGENTE/NORMAL, SIN cantidad ni PII, ordena URGENTE primero", async () => {
+    // El mock devuelve lo que la BD ya filtró (URGENTE/NORMAL, sin cantidadTotal).
     prismaMock.centro.findUnique.mockResolvedValue({
       id: "c1", nombre: "Uno", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
       latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
       insumos: [
-        { nombre: "Ropa", nivel: "SUFICIENTE", categoria: "ROPA", cantidadTotal: 5 },
-        { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+        { nombre: "Arroz", nivel: "NORMAL", categoria: "ALIMENTOS" },
+        { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" },
       ],
       _count: { voluntarios: 3 },
     });
 
     const r = await service.detallePublico("c1");
 
+    // El query público pide SOLO URGENTE/NORMAL y NO pide cantidadTotal.
+    const arg = prismaMock.centro.findUnique.mock.calls[0][0] as any;
+    expect(arg.select.insumos.where).toEqual({ nivel: { in: ["URGENTE", "NORMAL"] } });
+    expect(arg.select.insumos.select).not.toHaveProperty("cantidadTotal");
+
     expect(r.necesidades[0].nivel).toBe("URGENTE");
-    expect(r.necesidades[0].cantidad).toBe(12);
+    expect(r.necesidades[0]).not.toHaveProperty("cantidad");
     expect(r.voluntarios).toBe(3);
     expect(r).not.toHaveProperty("rol");
   });
