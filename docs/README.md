@@ -16,6 +16,7 @@ Ver las reglas en [`AGENTS.md`](../AGENTS.md).
 - [Recepción por escaneo](escaneo.md) — voluntario escanea el QR y registra insumos en su centro.
 - [Envíos (descargo)](envios.md) — despacho de un centro a otro destino + guía con QR.
 - [Verificación + reporte de centros](verificacion-reporte.md) — verificación manual del equipo (foto/geo/cédula) + reporte comunitario.
+- [API pública (OpenAPI/Swagger)](api-publica.md) — Swagger UI en `/docs` y spec en `/docs-json`, solo endpoints públicos.
 
 ---
 
