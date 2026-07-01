@@ -19,6 +19,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { prisma, TipoMovimiento, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, OptionalSesionGuard, userIdOf } from "./guards";
@@ -160,6 +161,21 @@ export class EnviosController {
   // origen/destino ve además los datos del despachador/transporte.
   @Get(":id")
   @UseGuards(OptionalSesionGuard)
+  @ApiTags("publico")
+  @ApiOperation({
+    summary: "Guía de un envío (la abre el QR). Manifiesto público; datos del despachador solo con token de JEFE de origen/destino.",
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        id: "ckxyz...",
+        creadoEn: "2026-06-27T12:00:00.000Z",
+        origen: { nombre: "Centro Norte", ciudad: "Caracas", estado: "Distrito Capital" },
+        destino: { nombre: "Centro Sur", ciudad: "Maracaibo" },
+        items: [{ nombre: "Agua", cantidad: 5 }],
+      },
+    },
+  })
   guia(@Req() req: any, @Param("id") id: string) {
     return this.service.guia(id, req.userId ?? null);
   }
