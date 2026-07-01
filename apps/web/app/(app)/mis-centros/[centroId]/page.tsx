@@ -11,6 +11,7 @@ import {
   OperativoToggle,
   InventarioResumen,
   FotoLocal,
+  CompartirNecesidades,
 } from "./_components";
 
 // Dashboard de un centro: solo miembros (el server lo refuerza con VoluntarioGuard).
@@ -89,6 +90,9 @@ export default function CentroDetallePage() {
           Nuevo Envío
         </Link>
       </div>
+
+      {/* Compartir necesidades como imagen para redes: visible a todo miembro. */}
+      <CompartirNecesidades centro={data} />
 
       <FotoLocal centro={data} />
 

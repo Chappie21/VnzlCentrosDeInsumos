@@ -1,7 +1,7 @@
 // Identidad pública del sitio (SEO / OpenGraph / sitemap / manifest).
 // En producción configurar NEXT_PUBLIC_SITE_URL con el dominio real.
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://redacopiovenezuela.org";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.redacopiovnzla.com";
 export const SITE_NAME = "Red Acopio Venezuela";
 export const SITE_DESCRIPTION =
   "Red Acopio Venezuela — directorio de centros de acopio y donaciones de emergencia en Venezuela.";
