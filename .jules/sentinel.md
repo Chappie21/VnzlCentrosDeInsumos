@@ -11,3 +11,8 @@
 **Vulnerability:** Missing security headers on the API server. In particular, the lack of `Helmet` can leave the application open to various web vulnerabilities.
 **Learning:** Adding `Helmet` is a straightforward way to add essential security headers, but setting it blindly can break functionality. In this application, image uploads are served directly from the `/uploads` directory using `express.static`, and the Next.js frontend fetches them across domains. The default `Helmet` policy blocks this.
 **Prevention:** Always use `Helmet` to provide defense in depth via HTTP security headers, but ensure that features like cross-origin image loading (if necessary) are explicitly allowed by configuring `crossOriginResourcePolicy: { policy: "cross-origin" }`.
+
+## 2024-05-18 - Fix IDOR in Guards due to Parameter Mix-up
+**Vulnerability:** Insecure Direct Object Reference (IDOR) bypass in `VoluntarioGuard` and `JefeGuard`.
+**Learning:** The guards allowed an attacker to bypass authorization by supplying an authorized `centroId` in the request body, which took precedence over or mixed with the `centroId` in the URL parameters. The controller then operated on the URL parameter, allowing actions on unauthorized resources.
+**Prevention:** Guards should always prioritize the resource identifier specified in the URL path (`req.params`) over user-supplied payload data (`req.body`), or strictly ensure they match.
