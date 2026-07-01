@@ -19,9 +19,9 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { prisma, TipoMovimiento } from "@vnzl/database";
+import { prisma, TipoMovimiento, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
-import { IdentidadGuard, VoluntarioGuard, userIdOf } from "./guards";
+import { IdentidadGuard, VoluntarioGuard, OptionalSesionGuard, userIdOf } from "./guards";
 
 class EnvioItemDto {
   @IsString() insumoId: string;
@@ -100,8 +100,10 @@ export class EnviosService {
     return { id: envio.id };
   }
 
-  // Guía pública de un envío (la abre el QR). No expone PII más allá del nombre.
-  async guia(id: string) {
+  // Guía de un envío (la abre el QR). Manifiesto (origen/destino/ítems) es público;
+  // la PII de personas (despachador + transporte/chofer) solo se agrega si el usuario
+  // es JEFE del centro origen O destino.
+  async guia(id: string, userId: string | null) {
     const e = await prisma.envio.findUnique({
       where: { id },
       select: {
@@ -109,6 +111,8 @@ export class EnviosService {
         transporte: true,
         creadoEn: true,
         destinoTexto: true,
+        centroOrigenId: true,
+        centroDestinoId: true,
         origen: { select: { nombre: true, ciudad: true, estado: true } },
         destino: { select: { nombre: true, ciudad: true } },
         creadoPor: { select: { nombre: true } },
@@ -117,17 +121,27 @@ export class EnviosService {
     });
     if (!e) throw new NotFoundException("Envío no encontrado");
 
-    return {
+    const base = {
       id: e.id,
       creadoEn: e.creadoEn,
-      transporte: e.transporte,
-      despachadoPor: e.creadoPor?.nombre ?? null,
       origen: e.origen,
       destino: e.destino
         ? { nombre: e.destino.nombre, ciudad: e.destino.ciudad }
         : { texto: e.destinoTexto },
       items: e.movimientos.map((m) => ({ nombre: m.insumo.nombre, cantidad: Math.abs(m.cantidad) })),
     };
+
+    // ¿El usuario es JEFE del origen o del destino? Solo entonces ve la PII.
+    const centros = [e.centroOrigenId, e.centroDestinoId].filter(Boolean) as string[];
+    const esJefe =
+      userId != null &&
+      (await prisma.voluntario.findFirst({
+        where: { usuarioId: userId, rol: RolVoluntario.JEFE, centroId: { in: centros } },
+        select: { id: true },
+      })) != null;
+
+    if (!esJefe) return base;
+    return { ...base, transporte: e.transporte, despachadoPor: e.creadoPor?.nombre ?? null };
   }
 }
 
@@ -142,9 +156,11 @@ export class EnviosController {
     return this.service.crear(userIdOf(req), dto);
   }
 
-  // Guía pública (la abre el QR). Sin guard.
+  // Guía (la abre el QR). Auth OPCIONAL: anónimo ve el manifiesto; el JEFE de
+  // origen/destino ve además los datos del despachador/transporte.
   @Get(":id")
-  guia(@Param("id") id: string) {
-    return this.service.guia(id);
+  @UseGuards(OptionalSesionGuard)
+  guia(@Req() req: any, @Param("id") id: string) {
+    return this.service.guia(id, req.userId ?? null);
   }
 }
