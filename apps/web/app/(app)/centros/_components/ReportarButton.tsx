@@ -12,7 +12,12 @@ export default function ReportarButton({ centroId, nombre }: { centroId: string;
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => {
+          // La card es un <Link>; sin preventDefault el click navega al detalle.
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
         className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant transition-colors hover:text-emergency"
       >
         <Icon name="flag" className="text-[14px]" />
