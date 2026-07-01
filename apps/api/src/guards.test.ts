@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, BadRequestException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 
 const { prismaMock } = vi.hoisted(() => ({
@@ -57,5 +57,13 @@ describe("JefeGuard", () => {
   it("rechaza a quien no es voluntario (Forbidden)", async () => {
     prismaMock.voluntario.findUnique.mockResolvedValue(null);
     await expect(guard.canActivate(ctxDe(reqDe()))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  // Regresión IDOR (PR #78): un centroId en el body distinto al de la URL es
+  // ambigüedad → BadRequest, nunca se autoriza el centro del body.
+  it("rechaza ambigüedad param≠body (anti-IDOR)", async () => {
+    prismaMock.voluntario.findUnique.mockResolvedValue({ rol: "JEFE" });
+    const req = { ...reqDe(), body: { centroId: "c2" } }; // param es "c1"
+    await expect(guard.canActivate(ctxDe(req))).rejects.toBeInstanceOf(BadRequestException);
   });
 });

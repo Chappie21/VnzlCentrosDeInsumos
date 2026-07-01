@@ -66,7 +66,12 @@ export class VoluntarioGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
     req.userId = await verifyUserToken(this.jwt, bearer(req));
-    const centroId = req.body?.centroId ?? req.params?.centroId;
+    const paramId = req.params?.centroId;
+    const bodyId = req.body?.centroId;
+    if (paramId && bodyId && paramId !== bodyId) {
+      throw new BadRequestException("Ambigüedad de centroId");
+    }
+    const centroId = paramId ?? bodyId;
     if (!centroId) throw new BadRequestException("centroId requerido");
     const link = await prisma.voluntario.findUnique({
       where: { usuarioId_centroId: { usuarioId: req.userId, centroId } },
@@ -84,7 +89,12 @@ export class JefeGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
     req.userId = await verifyUserToken(this.jwt, bearer(req));
-    const centroId = req.params?.centroId ?? req.body?.centroId;
+    const paramId = req.params?.centroId;
+    const bodyId = req.body?.centroId;
+    if (paramId && bodyId && paramId !== bodyId) {
+      throw new BadRequestException("Ambigüedad de centroId");
+    }
+    const centroId = paramId ?? bodyId;
     if (!centroId) throw new BadRequestException("centroId requerido");
     const link = await prisma.voluntario.findUnique({
       where: { usuarioId_centroId: { usuarioId: req.userId, centroId } },
