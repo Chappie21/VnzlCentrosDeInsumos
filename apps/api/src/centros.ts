@@ -404,13 +404,18 @@ const publicoSelect = {
   longitud: true,
   recibiendoAhora: true,
   horarioCierre: true,
-  insumos: { select: { nombre: true, nivel: true, categoria: true, cantidadTotal: true } },
+  // Público: solo necesidades reales (URGENTE/NORMAL) y SIN cantidad — no exponemos
+  // el inventario/capacidad de cada centro.
+  insumos: {
+    where: { nivel: { in: [NivelInsumo.URGENTE, NivelInsumo.NORMAL] } },
+    select: { nombre: true, nivel: true, categoria: true },
+  },
   _count: { select: { voluntarios: true } },
 } satisfies Prisma.CentroSelect;
 
 type PublicoRow = Prisma.CentroGetPayload<{ select: typeof publicoSelect }>;
 
-type NecesidadPublica = Necesidad & { cantidad: number };
+type NecesidadPublica = Necesidad;
 
 export type CentroDetallePublico = {
   id: string;
@@ -429,7 +434,7 @@ export type CentroDetallePublico = {
 function toDetallePublico(c: PublicoRow): CentroDetallePublico {
   const necesidades = [...c.insumos]
     .sort((a, b) => NIVEL_ORDER[a.nivel] - NIVEL_ORDER[b.nivel])
-    .map((i) => ({ nombre: i.nombre, nivel: i.nivel, categoria: i.categoria, cantidad: i.cantidadTotal }));
+    .map((i) => ({ nombre: i.nombre, nivel: i.nivel, categoria: i.categoria }));
   return {
     id: c.id,
     nombre: c.nombre,

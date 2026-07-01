@@ -225,7 +225,6 @@ export type NecesidadPublica = {
   nombre: string;
   nivel: NivelInsumo;
   categoria: string | null;
-  cantidad: number;
 };
 
 export type CentroPublico = {
