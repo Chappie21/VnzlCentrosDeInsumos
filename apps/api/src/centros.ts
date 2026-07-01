@@ -34,6 +34,7 @@ import {
   type ValidationArguments,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
+import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
@@ -953,6 +954,33 @@ export class CentrosController {
 
   // Directorio público (también "solo observar"). Sin guard: cualquiera puede ver.
   @Get()
+  @ApiTags("publico")
+  @ApiOperation({ summary: "Directorio de centros de acopio (paginado, filtros opcionales)" })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        items: [
+          {
+            id: "ckxyz...",
+            nombre: "Centro Mariposa",
+            ciudad: "Caracas",
+            estado: "Distrito Capital",
+            direccion: "Av. Principal, Local 3",
+            recibiendoAhora: true,
+            horarioCierre: "18:00",
+            verificado: true,
+            distanciaKm: null,
+            prioridadAlta: true,
+            necesidades: [{ nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" }],
+          },
+        ],
+        page: 1,
+        limit: 20,
+        total: 42,
+        hasNext: true,
+      },
+    },
+  })
   list(@Query() query: ListCentrosQueryDto) {
     return this.service.list(query);
   }
@@ -977,6 +1005,22 @@ export class CentrosController {
 
   // Mapa público de centros con coordenadas. Literal antes de ":centroId".
   @Get("mapa")
+  @ApiTags("publico")
+  @ApiOperation({ summary: "Coordenadas de todos los centros para pintar el mapa" })
+  @ApiOkResponse({
+    schema: {
+      example: [
+        {
+          id: "ckxyz...",
+          nombre: "Centro Mariposa",
+          ciudad: "Caracas",
+          latitud: 10.5,
+          longitud: -66.9,
+          recibiendoAhora: true,
+        },
+      ],
+    },
+  })
   mapa() {
     return this.service.mapaCoords();
   }
@@ -990,6 +1034,25 @@ export class CentrosController {
 
   // Detalle público (directorio). Sin guard: ruta distinta a la de miembros.
   @Get(":centroId/publico")
+  @ApiTags("publico")
+  @ApiOperation({ summary: "Detalle público de un centro (sin cantidades; solo insumos URGENTE/NORMAL)" })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        id: "ckxyz...",
+        nombre: "Centro Mariposa",
+        estado: "Distrito Capital",
+        ciudad: "Caracas",
+        direccion: "Av. Principal, Local 3",
+        latitud: 10.5,
+        longitud: -66.9,
+        recibiendoAhora: true,
+        horarioCierre: "18:00",
+        voluntarios: 4,
+        necesidades: [{ nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" }],
+      },
+    },
+  })
   detallePublico(@Param("centroId") centroId: string) {
     return this.service.detallePublico(centroId);
   }
