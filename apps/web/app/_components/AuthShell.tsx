@@ -21,18 +21,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </main>
 
       <footer className="mx-auto w-full max-w-[1024px] px-4 pb-4 text-center text-sm text-on-surface-variant">
-        <p>
-          Iniciativa por{" "}
-          <a
-            href="https://build4venezuela.com/es"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-primary-container underline hover:no-underline"
-          >
-            Build4Venezuela
-          </a>
-        </p>
-        <p className="mt-2 text-base font-medium">🇻🇪 Dios bendiga a Venezuela 🙏</p>
+        <p className="text-base font-medium">🇻🇪 Dios bendiga a Venezuela 🙏</p>
       </footer>
     </div>
   );
