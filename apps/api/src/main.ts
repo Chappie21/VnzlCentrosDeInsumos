@@ -5,12 +5,13 @@ import { join } from "path";
 import * as express from "express";
 import helmet from "helmet";
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // CORS: si WEB_ORIGIN está seteado (prod), solo ese/esos orígenes pueden llamar
   // a la API desde un browser. En dev (sin la var) se permite todo.
   // ponytail: CORS lo aplica el navegador; la protección REAL del admin es el JWT.
@@ -19,6 +20,8 @@ async function bootstrap() {
     .map((s) => s.trim())
     .filter(Boolean);
   app.enableCors({ origin: origins.length ? origins : true, credentials: true });
+  // Set trust proxy to correctly resolve client IP behind a reverse proxy (e.g. for rate-limiting).
+  app.set("trust proxy", 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   // Foto del local va como data URL base64 en JSON → subir el límite (default 100kb).
   app.use(express.json({ limit: "5mb" }));
