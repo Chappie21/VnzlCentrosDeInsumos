@@ -5,12 +5,19 @@ import { join } from "path";
 import * as express from "express";
 import helmet from "helmet";
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Sentinel (Security): Enable 'trust proxy' to correctly identify client IPs when
+  // deployed behind a reverse proxy (e.g. Render, Railway, Cloud Run).
+  // This prevents attackers from bypassing the Redis RateLimitGuard.
+  app.set("trust proxy", 1);
+
   // CORS: si WEB_ORIGIN está seteado (prod), solo ese/esos orígenes pueden llamar
   // a la API desde un browser. En dev (sin la var) se permite todo.
   // ponytail: CORS lo aplica el navegador; la protección REAL del admin es el JWT.
