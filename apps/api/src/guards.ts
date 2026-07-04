@@ -159,13 +159,39 @@ export class RateLimitGuard implements CanActivate {
   constructor(private readonly redis: RedisService) {}
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const fp = req.header("x-fingerprint") || req.ip;
-    const key = `rl:${req.route?.path ?? req.path}:${fp}`;
-    if (!(await this.redis.hit(key, RATE_LIMIT.max, RATE_LIMIT.windowSec)))
+    const path = req.route?.path ?? req.path;
+
+    // Always rate limit by IP first to prevent X-Fingerprint spoofing bypasses.
+    // IP gets a much more generous limit (e.g. 10x) because of NAT/shared networks.
+    const ipKey = `rl:ip:${path}:${req.ip}`;
+    const ipMax = RATE_LIMIT.max * 10;
+    if (!(await this.redis.hit(ipKey, ipMax, RATE_LIMIT.windowSec))) {
       throw new HttpException(
-        "Demasiadas solicitudes, espera un minuto",
+        "Demasiadas solicitudes desde esta red, intenta más tarde",
         HttpStatus.TOO_MANY_REQUESTS,
       );
+    }
+
+    const fp = req.header("x-fingerprint");
+    if (fp) {
+      const fpKey = `rl:fp:${path}:${fp}`;
+      if (!(await this.redis.hit(fpKey, RATE_LIMIT.max, RATE_LIMIT.windowSec))) {
+        throw new HttpException(
+          "Demasiadas solicitudes, espera un minuto",
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } else {
+      // If no fingerprint is provided, rate limit by IP with the strict limit
+      const fallbackIpKey = `rl:strict-ip:${path}:${req.ip}`;
+      if (!(await this.redis.hit(fallbackIpKey, RATE_LIMIT.max, RATE_LIMIT.windowSec))) {
+        throw new HttpException(
+          "Demasiadas solicitudes, espera un minuto",
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
     return true;
   }
 }
