@@ -159,13 +159,33 @@ export class RateLimitGuard implements CanActivate {
   constructor(private readonly redis: RedisService) {}
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const fp = req.header("x-fingerprint") || req.ip;
-    const key = `rl:${req.route?.path ?? req.path}:${fp}`;
-    if (!(await this.redis.hit(key, RATE_LIMIT.max, RATE_LIMIT.windowSec)))
+
+    // Primary check: IP address. This cannot be spoofed easily.
+    const ip = req.ip || "unknown-ip";
+    const route = req.route?.path ?? req.path;
+    const ipKey = `rl:${route}:${ip}`;
+
+    if (!(await this.redis.hit(ipKey, RATE_LIMIT.max, RATE_LIMIT.windowSec))) {
       throw new HttpException(
         "Demasiadas solicitudes, espera un minuto",
         HttpStatus.TOO_MANY_REQUESTS,
       );
+    }
+
+    // Secondary check: x-fingerprint (if provided). Prevents a single IP from
+    // funneling unlimited requests if they rotate fingerprints, while also
+    // ensuring rotating fingerprints doesn't bypass the IP limit.
+    const fp = req.header("x-fingerprint");
+    if (fp) {
+      const fpKey = `rl:${route}:${fp}`;
+      if (!(await this.redis.hit(fpKey, RATE_LIMIT.max, RATE_LIMIT.windowSec))) {
+        throw new HttpException(
+          "Demasiadas solicitudes, espera un minuto",
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
     return true;
   }
 }
