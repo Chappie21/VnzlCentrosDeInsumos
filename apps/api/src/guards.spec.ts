@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { UnauthorizedException, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { UnauthorizedException, BadRequestException, ForbiddenException, HttpException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { SesionGuard, VoluntarioGuard, OptionalSesionGuard } from "./guards";
+import { SesionGuard, VoluntarioGuard, OptionalSesionGuard, RateLimitGuard } from "./guards";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -26,6 +26,42 @@ function ctx(headers: Record<string, string>, body: any = {}, params: any = {}) 
 it("SesionGuard rechaza sin Bearer", async () => {
   const g = new SesionGuard(jwt);
   await expect(g.canActivate(ctx({}))).rejects.toBeInstanceOf(UnauthorizedException);
+});
+
+it("RateLimitGuard pasa si ni IP ni fingerprint superan el límite", async () => {
+  const redisMock = { hit: vi.fn().mockResolvedValue(true) };
+  const g = new RateLimitGuard(redisMock as any);
+  const context = ctx({ "x-fingerprint": "fp123" });
+  context._req.ip = "1.1.1.1";
+
+  await expect(g.canActivate(context)).resolves.toBe(true);
+  expect(redisMock.hit).toHaveBeenCalledTimes(2);
+});
+
+it("RateLimitGuard rechaza si la IP supera el límite", async () => {
+  // Solo con fallar la primera (IP), rechaza inmediatamente
+  const redisMock = { hit: vi.fn().mockResolvedValue(false) };
+  const g = new RateLimitGuard(redisMock as any);
+  const context = ctx({});
+  context._req.ip = "1.1.1.1";
+
+  await expect(g.canActivate(context)).rejects.toBeInstanceOf(HttpException);
+  expect(redisMock.hit).toHaveBeenCalledTimes(1);
+});
+
+it("RateLimitGuard rechaza si el fingerprint supera el límite aunque la IP pase", async () => {
+  // Mock: primera llamada (IP) pasa, segunda llamada (fingerprint) falla
+  const redisMock = {
+    hit: vi.fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false)
+  };
+  const g = new RateLimitGuard(redisMock as any);
+  const context = ctx({ "x-fingerprint": "fp123" });
+  context._req.ip = "1.1.1.1";
+
+  await expect(g.canActivate(context)).rejects.toBeInstanceOf(HttpException);
+  expect(redisMock.hit).toHaveBeenCalledTimes(2);
 });
 
 it("SesionGuard permite con token válido y pone userId en req", async () => {
