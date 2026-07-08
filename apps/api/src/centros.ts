@@ -938,10 +938,14 @@ export class CentrosService {
 
     const dir = join(process.cwd(), "uploads", "centros");
     mkdirSync(dir, { recursive: true });
-    const filename = `${centroId}-${Date.now()}.${ext}`;
+
+    // Sanitize centroId to prevent Path Traversal
+    const safeId = centroId.replace(/[^a-zA-Z0-9-]/g, "");
+    const filename = `${safeId}-${Date.now()}.${ext}`;
     writeFileSync(join(dir, filename), buf);
 
     const fotoUrl = `/uploads/centros/${filename}`;
+    // Use the original centroId to update the database
     await prisma.centro.update({ where: { id: centroId }, data: { fotoUrl } });
     await this.redis.bumpCentros();
     return { fotoUrl };
