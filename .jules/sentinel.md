@@ -23,3 +23,11 @@
 **Vulnerability:** The NestJS `RateLimitGuard` used `req.header("x-fingerprint") || req.ip` as the cache key for rate limiting. Because the client controls the `x-fingerprint` header, an attacker could bypass the rate limit completely by rotating this header on every request, completely ignoring the IP fallback.
 **Learning:** Never trust client-provided headers as the primary key for rate limiting. Attackers can easily spoof them. The primary rate limiting key should always be the source IP address (which is harder to spoof because the TCP connection must be established to get a response).
 **Prevention:** Use `req.ip` as the primary rate limit key. If an application requires limiting by a secondary client identifier (like a fingerprint or a user ID), apply *both* rate limits (first the IP limit, then the secondary limit) to prevent rotating identifiers from bypassing the global IP limit.
+
+## 2026-07-03 - Path Traversal in File Uploads
+
+**Vulnerability:** The API endpoint for uploading center photos (`apps/api/src/centros.ts`, `setFoto`) used the unsanitized `centroId` parameter from the URL path directly in string interpolation to create the local filename (`const filename = \`${centroId}-${Date.now()}.${ext}\`;`). If an attacker could inject path traversal characters (like `../../`), they might write files outside the intended `uploads/centros` directory, potentially overwriting critical system or application files.
+
+**Learning:** Any user input (including parameters from a URL path, query string, or body) that is used in filesystem operations must be rigorously sanitized. Even if a framework's routing or an authorization guard makes it difficult to pass arbitrary strings, defense in depth dictates that the function performing the filesystem operation should not trust the input.
+
+**Prevention:** Sanitize inputs used for filenames by removing all characters except a strict allowlist (e.g., alphanumeric and hyphens) before using them in functions like `fs.writeFileSync`. For example: `const safeId = id.replace(/[^a-zA-Z0-9-]/g, "");`.
