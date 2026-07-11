@@ -938,7 +938,9 @@ export class CentrosService {
 
     const dir = join(process.cwd(), "uploads", "centros");
     mkdirSync(dir, { recursive: true });
-    const filename = `${centroId}-${Date.now()}.${ext}`;
+    // Sentinel: Sanitize centroId to prevent Path Traversal
+    const safeCentroId = centroId.replace(/[^a-zA-Z0-9_-]/g, "");
+    const filename = `${safeCentroId}-${Date.now()}.${ext}`;
     writeFileSync(join(dir, filename), buf);
 
     const fotoUrl = `/uploads/centros/${filename}`;
