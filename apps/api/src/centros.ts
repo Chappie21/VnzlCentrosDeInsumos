@@ -936,9 +936,10 @@ export class CentrosService {
     const buf = Buffer.from(m[2], "base64");
     if (buf.length > 3 * 1024 * 1024) throw new BadRequestException("La imagen supera 3 MB");
 
+    const safeId = centroId.replace(/[^a-zA-Z0-9-]/g, "");
     const dir = join(process.cwd(), "uploads", "centros");
     mkdirSync(dir, { recursive: true });
-    const filename = `${centroId}-${Date.now()}.${ext}`;
+    const filename = `${safeId}-${Date.now()}.${ext}`;
     writeFileSync(join(dir, filename), buf);
 
     const fotoUrl = `/uploads/centros/${filename}`;
