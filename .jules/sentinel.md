@@ -23,3 +23,9 @@
 **Vulnerability:** The NestJS `RateLimitGuard` used `req.header("x-fingerprint") || req.ip` as the cache key for rate limiting. Because the client controls the `x-fingerprint` header, an attacker could bypass the rate limit completely by rotating this header on every request, completely ignoring the IP fallback.
 **Learning:** Never trust client-provided headers as the primary key for rate limiting. Attackers can easily spoof them. The primary rate limiting key should always be the source IP address (which is harder to spoof because the TCP connection must be established to get a response).
 **Prevention:** Use `req.ip` as the primary rate limit key. If an application requires limiting by a secondary client identifier (like a fingerprint or a user ID), apply *both* rate limits (first the IP limit, then the secondary limit) to prevent rotating identifiers from bypassing the global IP limit.
+
+## 2026-07-13 - Path Traversal Vulnerability in File Uploads
+
+**Vulnerability:** The API allowed a user-controlled parameter (`centroId`) to be used directly in constructing a file path without sanitization (`const filename = \`${centroId}-${Date.now()}.${ext}\`; writeFileSync(join(dir, filename), buf);`). This exposed a Path Traversal vulnerability where attackers could supply a malicious ID (e.g., `../../../`) to write files to unintended directories.
+**Learning:** Never trust user input to be used in file operations. Always properly sanitize variables passed into paths.
+**Prevention:** Apply strict sanitization (e.g., `replace(/[^a-zA-Z0-9-]/g, "")`) to variables used in paths and filenames before any file system interactions.
