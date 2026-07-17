@@ -625,6 +625,14 @@ describe("CentrosService.setFoto", () => {
       expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
     );
   });
+
+  it("sanitiza el centroId para prevenir path traversal", async () => {
+    prismaMock.centro.update.mockResolvedValue({});
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    const res = await service.setFoto("../../../c1", png);
+    // The ".." and "/" should be stripped out.
+    expect(res.fotoUrl).toMatch(/^\/uploads\/centros\/c1-\d+\.png$/);
+  });
 });
 
 describe("CentrosService.detallePublico", () => {

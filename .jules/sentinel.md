@@ -23,3 +23,11 @@
 **Vulnerability:** The NestJS `RateLimitGuard` used `req.header("x-fingerprint") || req.ip` as the cache key for rate limiting. Because the client controls the `x-fingerprint` header, an attacker could bypass the rate limit completely by rotating this header on every request, completely ignoring the IP fallback.
 **Learning:** Never trust client-provided headers as the primary key for rate limiting. Attackers can easily spoof them. The primary rate limiting key should always be the source IP address (which is harder to spoof because the TCP connection must be established to get a response).
 **Prevention:** Use `req.ip` as the primary rate limit key. If an application requires limiting by a secondary client identifier (like a fingerprint or a user ID), apply *both* rate limits (first the IP limit, then the secondary limit) to prevent rotating identifiers from bypassing the global IP limit.
+
+## 2026-07-17 - Path Traversal in Local File Uploads
+
+**Vulnerability:** The API endpoint for uploading center photos (`apps/api/src/centros.ts`) used the raw `centroId` provided by the client (via route params) to construct the local filename where the image is saved. If an attacker could control `centroId` to include characters like `../`, they could potentially write files outside of the intended `uploads/centros` directory (Path Traversal).
+
+**Learning:** When saving files directly to the local filesystem using standard Node.js APIs (like `fs.writeFileSync`), any user-provided input used to construct the file path must be strictly sanitized. Even if the parameter is a UUID by design, routing mechanisms or malicious requests may supply arbitrary strings.
+
+**Prevention:** Always sanitize route or body parameters that are part of file paths (e.g., stripping all non-alphanumeric characters) to prevent directory traversal attacks. Even better, generate a fresh random identifier (like a UUID) for the filename instead of relying on client-provided IDs.
