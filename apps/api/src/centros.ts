@@ -938,7 +938,10 @@ export class CentrosService {
 
     const dir = join(process.cwd(), "uploads", "centros");
     mkdirSync(dir, { recursive: true });
-    const filename = `${centroId}-${Date.now()}.${ext}`;
+    const safeCentroId = centroId.replace(/[^a-zA-Z0-9-]/g, "");
+    if (!safeCentroId) throw new BadRequestException("ID de centro inválido");
+
+    const filename = `${safeCentroId}-${Date.now()}.${ext}`;
     writeFileSync(join(dir, filename), buf);
 
     const fotoUrl = `/uploads/centros/${filename}`;
