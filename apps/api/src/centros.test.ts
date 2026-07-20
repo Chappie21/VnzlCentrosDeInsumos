@@ -625,6 +625,21 @@ describe("CentrosService.setFoto", () => {
       expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
     );
   });
+
+  it("sanitiza el centroId para prevenir path traversal", async () => {
+    prismaMock.centro.update.mockResolvedValue({});
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    // Malicious centroId attempt
+    const maliciousId = "../../../etc/passwd";
+    const res = await service.setFoto(maliciousId, png);
+    // Path traversal characters should be stripped out:
+    // . -> stripped, / -> stripped
+    // "etcpasswd" remains
+    expect(res.fotoUrl).toMatch(/^\/uploads\/centros\/etcpasswd-\d+\.png$/);
+    expect(prismaMock.centro.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: maliciousId }, data: { fotoUrl: res.fotoUrl } }),
+    );
+  });
 });
 
 describe("CentrosService.detallePublico", () => {
