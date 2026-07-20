@@ -625,6 +625,16 @@ describe("CentrosService.setFoto", () => {
       expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
     );
   });
+
+  it("sanitiza el centroId en setFoto previniendo path traversal", async () => {
+    prismaMock.centro.update.mockResolvedValue({});
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    const res = await service.setFoto("../c1", png);
+    expect(res.fotoUrl).toMatch(/^\/uploads\/centros\/c1-\d+\.png$/);
+    expect(prismaMock.centro.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "../c1" }, data: { fotoUrl: res.fotoUrl } }),
+    );
+  });
 });
 
 describe("CentrosService.detallePublico", () => {
