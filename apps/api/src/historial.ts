@@ -25,7 +25,7 @@ import { calcularNivel } from "./constants/insumos";
 
 class MovimientoDto {
   @IsString() insumoId: string;
-  @IsInt() cantidad: number; // + entrada, - salida
+  @IsInt() @Min(1) cantidad: number; // + entrada, - salida
 }
 
 class AddDto extends MovimientoDto {
@@ -63,7 +63,7 @@ class RecibirDto {
 class AjusteDto {
   @IsString() centroId: string;
   @IsString() insumoId: string;
-  @IsInt() cantidad: number; // delta +/- (≠ 0)
+  @IsInt() @Min(1) cantidad: number; // delta +/- (≠ 0)
   @IsOptional() @IsString() @MaxLength(200) motivo?: string;
 }
 
