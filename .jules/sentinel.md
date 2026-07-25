@@ -23,3 +23,9 @@
 **Vulnerability:** The NestJS `RateLimitGuard` used `req.header("x-fingerprint") || req.ip` as the cache key for rate limiting. Because the client controls the `x-fingerprint` header, an attacker could bypass the rate limit completely by rotating this header on every request, completely ignoring the IP fallback.
 **Learning:** Never trust client-provided headers as the primary key for rate limiting. Attackers can easily spoof them. The primary rate limiting key should always be the source IP address (which is harder to spoof because the TCP connection must be established to get a response).
 **Prevention:** Use `req.ip` as the primary rate limit key. If an application requires limiting by a secondary client identifier (like a fingerprint or a user ID), apply *both* rate limits (first the IP limit, then the secondary limit) to prevent rotating identifiers from bypassing the global IP limit.
+
+## 2026-07-03 - Negative Quantity Injection in Reused DTOs
+
+**Vulnerability:** The `MovimientoDto` used in the `add` (and `batch`) endpoints lacked a `@Min(1)` constraint on `cantidad`. While intended for positive additions, it allowed an attacker to pass a negative `cantidad` (e.g., `-100`). This bypassed normal application logic, decrementing the `cantidadTotal` directly via an endpoint not meant for deductions, without proper audit logs or checks applied by intended deduction endpoints (like `ajuste` or `envios`).
+**Learning:** Generic DTOs reused across endpoints with different authorization levels (e.g., additions vs. adjustments) must be strictly typed to the intersection of their intended constraints to prevent logic bypasses (e.g., enforcing positive-only additions using `@Min(1)`).
+**Prevention:** Add `@Min(1)` to the generic `MovimientoDto` that handles routine additions. Endpoints requiring arbitrary changes (like adjustments) should use their own distinct DTO without that constraint, or explicitly manage the logic securely.
