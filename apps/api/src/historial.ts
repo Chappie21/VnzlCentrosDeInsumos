@@ -28,12 +28,14 @@ class MovimientoDto {
   @IsInt() cantidad: number; // + entrada, - salida
 }
 
-class AddDto extends MovimientoDto {
-  @IsString() centroId: string;
+class AddDto {
+  @IsString() insumoId: string;
   @IsInt() @Min(1) cantidad: number; // Solo adiciones positivas
+  @IsString() centroId: string;
 }
 
-class BatchMovimientoDto extends MovimientoDto {
+class BatchMovimientoDto {
+  @IsString() insumoId: string;
   @IsInt() @Min(1) cantidad: number; // Solo adiciones positivas
 }
 
