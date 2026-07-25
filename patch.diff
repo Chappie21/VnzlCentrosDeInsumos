@@ -1,0 +1,20 @@
+<<<<<<< SEARCH
+class MovimientoDto {
+  @IsString() insumoId: string;
+  @IsInt() @Min(1) cantidad: number; // Solo adiciones positivas
+}
+
+class AddDto extends MovimientoDto {
+  @IsString() centroId: string;
+}
+=======
+class MovimientoDto {
+  @IsString() insumoId: string;
+  @IsInt() cantidad: number; // + entrada, - salida
+}
+
+class AddDto extends MovimientoDto {
+  @IsString() centroId: string;
+  @IsInt() @Min(1) cantidad: number; // Solo adiciones positivas
+}
+>>>>>>> REPLACE
