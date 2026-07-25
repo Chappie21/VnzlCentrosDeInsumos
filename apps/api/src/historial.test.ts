@@ -153,7 +153,7 @@ describe("HistorialService.addOne — movimiento simple", () => {
   it("aplica el movimiento si el insumo pertenece al centro", async () => {
     prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1" });
     prismaMock.$transaction.mockResolvedValue(["hist"]);
-    const res = await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 });
+    const res = await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 } as any);
     expect(res).toBe("hist");
     expect(prismaMock.insumo.findUnique).toHaveBeenCalledWith({
       where: { id: "i1" },
@@ -164,7 +164,7 @@ describe("HistorialService.addOne — movimiento simple", () => {
   it("rechaza si el insumo es de otro centro", async () => {
     prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c2" });
     await expect(
-      service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 })
+      service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 } as any)
     ).rejects.toThrow(/no pertenece al centro/i);
   });
 });

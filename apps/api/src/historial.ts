@@ -30,14 +30,19 @@ class MovimientoDto {
 
 class AddDto extends MovimientoDto {
   @IsString() centroId: string;
+  @IsInt() @Min(1) cantidad: number; // Solo adiciones positivas
+}
+
+class BatchMovimientoDto extends MovimientoDto {
+  @IsInt() @Min(1) cantidad: number; // Solo adiciones positivas
 }
 
 class BatchDto {
   @IsString() centroId: string;
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
-  @Type(() => MovimientoDto)
-  movimientos: MovimientoDto[];
+  @Type(() => BatchMovimientoDto)
+  movimientos: BatchMovimientoDto[];
 }
 
 // Donación escaneada desde un QR de donante: insumos por NOMBRE (el donante no
