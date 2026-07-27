@@ -23,3 +23,9 @@
 **Vulnerability:** The NestJS `RateLimitGuard` used `req.header("x-fingerprint") || req.ip` as the cache key for rate limiting. Because the client controls the `x-fingerprint` header, an attacker could bypass the rate limit completely by rotating this header on every request, completely ignoring the IP fallback.
 **Learning:** Never trust client-provided headers as the primary key for rate limiting. Attackers can easily spoof them. The primary rate limiting key should always be the source IP address (which is harder to spoof because the TCP connection must be established to get a response).
 **Prevention:** Use `req.ip` as the primary rate limit key. If an application requires limiting by a secondary client identifier (like a fingerprint or a user ID), apply *both* rate limits (first the IP limit, then the secondary limit) to prevent rotating identifiers from bypassing the global IP limit.
+
+## 2026-07-27 - DTO Validation Bypass in NestJS
+
+**Vulnerability:** A controller method `add` used an inherited field `cantidad` from `MovimientoDto` which lacked a `@Min(1)` decorator. This resulted in an attacker being able to bypass logic by passing negative values for `cantidad` to unauthorized actions like removing items from inventory instead of adding them. The `BatchDto` similarly used `MovimientoDto` allowing negative values.
+**Learning:** Shared base DTOs must be correctly overridden to enforce endpoint-specific rules. Specifically, endpoints meant for additions must explicitly validate that values are strictly positive integers by overriding the field and using decorators like `@Min(1)`.
+**Prevention:** Always ensure that derived DTOs that have stricter constraints override the properties of their parent classes to provide proper decorators.
