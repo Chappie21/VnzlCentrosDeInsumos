@@ -25,8 +25,13 @@ export class AdminService {
 
   async login(email: string, password: string): Promise<{ token: string; nombre: string }> {
     const admin = await prisma.admin.findUnique({ where: { email: email.toLowerCase().trim() } });
+
+    // Prevent user enumeration via timing attack
+    const hashToCompare = admin?.passwordHash || "$2b$10$invalidhashinvalidhashinvalidhashinvalidhashinvalidha";
+    const isValid = await compare(password, hashToCompare);
+
     // Mismo error siempre (no filtrar si el email existe).
-    if (!admin || !admin.activo || !(await compare(password, admin.passwordHash)))
+    if (!admin || !admin.activo || !admin.passwordHash || !isValid)
       throw new UnauthorizedException("Credenciales inválidas");
     const token = await this.jwt.signAsync({ sub: admin.id, typ: "admin" }, { expiresIn: "8h" });
     return { token, nombre: admin.nombre };

@@ -43,8 +43,14 @@ export class AuthService {
   async login(dto: LoginDto) {
     const cedula = normalizarCedula(dto.cedula);
     const usuario = await prisma.usuario.findUnique({ where: { cedula } });
-    if (!usuario?.passwordHash || !(await compare(dto.password, usuario.passwordHash)))
+
+    // Prevent user enumeration via timing attack
+    const hashToCompare = usuario?.passwordHash || "$2b$10$invalidhashinvalidhashinvalidhashinvalidhashinvalidha";
+    const isValid = await compare(dto.password, hashToCompare);
+
+    if (!usuario?.passwordHash || !isValid)
       throw new UnauthorizedException("Cédula o contraseña inválida");
+
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
   }
 
