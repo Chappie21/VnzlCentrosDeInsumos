@@ -23,3 +23,9 @@
 **Vulnerability:** The NestJS `RateLimitGuard` used `req.header("x-fingerprint") || req.ip` as the cache key for rate limiting. Because the client controls the `x-fingerprint` header, an attacker could bypass the rate limit completely by rotating this header on every request, completely ignoring the IP fallback.
 **Learning:** Never trust client-provided headers as the primary key for rate limiting. Attackers can easily spoof them. The primary rate limiting key should always be the source IP address (which is harder to spoof because the TCP connection must be established to get a response).
 **Prevention:** Use `req.ip` as the primary rate limit key. If an application requires limiting by a secondary client identifier (like a fingerprint or a user ID), apply *both* rate limits (first the IP limit, then the secondary limit) to prevent rotating identifiers from bypassing the global IP limit.
+
+## 2026-07-03 - Timing Attack via bcrypt.compare Short-circuiting
+
+**Vulnerability:** The authentication login services (`AdminService.login` and `AuthService.login`) were short-circuiting password comparison when a user/admin was not found in the database or inactive. This difference in execution time (due to the expensive nature of `bcrypt.compare`) allows for user enumeration via timing attacks.
+**Learning:** Checking for the existence of a user and early returning (or short-circuiting in an `if` statement) before running the password hash comparison reveals to an attacker whether a username/email is valid or registered in the system based on the response time.
+**Prevention:** Always normalize the execution time of login requests. Pre-compute a dummy bcrypt hash using the same cost factor (e.g., 10) and run `bcrypt.compare(password, DUMMY_HASH)` when a user is not found to mask whether a given user exists in the database.

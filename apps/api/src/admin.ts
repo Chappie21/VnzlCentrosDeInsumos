@@ -17,6 +17,10 @@ class LoginDto {
   @IsString() @MinLength(1) password: string;
 }
 
+// Pre-computed bcrypt hash for "dummy" with cost factor 10 to prevent timing attacks.
+// Used to normalize execution time of bcrypt.compare when a user is not found.
+const DUMMY_HASH = "$2b$10$PHALslj6T/12PmChUOgMmOURjaf44nw06.i1UiiLQfuNgP/yad9v6";
+
 // Login de moderadores (opción C). email + password (bcrypt) → sesión JWT 8h.
 // Da identidad por persona (accountability) y revocación (activo=false).
 @Injectable()
@@ -25,8 +29,13 @@ export class AdminService {
 
   async login(email: string, password: string): Promise<{ token: string; nombre: string }> {
     const admin = await prisma.admin.findUnique({ where: { email: email.toLowerCase().trim() } });
+
+    // Mitigate timing attack: always run bcrypt.compare even if admin doesn't exist or is inactive
+    const hashToCompare = admin?.passwordHash || DUMMY_HASH;
+    const isMatch = await compare(password, hashToCompare);
+
     // Mismo error siempre (no filtrar si el email existe).
-    if (!admin || !admin.activo || !(await compare(password, admin.passwordHash)))
+    if (!admin || !admin.activo || !isMatch)
       throw new UnauthorizedException("Credenciales inválidas");
     const token = await this.jwt.signAsync({ sub: admin.id, typ: "admin" }, { expiresIn: "8h" });
     return { token, nombre: admin.nombre };
