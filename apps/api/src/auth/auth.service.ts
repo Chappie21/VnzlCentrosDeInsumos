@@ -8,6 +8,8 @@ import { normalizarCedula, normalizarTelefono } from "../usuarios";
 import { CedulaService } from "../cedula";
 import { RegisterDto, LoginDto } from "./dto";
 
+const DUMMY_HASH = "$2b$10$qtE/XQYFBj/GyC3oj2BFQeOG1ovwV/glZ7k.0PbisSWeAdVzKFRXG";
+
 @Injectable()
 export class AuthService {
   // ponytail: cliente real en runtime, mock en test
@@ -43,8 +45,16 @@ export class AuthService {
   async login(dto: LoginDto) {
     const cedula = normalizarCedula(dto.cedula);
     const usuario = await prisma.usuario.findUnique({ where: { cedula } });
-    if (!usuario?.passwordHash || !(await compare(dto.password, usuario.passwordHash)))
+
+    if (!usuario?.passwordHash) {
+      await compare(dto.password, DUMMY_HASH);
       throw new UnauthorizedException("Cédula o contraseña inválida");
+    }
+
+    if (!(await compare(dto.password, usuario.passwordHash))) {
+      throw new UnauthorizedException("Cédula o contraseña inválida");
+    }
+
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
   }
 
