@@ -17,6 +17,9 @@ class LoginDto {
   @IsString() @MinLength(1) password: string;
 }
 
+// dummy hash cost=10 to prevent user enumeration via timing attack
+const DUMMY_HASH = "$2b$10$SGbfntljpXw8Lk17OlRdROyYYgQKKzkViEP3V./ZItzAT0ra8rEWq";
+
 // Login de moderadores (opción C). email + password (bcrypt) → sesión JWT 8h.
 // Da identidad por persona (accountability) y revocación (activo=false).
 @Injectable()
@@ -26,7 +29,10 @@ export class AdminService {
   async login(email: string, password: string): Promise<{ token: string; nombre: string }> {
     const admin = await prisma.admin.findUnique({ where: { email: email.toLowerCase().trim() } });
     // Mismo error siempre (no filtrar si el email existe).
-    if (!admin || !admin.activo || !(await compare(password, admin.passwordHash)))
+    // Mitigate timing attack by always executing compare
+    const isValidPassword = await compare(password, admin?.passwordHash || DUMMY_HASH);
+
+    if (!admin || !admin.activo || !isValidPassword)
       throw new UnauthorizedException("Credenciales inválidas");
     const token = await this.jwt.signAsync({ sub: admin.id, typ: "admin" }, { expiresIn: "8h" });
     return { token, nombre: admin.nombre };
