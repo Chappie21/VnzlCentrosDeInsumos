@@ -8,6 +8,8 @@ import { normalizarDocumento, normalizarTelefono } from "@vnzl/paises";
 import { CedulaService } from "../cedula";
 import { RegisterDto, LoginDto } from "./dto";
 
+const DUMMY_HASH = "$2b$10$eCnKleOuUjlWnp6FKGd1GutvBdFEueoXmYVhixx4mhVtDXwGwGgtm";
+
 @Injectable()
 export class AuthService {
   // ponytail: cliente real en runtime, mock en test
@@ -44,7 +46,10 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const usuario = await this.porDocumento(dto.cedula);
-    if (!usuario?.passwordHash || !(await compare(dto.password, usuario.passwordHash)))
+    // Se compara SIEMPRE, incluso cuando no hay usuario, contra un hash dummy:
+    // si no, el tiempo de respuesta delata qué documentos tienen cuenta.
+    const match = await compare(dto.password, usuario?.passwordHash || DUMMY_HASH);
+    if (!usuario?.passwordHash || !match)
       throw new UnauthorizedException("Documento o contraseña inválida");
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
   }
@@ -56,10 +61,15 @@ export class AuthService {
   // Dos findUnique en el peor caso; el login no es hot path.
   private async porDocumento(raw: string) {
     const v = raw.toUpperCase().replace(/[.\s-]/g, "");
-    return (
-      (await prisma.usuario.findUnique({ where: { cedula: v } })) ??
-      (/^\d+$/.test(v) ? await prisma.usuario.findUnique({ where: { cedula: "V" + v } }) : null)
-    );
+    if (!/^\d+$/.test(v)) return prisma.usuario.findUnique({ where: { cedula: v } });
+    // Las dos búsquedas SIEMPRE y en paralelo. Cortar en la primera que acierta
+    // haría que el tiempo delate si el documento está guardado con o sin el
+    // prefijo "V" — el mismo tipo de fuga que cierra el hash dummy del login.
+    const [exacto, conPrefijo] = await Promise.all([
+      prisma.usuario.findUnique({ where: { cedula: v } }),
+      prisma.usuario.findUnique({ where: { cedula: "V" + v } }),
+    ]);
+    return exacto ?? conPrefijo;
   }
 
   async google(idToken: string) {
