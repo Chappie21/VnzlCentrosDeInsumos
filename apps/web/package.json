@@ -11,7 +11,7 @@
     "@react-oauth/google": "^0.13.5",
     "@sentry/nextjs": "^10.62.0",
     "@tanstack/react-query": "^5.101.1",
-    "@vnzl/venezuela": "workspace:*",
+    "@vnzl/paises": "workspace:*",
     "html-to-image": "^1.11.13",
     "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",

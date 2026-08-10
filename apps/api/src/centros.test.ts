@@ -508,7 +508,7 @@ describe("UpdateOperativoDto — tipos", () => {
   });
 });
 
-describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => {
+describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/paises)", () => {
   const base = { nombre: "Centro X", direccion: "Av Principal 123" };
   const errores = async (data: Record<string, unknown>) =>
     (await validate(plainToInstance(CreateCentroDto, data))).flatMap((e) =>

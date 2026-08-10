@@ -3,7 +3,7 @@ export * from "./nav";
 export * from "./storage";
 export * from "./query-keys";
 export * from "./filters";
-export * from "./venezuela";
+export * from "./paises";
 export * from "./categorias";
 export * from "./mis-centros";
 export * from "./centro-detalle";

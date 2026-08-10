@@ -1,7 +1,7 @@
 import * as https from "https";
 import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { prisma } from "@vnzl/database";
-import { parseCedula } from "@vnzl/venezuela";
+import { parseCedula } from "@vnzl/paises";
 
 // Resultado del portón de registro: nombre a usar + estado de verificación.
 export type ValidacionRegistro = {

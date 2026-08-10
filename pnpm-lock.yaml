@@ -38,9 +38,9 @@ importers:
       '@vnzl/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@vnzl/venezuela':
+      '@vnzl/paises':
         specifier: workspace:*
-        version: link:../../packages/venezuela
+        version: link:../../packages/paises
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -108,9 +108,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.101.1
         version: 5.101.1(react@19.2.7)
-      '@vnzl/venezuela':
+      '@vnzl/paises':
         specifier: workspace:*
-        version: link:../../packages/venezuela
+        version: link:../../packages/paises
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
@@ -204,7 +204,7 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/venezuela:
+  packages/paises:
     devDependencies:
       '@types/node':
         specifier: ^26.0.1

@@ -38,7 +38,7 @@ import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
-import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
+import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/paises";
 import { RedisService } from "./redis.service";
 import { CedulaService } from "./cedula";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
@@ -52,7 +52,7 @@ const toOptionalBool = () =>
     value === undefined ? undefined : value === true || value === "true" || value === "1",
   );
 
-// Valida que la ciudad pertenezca al estado enviado (whitelist @vnzl/venezuela).
+// Valida que la ciudad pertenezca al estado enviado (whitelist @vnzl/paises).
 // Cross-field: lee el sibling `estado` del objeto en validación.
 function IsCiudadDeEstado() {
   return function (object: object, propertyName: string) {
