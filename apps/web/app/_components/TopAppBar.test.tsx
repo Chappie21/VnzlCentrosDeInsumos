@@ -10,12 +10,13 @@ vi.mock("next/link", () => ({
 }));
 
 import TopAppBar from "./TopAppBar";
+import { SITE_NAME } from "../constants/site";
 
 describe("TopAppBar", () => {
   it("muestra el título y dispara onMenu", () => {
     const onMenu = vi.fn();
     render(<TopAppBar onMenu={onMenu} />);
-    expect(screen.getByText("Red Acopio Venezuela")).toBeTruthy();
+    expect(screen.getByText(SITE_NAME)).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Menú"));
     expect(onMenu).toHaveBeenCalledOnce();
   });

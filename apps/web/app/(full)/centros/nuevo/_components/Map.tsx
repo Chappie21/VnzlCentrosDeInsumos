@@ -10,15 +10,15 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
+import { PAIS_META, type Pais } from "@vnzl/paises";
 import type { Coords } from "../../../../_hooks";
 import { pinIcon } from "../../../../_components/mapPin";
-
-// Centro por defecto: Caracas (el usuario reposiciona clickeando o arrastrando).
-const CARACAS: Coords = { lat: 10.4806, lng: -66.9036 };
 
 type MapProps = {
   value: Coords | null;
   onChange: (next: Coords) => void;
+  // Encuadre inicial cuando todavía no hay punto elegido.
+  pais: Pais;
   // bump para forzar recenter (p. ej. tras "Obtener ubicación actual")
   recenterKey?: number;
   zoom?: number;
@@ -43,12 +43,13 @@ function Recenter({ value, recenterKey }: { value: Coords | null; recenterKey?: 
   return null;
 }
 
-export default function Map({ value, onChange, recenterKey, zoom = 13 }: MapProps) {
-  const center = value ?? CARACAS;
+export default function Map({ value, onChange, pais, recenterKey, zoom = 13 }: MapProps) {
+  const vista = PAIS_META[pais].mapa;
+  const center = value ?? vista;
   return (
     <MapContainer
       center={[center.lat, center.lng]}
-      zoom={zoom}
+      zoom={value ? zoom : vista.zoom}
       scrollWheelZoom
       className="h-64 w-full rounded-lg"
     >

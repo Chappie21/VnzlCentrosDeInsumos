@@ -1,7 +1,23 @@
 import * as https from "https";
 import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { prisma } from "@vnzl/database";
-import { parseCedula } from "@vnzl/paises";
+import { parseDocumento, type Pais } from "@vnzl/paises";
+import { cedulaValidacionVe } from "./feature-flags";
+
+// Portón de verificación contra el registro civil. ENCENDIDO por defecto; se
+// apaga desde el feature flag `cedula-validacion-ve` de Railway, en caliente y
+// sin redeploy (p. ej. si api.cedula.com.ve se cae o empieza a cobrar).
+//
+// Cuando está activo, el nombre sale del registro oficial y NO se teclea. Por eso
+// esta misma función decide si el formulario tiene que pedir el nombre: si acá
+// devuelve false, el nombre pasa a ser obligatorio en el body. El frontend lee
+// este mismo valor por GET /config/flags — una sola verdad, un solo interruptor.
+//
+// api.cedula.com.ve es SOLO venezolana y Colombia no tiene un equivalente
+// gratuito, así que CO nunca pasa por acá y siempre teclea su nombre.
+export function validacionActiva(pais: Pais): boolean {
+  return pais === "VE" && cedulaValidacionVe();
+}
 
 // Resultado del portón de registro: nombre a usar + estado de verificación.
 export type ValidacionRegistro = {
@@ -37,22 +53,31 @@ export function interpretarRespuesta(body: any): CedulaResultado {
 
 @Injectable()
 export class CedulaService {
-  // Portón de registro: valida la cédula contra el registro real y toma de ahí el
-  // NOMBRE OFICIAL (decisión: el nombre no se teclea).
-  // - Formato inválido → 400.
-  // - Cédula que NO corresponde a una persona real → 400 (no se puede registrar).
+  // Portón de registro: valida el documento contra el registro real y toma de ahí
+  // el NOMBRE OFICIAL (que pisa al tecleado cuando la API responde).
+  // - Formato inválido → 400 (siempre, es sanidad de input y no depende del flag).
+  // - Flag apagado / país sin API de verificación → se salta la consulta.
+  // - Documento que NO corresponde a una persona real → 400.
   // - API caída / sin configurar:
-  //     · con `nombreRespaldo` (flujo Google, el nombre lo da Google) → fail-open
-  //       (deja pasar, marca no verificado).
-  //     · sin respaldo (registro por cédula, ya no se teclea nombre) → 503: no se
-  //       puede registrar sin poder verificar, que reintente.
+  //     · con `nombreRespaldo` → fail-open (deja pasar, marca no verificado).
+  //     · sin respaldo → 503: no se puede registrar sin poder verificar.
   async validarParaRegistro(
+    pais: Pais,
     cedula: string,
     nombreRespaldo?: string,
   ): Promise<ValidacionRegistro> {
-    const parsed = parseCedula(cedula);
+    const parsed = parseDocumento(pais, cedula);
     if (!parsed.valid || !parsed.data) {
-      throw new BadRequestException("Cédula inválida");
+      throw new BadRequestException("Documento de identidad inválido");
+    }
+    if (!validacionActiva(pais) || !parsed.data.tipo) {
+      // Sin registro que consultar, el nombre tecleado es la única fuente. Que
+      // falte acá significa que el formulario no lo pidió cuando debía: cortar
+      // en vez de crear una cuenta sin nombre (identidad incompleta = el usuario
+      // no puede crear centros ni aceptar invitaciones, y falla en silencio).
+      const respaldo = nombreRespaldo?.trim();
+      if (!respaldo) throw new BadRequestException("El nombre es obligatorio");
+      return { nombre: respaldo, cedulaVerificada: null, cedulaNombre: null };
     }
     const r = await this.verificar(parsed.data.tipo, parsed.data.numero);
     if (r === null) {
@@ -99,11 +124,12 @@ export class CedulaService {
     try {
       const u = await prisma.usuario.findUnique({
         where: { id: userId },
-        select: { cedula: true, cedulaVerificadaEn: true },
+        select: { cedula: true, pais: true, cedulaVerificadaEn: true },
       });
       if (!u?.cedula || u.cedulaVerificadaEn != null) return; // ya intentada o sin cédula
-      const parsed = parseCedula(u.cedula);
-      if (!parsed.valid || !parsed.data) return;
+      if (!validacionActiva(u.pais)) return; // flag apagado o país sin API de verificación
+      const parsed = parseDocumento(u.pais, u.cedula);
+      if (!parsed.valid || !parsed.data?.tipo) return;
       const r = await this.verificar(parsed.data.tipo, parsed.data.numero);
       if (!r) return; // API caída/sin config → reintenta en el próximo trigger
       await prisma.usuario.update({

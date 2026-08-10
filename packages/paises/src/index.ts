@@ -1,21 +1,37 @@
 import { VENEZUELA } from "./data";
+import { COLOMBIA } from "./data.co";
+import type { Pais } from "./paises";
 
-export { VENEZUELA };
-export { parseCedula } from "./cedula";
-export type { TipoCedula, CedulaParseada, CedulaParseResult } from "./cedula";
+export { VENEZUELA, COLOMBIA };
+export { PAISES, PAIS_META, esPaisValido } from "./paises";
+export type { Pais, PaisMeta } from "./paises";
+export {
+  parseDocumento,
+  normalizarDocumento,
+  normalizarTelefono,
+  esTelefonoValido,
+} from "./documento";
+export type { TipoCedula, DocumentoParseado, DocumentoParseResult } from "./documento";
 export { distanciaMetros } from "./geo";
 
-export const ESTADOS: readonly string[] = Object.keys(VENEZUELA);
+const DIVISIONES: Record<Pais, Record<string, readonly string[]>> = {
+  VE: VENEZUELA,
+  CO: COLOMBIA,
+};
 
-export function municipiosDe(estado: string): readonly string[] {
-  return VENEZUELA[estado] ?? [];
+export function estadosDe(pais: Pais): readonly string[] {
+  return Object.keys(DIVISIONES[pais]);
+}
+
+export function ciudadesDe(pais: Pais, estado: string): readonly string[] {
+  return DIVISIONES[pais][estado] ?? [];
 }
 
 // Whitelist para validar en el boundary (API) o en la UI (web).
-export function esEstadoValido(estado: string): boolean {
-  return estado in VENEZUELA;
+export function esEstadoValido(pais: Pais, estado: string): boolean {
+  return estado in DIVISIONES[pais];
 }
 
-export function esCiudadValida(estado: string, ciudad: string): boolean {
-  return municipiosDe(estado).includes(ciudad);
+export function esCiudadValida(pais: Pais, estado: string, ciudad: string): boolean {
+  return ciudadesDe(pais, estado).includes(ciudad);
 }

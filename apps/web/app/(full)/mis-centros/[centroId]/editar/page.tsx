@@ -78,6 +78,7 @@ export default function EditarCentro() {
 
       <CentroForm
         defaultValues={{
+          pais: data.pais,
           nombre: data.nombre,
           ciudad: data.ciudad,
           estado: data.estado,

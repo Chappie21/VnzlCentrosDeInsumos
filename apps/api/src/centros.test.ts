@@ -21,7 +21,12 @@ const { prismaMock } = vi.hoisted(() => ({
       delete: vi.fn(),
     },
     reporte: { upsert: vi.fn() },
-    usuario: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+    usuario: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      // create() lee el país del creador antes de escribir el centro
+      findUniqueOrThrow: vi.fn().mockResolvedValue({ pais: "VE" }),
+      update: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -153,6 +158,48 @@ describe("CentrosService.list — sin coordenadas (paginación DB)", () => {
     expect(k1).not.toBe(k2);
     expect(k1).toContain("centros:list:v0:");
   });
+
+  // Sin el país en la key, un usuario colombiano se comería la página cacheada
+  // del venezolano (y al revés) durante los 30s de TTL.
+  it("la cache key distingue el país", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+    prismaMock.centro.count.mockResolvedValue(0);
+
+    await service.list({ pais: "VE" });
+    await service.list({ pais: "CO" });
+    await service.list({});
+
+    const [kVE, kCO, kSinPais] = redis.cached.mock.calls.map((c: any[]) => c[0]);
+    expect(new Set([kVE, kCO, kSinPais]).size).toBe(3);
+  });
+
+  it("filtra por país en el where", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+    prismaMock.centro.count.mockResolvedValue(0);
+
+    await service.list({ pais: "CO" });
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({ pais: "CO" });
+
+    prismaMock.centro.findMany.mockClear();
+    await service.list({});
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).not.toHaveProperty("pais");
+  });
+});
+
+describe("CentrosService.mapaCoords — aislamiento por país", () => {
+  it("cachea por país y filtra el where", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+
+    await service.mapaCoords("CO");
+    await service.mapaCoords("VE");
+    await service.mapaCoords();
+
+    const keys = redis.cached.mock.calls.map((c: any[]) => c[0]);
+    expect(new Set(keys).size).toBe(3);
+    expect(keys[2]).toContain(":all");
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({ pais: "CO" });
+    expect(prismaMock.centro.findMany.mock.calls[2][0].where).not.toHaveProperty("pais");
+  });
 });
 
 describe("CentrosService.list — con coordenadas (proximidad)", () => {
@@ -176,6 +223,7 @@ describe("CentrosService.create — escritura transaccional", () => {
     const fingerprint = "fp-123";
     const dto = {
       nombre: "Centro Nuevo",
+      pais: "VE",
       estado: "DC",
       ciudad: "Caracas",
       direccion: "Av 2",
@@ -212,14 +260,14 @@ describe("CentrosService.create — escritura transaccional", () => {
     prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
     const dto = {
-      nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
+      nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av",
       insumos: [{ nombre: "Agua", categoria: "AGUA", cantidad: 10 }],
     } as any;
     await service.create("fp-1", dto);
 
     // el centro se crea sin el campo insumos (no es columna de Centro)
     expect(txMock.centro.create).toHaveBeenCalledWith({
-      data: { nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av" },
+      data: { nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av" },
     });
     expect(txMock.insumo.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ centroId: "new-id", nombre: "Agua", cantidadTotal: 0 }) }),
@@ -474,21 +522,32 @@ describe("UpdateCentroDto — whitelist y regla ciudad⇒estado", () => {
     expect(await errores({ nombre: "X" })).toHaveLength(0);
   });
 
-  it("acepta estado + ciudad coherentes", async () => {
-    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toHaveLength(0);
+  it("acepta pais + estado + ciudad coherentes", async () => {
+    expect(await errores({ pais: "VE", estado: "Miranda", ciudad: "Baruta" })).toHaveLength(0);
+    expect(
+      await errores({ pais: "CO", estado: "Antioquia", ciudad: "Medellín" }),
+    ).toHaveLength(0);
   });
 
   it("rechaza ciudad sin estado (estado pasa a ser requerido)", async () => {
-    const e = await errores({ ciudad: "Baruta" });
-    expect(e).toContain("isIn"); // estado ausente => falla la whitelist
+    const e = await errores({ pais: "VE", ciudad: "Baruta" });
+    expect(e).toContain("isEstadoDePais"); // estado ausente => falla la whitelist
   });
 
   it("rechaza estado fuera de la whitelist", async () => {
-    expect(await errores({ estado: "Narnia", ciudad: "Baruta" })).toContain("isIn");
+    expect(await errores({ pais: "VE", estado: "Narnia", ciudad: "Baruta" })).toContain(
+      "isEstadoDePais",
+    );
   });
 
   it("rechaza ciudad que no pertenece al estado", async () => {
-    expect(await errores({ estado: "Miranda", ciudad: "Maracaibo" })).toContain("isCiudadDeEstado");
+    expect(await errores({ pais: "VE", estado: "Miranda", ciudad: "Maracaibo" })).toContain(
+      "isCiudadDeEstado",
+    );
+  });
+
+  it("rechaza estado/ciudad sin país (no se sabe contra qué dataset validar)", async () => {
+    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toContain("isIn");
   });
 });
 
@@ -508,8 +567,8 @@ describe("UpdateOperativoDto — tipos", () => {
   });
 });
 
-describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/paises)", () => {
-  const base = { nombre: "Centro X", direccion: "Av Principal 123" };
+describe("CreateCentroDto — whitelist pais/estado/ciudad (@vnzl/paises)", () => {
+  const base = { nombre: "Centro X", direccion: "Av Principal 123", pais: "VE" };
   const errores = async (data: Record<string, unknown>) =>
     (await validate(plainToInstance(CreateCentroDto, data))).flatMap((e) =>
       Object.keys(e.constraints ?? {}),
@@ -522,14 +581,42 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/paises)", () => {
     expect(errs).toHaveLength(0);
   });
 
+  it("acepta un departamento + municipio colombianos", async () => {
+    const errs = await validate(
+      plainToInstance(CreateCentroDto, {
+        ...base,
+        pais: "CO",
+        estado: "Antioquia",
+        ciudad: "Medellín",
+      }),
+    );
+    expect(errs).toHaveLength(0);
+  });
+
   it("rechaza estado fuera de la lista", async () => {
     const e = await errores({ ...base, estado: "Narnia", ciudad: "Baruta" });
-    expect(e).toContain("isIn");
+    expect(e).toContain("isEstadoDePais");
   });
 
   it("rechaza ciudad que no pertenece al estado", async () => {
     const e = await errores({ ...base, estado: "Miranda", ciudad: "Maracaibo" });
     expect(e).toContain("isCiudadDeEstado");
+  });
+
+  // Lo que impide que un centro colombiano se guarde con geografía venezolana.
+  it("no cruza los datasets entre países", async () => {
+    expect(await errores({ ...base, pais: "CO", estado: "Miranda", ciudad: "Baruta" })).toContain(
+      "isEstadoDePais",
+    );
+    expect(
+      await errores({ ...base, pais: "VE", estado: "Antioquia", ciudad: "Medellín" }),
+    ).toContain("isEstadoDePais");
+  });
+
+  it("rechaza un país no soportado", async () => {
+    expect(await errores({ ...base, pais: "AR", estado: "Miranda", ciudad: "Baruta" })).toContain(
+      "isIn",
+    );
   });
 });
 

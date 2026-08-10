@@ -4,7 +4,7 @@ import { Icon } from "../../_components";
 export const metadata: Metadata = {
   title: "Ayuda y preguntas frecuentes",
   description:
-    "Cómo usar Red Acopio Venezuela: registro, buscar centros, donar, crear y administrar un centro, voluntarios e inventario.",
+    "Cómo usar Red de Acopio LATAM: registro, buscar centros, donar, crear y administrar un centro, voluntarios e inventario.",
 };
 
 // Contenido del FAQ (español neutro). Derivado de los flujos reales de la app.
@@ -16,7 +16,7 @@ const SECCIONES: { titulo: string; icono: string; qa: { q: string; a: string }[]
     qa: [
       {
         q: "¿Qué es esta aplicación?",
-        a: "Es una red de centros de acopio para donaciones de emergencia en Venezuela. Te permite encontrar centros cercanos, ver qué insumos necesitan, donar, y crear o administrar tu propio centro.",
+        a: "Es una red de centros de acopio para donaciones de emergencia en Venezuela y Colombia. Te permite encontrar centros cercanos, ver qué insumos necesitan, donar, y crear o administrar tu propio centro.",
       },
       {
         q: "¿Necesito registrarme para usarla?",
@@ -197,7 +197,7 @@ export default function FaqPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-on-surface">Ayuda y preguntas frecuentes</h1>
         <p className="mt-1 text-on-surface-variant">
-          Cómo funciona Red Acopio Venezuela y qué puedes hacer según tu rol.
+          Cómo funciona Red de Acopio LATAM y qué puedes hacer según tu rol.
         </p>
       </header>
 
@@ -205,7 +205,7 @@ export default function FaqPage() {
         <iframe
           className="h-full w-full"
           src="https://www.youtube.com/embed/fCczWiT9DGs"
-          title="Guía visual de Red Acopio Venezuela"
+          title="Guía visual de Red de Acopio LATAM"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen

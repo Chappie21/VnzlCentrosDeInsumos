@@ -8,8 +8,15 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { initFeatureFlags } from "./feature-flags";
 
 async function bootstrap() {
+  // Los flags se sincronizan ANTES de aceptar tráfico: si no, las primeras
+  // requests servirían los defaults y el formulario de registro podría pedir (o
+  // dejar de pedir) el nombre por unos segundos. Nunca lanza — sin token o sin
+  // red, todo cae a su default y la API arranca igual.
+  await initFeatureFlags();
+
   const app = await NestFactory.create(AppModule);
   // CORS: si WEB_ORIGIN está seteado (prod), solo ese/esos orígenes pueden llamar
   // a la API desde un browser. En dev (sin la var) se permite todo.
@@ -29,7 +36,7 @@ async function bootstrap() {
   // Doc pública (Swagger UI en /docs, spec en /docs-json). Solo los endpoints
   // marcados @ApiTags("publico") — los internos (admin/jefe/PII) NO se exponen.
   const config = new DocumentBuilder()
-    .setTitle("Red Acopio Venezuela — API pública")
+    .setTitle("Red de Acopio LATAM — API pública")
     .setDescription("Endpoints públicos (sin autenticación) para consultar centros de acopio y sus necesidades.")
     .setVersion("1.0")
     .build();

@@ -52,7 +52,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             Build4Venezuela
           </a>
         </p>
-        <p className="mt-2 text-base font-medium">🇻🇪 Dios bendiga a Venezuela 🙏</p>
+        <p className="mt-2 text-base font-medium">🇻🇪 🇨🇴 Fuerza, hermanos 🙏</p>
       </footer>
     </div>
   );

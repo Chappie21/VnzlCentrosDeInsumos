@@ -9,6 +9,7 @@ import {
   useGeolocation,
 } from "../../_hooks";
 import { requireHelp } from "../../lib/identity";
+import { paisActual, PAIS_POR_DEFECTO } from "../../lib/pais";
 import {
   FILTERS,
   ROUTES,
@@ -16,7 +17,7 @@ import {
   GEO_PRECISION,
   type FilterId,
 } from "../../constants";
-import { CentroCard, FilterChips, SearchBar } from "./_components";
+import { CentroCard, FilterChips, PaisSwitch, SearchBar } from "./_components";
 
 const round = (n: number) => Number(n.toFixed(GEO_PRECISION));
 
@@ -35,6 +36,11 @@ export default function DirectorioCentros() {
   const { coords, request } = useGeolocation();
   useEffect(() => request(), [request]);
 
+  // País del usuario (o el detectado por zona horaria). Se resuelve al montar:
+  // en SSR no hay localStorage ni la zona horaria del visitante.
+  const [pais, setPais] = useState(PAIS_POR_DEFECTO);
+  useEffect(() => setPais(paisActual()), []);
+
   function toggle(id: FilterId) {
     setActive((prev) => ({ ...prev, [id]: !prev[id] }));
   }
@@ -43,6 +49,7 @@ export default function DirectorioCentros() {
   const filters = useMemo(
     () => ({
       q: debouncedQ.trim(),
+      pais,
       soloAbiertos: active[FILTERS.abiertos],
       urgenciaAlta: active[FILTERS.urgencia],
       verificado: active[FILTERS.verificado],
@@ -50,7 +57,7 @@ export default function DirectorioCentros() {
       lng: coords ? round(coords.lng) : null,
       cerca: active[FILTERS.cerca] && coords != null,
     }),
-    [debouncedQ, active, coords],
+    [debouncedQ, active, coords, pais],
   );
 
   const {
@@ -81,6 +88,9 @@ export default function DirectorioCentros() {
       <section className="sticky top-12 z-30 -mx-4 bg-surface px-4 py-4">
         <SearchBar value={q} onChange={setQ} />
         <div className="mt-4">
+          <PaisSwitch value={pais} onChange={setPais} />
+        </div>
+        <div className="mt-3">
           <FilterChips active={active} onToggle={toggle} />
         </div>
       </section>

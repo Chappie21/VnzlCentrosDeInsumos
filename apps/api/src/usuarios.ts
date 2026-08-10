@@ -10,10 +10,12 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { IsNotEmpty, IsString, Matches } from "class-validator";
+import { IsIn, IsNotEmpty, IsString } from "class-validator";
 import { Transform } from "class-transformer";
 import { prisma } from "@vnzl/database";
+import { normalizarDocumento, normalizarTelefono, PAISES, type Pais } from "@vnzl/paises";
 import { CedulaService } from "./cedula";
+import { IsDocumentoDePais, IsTelefonoDePais } from "./validators";
 import {
   IdentidadGuard,
   JefeGuard,
@@ -24,37 +26,22 @@ import {
 } from "./guards";
 import { INVITACION } from "./constants";
 
-// ---------------------------------------------------------------------------
-// Normalizers (exported so AuthService can reuse them — DRY).
-// ---------------------------------------------------------------------------
-
-/** Uppercase, strip dots/spaces/dashes; bare digit string → prefix V. */
-export function normalizarCedula(value: string): string {
-  let v = value.toUpperCase().replace(/[.\s-]/g, "");
-  if (/^\d+$/.test(v)) v = "V" + v;
-  return v;
-}
-
-/** Strip spaces and dashes from a phone number string. */
-export function normalizarTelefono(value: string): string {
-  return value.replace(/[\s-]/g, "");
-}
-
 class OnboardDto {
+  @IsIn([...PAISES]) pais: Pais;
+
   @IsString()
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   nombre: string;
 
-  // Normalize: uppercase, strip dots/spaces/dashes; bare digits -> prefix V.
-  @Transform(({ value }) => (typeof value === "string" ? normalizarCedula(value) : value))
-  @Matches(/^[VE]\d{6,9}$/, { message: "Cédula inválida (ej: V12345678)" })
+  @Transform(({ value, obj }) =>
+    typeof value === "string" && obj?.pais ? normalizarDocumento(obj.pais, value) : value,
+  )
+  @IsDocumentoDePais()
   cedula: string;
 
   @Transform(({ value }) => (typeof value === "string" ? normalizarTelefono(value) : value))
-  @Matches(/^(?:\+?58|0)?4(?:12|14|16|24|26)\d{7}$/, {
-    message: "Teléfono móvil venezolano inválido",
-  })
+  @IsTelefonoDePais()
   telefono: string;
 }
 
@@ -84,6 +71,7 @@ export class UsuariosService {
     const u = await prisma.usuario.findUnique({ where: { id: userId } });
     return {
       id: userId,
+      pais: u?.pais ?? "VE",
       nombre: u?.nombre ?? null,
       cedula: u?.cedula ?? null,
       telefono: u?.telefono ?? null,
@@ -96,12 +84,13 @@ export class UsuariosService {
     // la cédula puede estar tomada por otra cuenta (cedula @unique)
     const dueño = await prisma.usuario.findUnique({ where: { cedula: dto.cedula } });
     if (dueño && dueño.id !== userId)
-      throw new ConflictException("Esa cédula ya está registrada en otra cuenta");
-    // Portón: cédula real + nombre oficial (fail-open si la API no responde).
-    const v = await this.cedula.validarParaRegistro(dto.cedula, dto.nombre);
+      throw new ConflictException("Ese documento ya está registrado en otra cuenta");
+    // Portón: documento real + nombre oficial (fail-open si la API no responde).
+    const v = await this.cedula.validarParaRegistro(dto.pais, dto.cedula, dto.nombre);
     return prisma.usuario.update({
       where: { id: userId },
       data: {
+        pais: dto.pais,
         nombre: v.nombre,
         cedula: dto.cedula,
         telefono: dto.telefono,

@@ -11,6 +11,7 @@ vi.mock("html-to-image", () => ({ toPng: () => toPng() }));
 
 const centro: CentroDetalle = {
   id: "c1",
+  pais: "VE",
   nombre: "Centro Prueba",
   estado: "Miranda",
   ciudad: "Los Teques",

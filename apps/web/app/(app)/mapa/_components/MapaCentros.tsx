@@ -5,6 +5,7 @@ import L from "leaflet";
 import { useEffect } from "react";
 import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { PAIS_META, type Pais } from "@vnzl/paises";
 import { ROUTES } from "../../../constants";
 import type { MapaPunto } from "../../../_hooks";
 
@@ -19,9 +20,6 @@ const dotIcon = (activo: boolean) =>
     popupAnchor: [0, -8],
   });
 
-// Vista inicial: Venezuela completa (se ajusta a los marcadores si hay).
-const VENEZUELA: [number, number] = [8, -66];
-
 function FitBounds({ puntos }: { puntos: MapaPunto[] }) {
   const map = useMap();
   useEffect(() => {
@@ -32,11 +30,14 @@ function FitBounds({ puntos }: { puntos: MapaPunto[] }) {
   return null;
 }
 
-export default function MapaCentros({ puntos }: { puntos: MapaPunto[] }) {
+export default function MapaCentros({ puntos, pais }: { puntos: MapaPunto[]; pais: Pais }) {
+  // Encuadre del país completo. FitBounds lo pisa apenas hay marcadores, así que
+  // esto solo se ve cuando la lista está vacía — el día 1 de un país nuevo.
+  const vista = PAIS_META[pais].mapa;
   return (
     <MapContainer
-      center={VENEZUELA}
-      zoom={6}
+      center={[vista.lat, vista.lng]}
+      zoom={vista.zoom}
       scrollWheelZoom
       className="h-full w-full rounded-lg"
     >

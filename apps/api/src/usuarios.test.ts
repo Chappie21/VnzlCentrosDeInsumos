@@ -46,13 +46,14 @@ describe("UsuariosService.onboard", () => {
     });
     prismaMock.usuario.update.mockResolvedValue(updated);
 
-    const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+    const dto = { pais: "VE", nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
     const res = await service.onboard("u1", dto);
 
-    expect(cedula.validarParaRegistro).toHaveBeenCalledWith("V12345678", "Ana");
+    expect(cedula.validarParaRegistro).toHaveBeenCalledWith("VE", "V12345678", "Ana");
     expect(prismaMock.usuario.update).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: expect.objectContaining({
+        pais: "VE",
         nombre: "ANA OFICIAL",
         cedula: "V12345678",
         telefono: "04141234567",
@@ -65,7 +66,7 @@ describe("UsuariosService.onboard", () => {
 
   it("rechaza si la cédula ya pertenece a otra cuenta", async () => {
     prismaMock.usuario.findUnique.mockResolvedValue({ id: "otro" });
-    const dto = { nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+    const dto = { pais: "VE", nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
 
     await expect(service.onboard("u1", dto)).rejects.toThrow();
     expect(cedula.validarParaRegistro).not.toHaveBeenCalled();

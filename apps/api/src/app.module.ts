@@ -5,6 +5,7 @@ import { SentryModule, SentryGlobalFilter } from "@sentry/nestjs/setup";
 import { RedisService } from "./redis.service";
 import { RateLimitGuard, VoluntarioGuard, JefeGuard, IdentidadGuard, AdminGuard } from "./guards";
 import { CentrosController, CentrosService } from "./centros";
+import { ConfigController } from "./config.controller";
 import { HistorialController, HistorialService } from "./historial";
 import { InsumosController, InsumosService } from "./insumos";
 import { UsuariosController, UsuariosService } from "./usuarios";
@@ -34,6 +35,7 @@ function jwtSecret(): string {
     }),
   ],
   controllers: [
+    ConfigController,
     CentrosController,
     HistorialController,
     InsumosController,
