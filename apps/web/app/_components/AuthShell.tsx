@@ -21,7 +21,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </main>
 
       <footer className="mx-auto w-full max-w-[1024px] px-4 pb-4 text-center text-sm text-on-surface-variant">
-        <p className="text-base font-medium">🇻🇪 Dios bendiga a Venezuela 🙏</p>
+        <p className="text-base font-medium">🇻🇪 🇨🇴 Fuerza, hermanos 🙏</p>
       </footer>
     </div>
   );

@@ -10,6 +10,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(),
       count: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
@@ -21,7 +22,12 @@ const { prismaMock } = vi.hoisted(() => ({
       delete: vi.fn(),
     },
     reporte: { upsert: vi.fn() },
-    usuario: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+    usuario: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      // create() lee el país del creador antes de escribir el centro
+      findUniqueOrThrow: vi.fn().mockResolvedValue({ pais: "VE" }),
+      update: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -153,6 +159,78 @@ describe("CentrosService.list — sin coordenadas (paginación DB)", () => {
     expect(k1).not.toBe(k2);
     expect(k1).toContain("centros:list:v0:");
   });
+
+  // Sin el país en la key, un usuario colombiano se comería la página cacheada
+  // del venezolano (y al revés) durante los 30s de TTL.
+  it("la cache key distingue el país", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+    prismaMock.centro.count.mockResolvedValue(0);
+
+    await service.list({ pais: "VE" });
+    await service.list({ pais: "CO" });
+    await service.list({});
+
+    const [kVE, kCO, kSinPais] = redis.cached.mock.calls.map((c: any[]) => c[0]);
+    expect(new Set([kVE, kCO, kSinPais]).size).toBe(3);
+  });
+
+  it("filtra por país en el where", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+    prismaMock.centro.count.mockResolvedValue(0);
+
+    await service.list({ pais: "CO" });
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({ pais: "CO" });
+
+    prismaMock.centro.findMany.mockClear();
+    await service.list({});
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).not.toHaveProperty("pais");
+  });
+});
+
+describe("CentrosService.list — portón de verificación", () => {
+  it("solo lista centros VERIFICADO, sin que el cliente pueda pedir lo contrario", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+    prismaMock.centro.count.mockResolvedValue(0);
+
+    await service.list({});
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
+
+    // `verificado` ya no es un parámetro: mandarlo no cambia nada (el
+    // ValidationPipe global lo descarta por whitelist).
+    prismaMock.centro.findMany.mockClear();
+    await service.list({ verificado: false } as any);
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
+  });
+
+  it("el portón también aplica en la rama con GPS", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+
+    await service.list({ lat: 10.5, lng: -66.9, radiusKm: 50 });
+
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
+  });
+});
+
+describe("CentrosService.mapaCoords — aislamiento por país", () => {
+  it("cachea por país y filtra el where", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+
+    await service.mapaCoords("CO");
+    await service.mapaCoords("VE");
+    await service.mapaCoords();
+
+    const keys = redis.cached.mock.calls.map((c: any[]) => c[0]);
+    expect(new Set(keys).size).toBe(3);
+    expect(keys[2]).toContain(":all");
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({ pais: "CO" });
+    expect(prismaMock.centro.findMany.mock.calls[2][0].where).not.toHaveProperty("pais");
+  });
 });
 
 describe("CentrosService.list — con coordenadas (proximidad)", () => {
@@ -176,6 +254,7 @@ describe("CentrosService.create — escritura transaccional", () => {
     const fingerprint = "fp-123";
     const dto = {
       nombre: "Centro Nuevo",
+      pais: "VE",
       estado: "DC",
       ciudad: "Caracas",
       direccion: "Av 2",
@@ -212,14 +291,14 @@ describe("CentrosService.create — escritura transaccional", () => {
     prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
     const dto = {
-      nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
+      nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av",
       insumos: [{ nombre: "Agua", categoria: "AGUA", cantidad: 10 }],
     } as any;
     await service.create("fp-1", dto);
 
     // el centro se crea sin el campo insumos (no es columna de Centro)
     expect(txMock.centro.create).toHaveBeenCalledWith({
-      data: { nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av" },
+      data: { nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av" },
     });
     expect(txMock.insumo.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ centroId: "new-id", nombre: "Agua", cantidadTotal: 0 }) }),
@@ -474,21 +553,32 @@ describe("UpdateCentroDto — whitelist y regla ciudad⇒estado", () => {
     expect(await errores({ nombre: "X" })).toHaveLength(0);
   });
 
-  it("acepta estado + ciudad coherentes", async () => {
-    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toHaveLength(0);
+  it("acepta pais + estado + ciudad coherentes", async () => {
+    expect(await errores({ pais: "VE", estado: "Miranda", ciudad: "Baruta" })).toHaveLength(0);
+    expect(
+      await errores({ pais: "CO", estado: "Antioquia", ciudad: "Medellín" }),
+    ).toHaveLength(0);
   });
 
   it("rechaza ciudad sin estado (estado pasa a ser requerido)", async () => {
-    const e = await errores({ ciudad: "Baruta" });
-    expect(e).toContain("isIn"); // estado ausente => falla la whitelist
+    const e = await errores({ pais: "VE", ciudad: "Baruta" });
+    expect(e).toContain("isEstadoDePais"); // estado ausente => falla la whitelist
   });
 
   it("rechaza estado fuera de la whitelist", async () => {
-    expect(await errores({ estado: "Narnia", ciudad: "Baruta" })).toContain("isIn");
+    expect(await errores({ pais: "VE", estado: "Narnia", ciudad: "Baruta" })).toContain(
+      "isEstadoDePais",
+    );
   });
 
   it("rechaza ciudad que no pertenece al estado", async () => {
-    expect(await errores({ estado: "Miranda", ciudad: "Maracaibo" })).toContain("isCiudadDeEstado");
+    expect(await errores({ pais: "VE", estado: "Miranda", ciudad: "Maracaibo" })).toContain(
+      "isCiudadDeEstado",
+    );
+  });
+
+  it("rechaza estado/ciudad sin país (no se sabe contra qué dataset validar)", async () => {
+    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toContain("isIn");
   });
 });
 
@@ -508,8 +598,8 @@ describe("UpdateOperativoDto — tipos", () => {
   });
 });
 
-describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => {
-  const base = { nombre: "Centro X", direccion: "Av Principal 123" };
+describe("CreateCentroDto — whitelist pais/estado/ciudad (@vnzl/paises)", () => {
+  const base = { nombre: "Centro X", direccion: "Av Principal 123", pais: "VE" };
   const errores = async (data: Record<string, unknown>) =>
     (await validate(plainToInstance(CreateCentroDto, data))).flatMap((e) =>
       Object.keys(e.constraints ?? {}),
@@ -522,14 +612,42 @@ describe("CreateCentroDto — whitelist estado/ciudad (@vnzl/venezuela)", () => 
     expect(errs).toHaveLength(0);
   });
 
+  it("acepta un departamento + municipio colombianos", async () => {
+    const errs = await validate(
+      plainToInstance(CreateCentroDto, {
+        ...base,
+        pais: "CO",
+        estado: "Antioquia",
+        ciudad: "Medellín",
+      }),
+    );
+    expect(errs).toHaveLength(0);
+  });
+
   it("rechaza estado fuera de la lista", async () => {
     const e = await errores({ ...base, estado: "Narnia", ciudad: "Baruta" });
-    expect(e).toContain("isIn");
+    expect(e).toContain("isEstadoDePais");
   });
 
   it("rechaza ciudad que no pertenece al estado", async () => {
     const e = await errores({ ...base, estado: "Miranda", ciudad: "Maracaibo" });
     expect(e).toContain("isCiudadDeEstado");
+  });
+
+  // Lo que impide que un centro colombiano se guarde con geografía venezolana.
+  it("no cruza los datasets entre países", async () => {
+    expect(await errores({ ...base, pais: "CO", estado: "Miranda", ciudad: "Baruta" })).toContain(
+      "isEstadoDePais",
+    );
+    expect(
+      await errores({ ...base, pais: "VE", estado: "Antioquia", ciudad: "Medellín" }),
+    ).toContain("isEstadoDePais");
+  });
+
+  it("rechaza un país no soportado", async () => {
+    expect(await errores({ ...base, pais: "AR", estado: "Miranda", ciudad: "Baruta" })).toContain(
+      "isIn",
+    );
   });
 });
 
@@ -647,8 +765,8 @@ describe("CentrosService.detallePublico", () => {
 
   it("proyecta payload público: solo URGENTE/NORMAL, SIN cantidad ni PII, ordena URGENTE primero", async () => {
     // El mock devuelve lo que la BD ya filtró (URGENTE/NORMAL, sin cantidadTotal).
-    prismaMock.centro.findUnique.mockResolvedValue({
-      id: "c1", nombre: "Uno", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
+    prismaMock.centro.findFirst.mockResolvedValue({
+      id: "c1", nombre: "Uno", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
       latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
       insumos: [
         { nombre: "Arroz", nivel: "NORMAL", categoria: "ALIMENTOS" },
@@ -660,7 +778,10 @@ describe("CentrosService.detallePublico", () => {
     const r = await service.detallePublico("c1");
 
     // El query público pide SOLO URGENTE/NORMAL y NO pide cantidadTotal.
-    const arg = prismaMock.centro.findUnique.mock.calls[0][0] as any;
+    const arg = prismaMock.centro.findFirst.mock.calls[0][0] as any;
+    // La verificación viaja en el WHERE: un centro sin revisar es indistinguible
+    // de uno inexistente, así el link directo no saltea el portón del directorio.
+    expect(arg.where).toEqual({ id: "c1", verificacion: "VERIFICADO" });
     expect(arg.select.insumos.where).toEqual({ nivel: { in: ["URGENTE", "NORMAL"] } });
     expect(arg.select.insumos.select).not.toHaveProperty("cantidadTotal");
 
@@ -671,8 +792,18 @@ describe("CentrosService.detallePublico", () => {
   });
 
   it("lanza 404 si el centro no existe", async () => {
-    prismaMock.centro.findUnique.mockResolvedValue(null);
+    prismaMock.centro.findFirst.mockResolvedValue(null);
     await expect(service.detallePublico("nope")).rejects.toThrow("Centro no encontrado");
+  });
+
+  // Mismo 404 que un id inexistente: no se filtra que el centro existe pero está
+  // pendiente de revisión.
+  it("lanza 404 si el centro no está verificado", async () => {
+    prismaMock.centro.findFirst.mockResolvedValue(null); // el WHERE ya lo descartó
+    await expect(service.detallePublico("pendiente")).rejects.toThrow("Centro no encontrado");
+    expect(prismaMock.centro.findFirst.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
   });
 });
 
@@ -688,7 +819,11 @@ describe("CentrosService.mapaCoords", () => {
 
     expect(prismaMock.centro.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { latitud: { not: null }, longitud: { not: null } },
+        where: {
+          verificacion: "VERIFICADO",
+          latitud: { not: null },
+          longitud: { not: null },
+        },
       }),
     );
     expect(puntos).toEqual([

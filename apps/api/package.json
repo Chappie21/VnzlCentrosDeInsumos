@@ -15,7 +15,7 @@
     "@nestjs/swagger": "^11.4.5",
     "@sentry/nestjs": "^10.62.0",
     "@vnzl/database": "workspace:*",
-    "@vnzl/venezuela": "workspace:*",
+    "@vnzl/paises": "workspace:*",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -24,6 +24,7 @@
     "google-auth-library": "^10.9.0",
     "helmet": "^8.2.0",
     "ioredis": "^5.11.1",
+    "railway": "^3.8.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },

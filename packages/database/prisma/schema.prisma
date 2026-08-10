@@ -8,8 +8,18 @@ datasource db {
   // driver adapter (runtime, src/index.ts), not here.
 }
 
+// Países donde opera la plataforma. ponytail: enum, no tabla — son dos y no se
+// gestionan en runtime. Agregar uno más es una línea acá + su dataset en @vnzl/paises.
+enum Pais {
+  VE
+  CO
+}
+
 model Usuario {
   id           String  @id @default(uuid())
+  // NOT NULL con default: las filas existentes quedan en VE sin backfill manual y
+  // el resto del código nunca ve `pais | null`.
+  pais         Pais    @default(VE)
   nombre       String?
   cedula       String? @unique // identificador de login; null hasta completar perfil (Google)
   telefono     String?
@@ -30,8 +40,9 @@ model Usuario {
 model Centro {
   id          String       @id @default(uuid())
   nombre      String
-  estado      String // Ej: Zulia, Miranda...
-  ciudad      String // Ej: Maracaibo, Caracas...
+  pais        Pais         @default(VE) // heredado del usuario que lo crea
+  estado      String // Ej: Zulia, Miranda... (departamento en Colombia)
+  ciudad      String // Ej: Maracaibo, Caracas... (municipio en Colombia)
   direccion   String
   latitud     Float? // Coordenadas para geolocalización
   longitud    Float?
@@ -41,7 +52,9 @@ model Centro {
   horarioCierre   String? // "20:00" — solo display, nunca se filtra por él
   creadoEn    DateTime     @default(now())
 
-  // Verificación manual (etiqueta, no portón): el centro opera desde PENDIENTE.
+  // Verificación manual: es un PORTÓN. Un centro nace PENDIENTE y no aparece en
+  // el directorio, el mapa ni por link directo hasta que el equipo lo aprueba.
+  // Sus miembros sí lo ven y lo administran desde /centros/mios.
   verificacion EstadoVerificacion @default(PENDIENTE)
   verificadoEn DateTime?
   verificadoPorId String? // qué admin lo verificó (accountability)
@@ -56,7 +69,8 @@ model Centro {
   reportes      Reporte[]
   verificadoPor Admin? @relation(fields: [verificadoPorId], references: [id])
 
-  @@index([estado, ciudad])
+  @@index([pais, estado, ciudad])
+  @@index([pais, latitud]) // prefiltro del bounding box de query()
   @@index([recibiendoAhora])
 }
 
@@ -127,9 +141,9 @@ enum RolVoluntario {
 }
 
 enum EstadoVerificacion {
-  PENDIENTE   // recién creado, sin revisar (igual opera)
+  PENDIENTE   // recién creado, sin revisar: NO se lista en superficies públicas
   VERIFICADO  // el equipo confirmó que existe
-  RECHAZADO   // el equipo lo marcó como no legítimo
+  RECHAZADO   // el equipo lo marcó como no legítimo: tampoco se lista
 }
 
 // Motivo por el que un usuario reporta un centro (CEN-22).

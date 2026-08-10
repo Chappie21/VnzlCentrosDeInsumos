@@ -1,10 +1,12 @@
 "use client";
 
+import type { Pais } from "@vnzl/paises";
 import { apiFetch } from "./api";
 import { setToken } from "./auth";
 
 export type AuthUsuario = {
   id: string;
+  pais: Pais;
   nombre: string | null;
   cedula: string | null;
   telefono: string | null;
@@ -28,6 +30,8 @@ export async function login(cedula: string, password: string): Promise<{ token: 
 }
 
 export async function register(d: {
+  pais: Pais;
+  nombre: string;
   cedula: string;
   telefono: string;
   password: string;

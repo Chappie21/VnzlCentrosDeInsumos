@@ -7,7 +7,7 @@ import { useGeolocation } from "../../../../_hooks";
 import type { Coords } from "../../../../_hooks";
 import { validateCentro, type CentroInput } from "../../../../lib/validate";
 import type { CreateCentroBody } from "../../../../lib/api";
-import { ESTADOS, municipiosDe } from "../../../../constants";
+import { ciudadesDe, estadosDe, PAIS_META } from "@vnzl/paises";
 import GeolocationCard from "./GeolocationCard";
 
 const fmt = (n: number) => n.toFixed(6);
@@ -27,6 +27,8 @@ type Props = {
 
 // Formulario compartido por crear y editar un centro: campos + cascada
 // estado→ciudad + mapa/geolocalización. El padre maneja la mutación y el resultado.
+// El país NO se elige acá: al crear lo hereda del usuario y al editar es el del
+// centro. Se muestra como etiqueta para que no sea un dato invisible.
 export default function CentroForm({
   defaultValues,
   initialPoint = null,
@@ -87,6 +89,10 @@ export default function CentroForm({
     setValue("longitud", point.lng, { shouldValidate: true });
   }, [point, setValue]);
 
+  // El país gobierna qué dataset alimenta los dos selects y cómo se llaman.
+  const pais = watch("pais");
+  const meta = PAIS_META[pais];
+
   // Cascada: al CAMBIAR el estado, la ciudad deja de ser válida. Comparamos contra el
   // estado previo (no un flag de montaje): así preserva la ciudad precargada al editar
   // y es inmune al doble-efecto de StrictMode (que con un flag booleano la borraba).
@@ -101,6 +107,7 @@ export default function CentroForm({
   function onValid(values: CentroInput) {
     onSubmit({
       nombre: values.nombre.trim(),
+      pais: values.pais,
       ciudad: values.ciudad.trim(),
       estado: values.estado.trim(),
       direccion: values.direccion.trim(),
@@ -126,21 +133,29 @@ export default function CentroForm({
           {...register("nombre")}
         />
 
+        <input type="hidden" {...register("pais")} />
+        <p className="flex items-center gap-2 text-sm text-on-surface-variant">
+          <Icon name="public" />
+          <span>
+            País: <span className="font-semibold text-on-surface">{meta.bandera} {meta.label}</span>
+          </span>
+        </p>
+
         <div className="grid grid-cols-2 gap-4">
           <SelectField
-            label="Estado / Provincia"
+            label={meta.labelEstado}
             icon="map"
-            placeholder="Estado"
-            options={ESTADOS}
+            placeholder={meta.labelEstado}
+            options={estadosDe(pais)}
             defaultValue=""
             error={errors.estado?.message}
             {...register("estado")}
           />
           <SelectField
-            label="Ciudad"
+            label={meta.labelCiudad}
             icon="location_city"
-            placeholder={estado ? "Ciudad" : "Elige estado"}
-            options={municipiosDe(estado)}
+            placeholder={estado ? meta.labelCiudad : `Elige ${meta.labelEstado.toLowerCase()}`}
+            options={ciudadesDe(pais, estado)}
             defaultValue=""
             disabled={!estado}
             error={errors.ciudad?.message}
@@ -160,6 +175,7 @@ export default function CentroForm({
           denied={denied}
           onRequest={request}
           onPick={setPoint}
+          pais={pais}
           recenterKey={recenterKey}
           lat={point ? fmt(point.lat) : ""}
           lng={point ? fmt(point.lng) : ""}

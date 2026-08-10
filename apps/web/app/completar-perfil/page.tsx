@@ -3,17 +3,24 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { Icon, Field, TopAppBar } from "../_components";
+import { PAISES, PAIS_META, type Pais } from "@vnzl/paises";
+import { Icon, Field, SelectField, TopAppBar } from "../_components";
 import { apiFetch, getMe } from "../lib/api";
 import { getToken } from "../lib/auth";
 import { syncIdentity } from "../lib/identity";
+import { paisPorTimezone, PAIS_POR_DEFECTO } from "../lib/pais";
 import {
   normalizeCedula,
   normalizeTelefono,
   validateOnboarding,
 } from "../lib/validate";
 
-type PerfilInput = { nombre: string; cedula: string; telefono: string };
+type PerfilInput = { pais: Pais; nombre: string; cedula: string; telefono: string };
+
+const OPCIONES_PAIS = PAISES.map((p) => ({
+  value: p,
+  label: `${PAIS_META[p].bandera} ${PAIS_META[p].label}`,
+}));
 
 export default function CompletarPerfilPage() {
   const router = useRouter();
@@ -24,10 +31,11 @@ export default function CompletarPerfilPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isValid, isSubmitting },
   } = useForm<PerfilInput>({
     mode: "onChange",
-    defaultValues: { nombre: "", cedula: "", telefono: "" },
+    defaultValues: { pais: PAIS_POR_DEFECTO, nombre: "", cedula: "", telefono: "" },
     resolver: (values) => {
       const fieldErrors = validateOnboarding(values);
       const hasErrors = Object.keys(fieldErrors).length > 0;
@@ -58,7 +66,14 @@ export default function CompletarPerfilPage() {
             router.replace("/");
             return;
           }
-          reset({ nombre: me?.nombre ?? "", cedula: "", telefono: "" });
+          // El país se preselecciona por zona horaria; acá (ya en el cliente)
+          // Intl sí ve la del visitante.
+          reset({
+            pais: paisPorTimezone(),
+            nombre: me?.nombre ?? "",
+            cedula: "",
+            telefono: "",
+          });
         }
       } catch {
         /* ignore */
@@ -67,14 +82,17 @@ export default function CompletarPerfilPage() {
     })();
   }, [router, reset]);
 
+  const meta = PAIS_META[watch("pais")];
+
   async function onValid(values: PerfilInput) {
     setApiError(null);
     try {
       const res = await apiFetch("/usuarios/onboard", {
         method: "POST",
         body: JSON.stringify({
+          pais: values.pais,
           nombre: values.nombre.trim(),
-          cedula: normalizeCedula(values.cedula),
+          cedula: normalizeCedula(values.pais, values.cedula),
           telefono: normalizeTelefono(values.telefono),
         }),
       });
@@ -102,13 +120,20 @@ export default function CompletarPerfilPage() {
             </div>
             <h2 className="text-2xl font-semibold text-on-surface">Completa tu perfil</h2>
             <p className="text-base text-on-surface-variant">
-              Necesitamos tu cédula y teléfono para poder contribuir.
+              Necesitamos tu documento y teléfono para poder contribuir.
             </p>
           </div>
 
           {ready && (
             <form onSubmit={handleSubmit(onValid)} className="space-y-6">
               <div className="space-y-4">
+                <SelectField
+                  label="País"
+                  icon="public"
+                  options={OPCIONES_PAIS}
+                  error={errors.pais?.message}
+                  {...register("pais")}
+                />
                 <Field
                   label="Nombre completo"
                   icon="person"
@@ -117,9 +142,9 @@ export default function CompletarPerfilPage() {
                   {...register("nombre")}
                 />
                 <Field
-                  label="Cédula de identidad"
+                  label="Documento de identidad"
                   icon="badge"
-                  placeholder="V12345678"
+                  placeholder={meta.ejemploDocumento}
                   error={errors.cedula?.message}
                   {...register("cedula")}
                 />
@@ -128,7 +153,7 @@ export default function CompletarPerfilPage() {
                   icon="phone"
                   type="tel"
                   inputMode="tel"
-                  placeholder="04141234567"
+                  placeholder={meta.ejemploTelefono}
                   error={errors.telefono?.message}
                   {...register("telefono")}
                 />

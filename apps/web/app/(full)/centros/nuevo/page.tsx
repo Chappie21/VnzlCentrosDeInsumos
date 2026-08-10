@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "../../../_components";
 import { createCentro, type CreateCentroBody, type InsumoInicial } from "../../../lib/api";
 import { hasFullIdentity, syncIdentity } from "../../../lib/identity";
+import { paisActual, PAIS_POR_DEFECTO } from "../../../lib/pais";
 import { QK, ROUTES } from "../../../constants";
 import { CentroForm, InventarioInicialForm, SuccessView } from "./_components";
 
@@ -20,6 +21,10 @@ export default function NuevoCentro() {
   const [createdNombre, setCreatedNombre] = useState("");
   const [createdId, setCreatedId] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
+  // El centro hereda el país del creador. Se resuelve al montar (no en el render
+  // inicial) porque depende de localStorage / Intl, que no existen en SSR.
+  const [pais, setPais] = useState(PAIS_POR_DEFECTO);
+  useEffect(() => setPais(paisActual()), []);
 
   // Auth gate: requiere identidad completa; si no, vuelve a onboarding con `next`.
   useEffect(() => {
@@ -124,8 +129,8 @@ export default function NuevoCentro() {
           // Precarga lo ya ingresado al volver del paso 2.
           defaultValues={
             datos
-              ? { nombre: datos.nombre, ciudad: datos.ciudad, estado: datos.estado, direccion: datos.direccion }
-              : { nombre: "", ciudad: "", estado: "", direccion: "" }
+              ? { pais, nombre: datos.nombre, ciudad: datos.ciudad, estado: datos.estado, direccion: datos.direccion }
+              : { pais, nombre: "", ciudad: "", estado: "", direccion: "" }
           }
           initialPoint={
             datos?.latitud != null && datos?.longitud != null

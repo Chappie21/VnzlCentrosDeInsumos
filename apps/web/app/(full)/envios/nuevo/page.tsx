@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Field, Icon, Qr } from "../../../_components";
 import { ROUTES } from "../../../constants";
 import { hasFullIdentity, syncIdentity } from "../../../lib/identity";
+import { paisActual } from "../../../lib/pais";
 import {
   getMisCentros,
   getCentrosSelect,
@@ -45,7 +46,7 @@ function NuevoEnvio() {
         return;
       }
       try {
-        const [mios, todos] = await Promise.all([getMisCentros(), getCentrosSelect()]);
+        const [mios, todos] = await Promise.all([getMisCentros(), getCentrosSelect(paisActual())]);
         const o = mios.find((c) => c.id === centroParam);
         if (!o) {
           setPhase("none");

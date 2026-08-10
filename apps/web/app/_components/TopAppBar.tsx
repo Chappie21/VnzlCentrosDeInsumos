@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import Icon from "./Icon";
 import { ROUTES } from "../constants";
+import { SITE_NAME } from "../constants/site";
 
-// Barra superior compartida (menu · Red Acopio Venezuela · emergency).
+// Barra superior compartida (menu · nombre del sitio · emergency).
 // El burger abre un menú simple; hoy solo "Volver al inicio". onMenu queda como
 // hook opcional por si algún contenedor quiere reaccionar a la apertura.
 export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
@@ -61,7 +62,7 @@ export default function TopAppBar({ onMenu }: { onMenu?: () => void }) {
       </div>
 
       <h1 className="min-w-0 flex-1 truncate text-center text-xl font-bold uppercase tracking-tight text-emergency">
-        Red Acopio Venezuela
+        {SITE_NAME}
       </h1>
       <Link
         href={ROUTES.faq}

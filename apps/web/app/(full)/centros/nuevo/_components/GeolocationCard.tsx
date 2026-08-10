@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Field, Icon } from "../../../../_components";
+import type { Pais } from "@vnzl/paises";
 import type { Coords } from "../../../../_hooks";
 
 // Mapa Leaflet: solo en cliente (usa window). El wrapper ssr:false vive acá,
@@ -18,6 +19,7 @@ type GeolocationCardProps = {
   denied: boolean;
   onRequest: () => void;
   onPick: (p: Coords) => void;
+  pais: Pais;
   recenterKey?: number;
   lat: string;
   lng: string;
@@ -28,6 +30,7 @@ export default function GeolocationCard({
   denied,
   onRequest,
   onPick,
+  pais,
   recenterKey,
   lat,
   lng,
@@ -60,7 +63,7 @@ export default function GeolocationCard({
       )}
 
       {/* Mapa interactivo: tocar o arrastrar el marcador fija lat/lng. */}
-      <Map value={coords} onChange={onPick} recenterKey={recenterKey} />
+      <Map value={coords} onChange={onPick} pais={pais} recenterKey={recenterKey} />
       <p className="text-xs text-on-surface-variant">
         Toca el mapa o arrastra el marcador para fijar la ubicación.
       </p>

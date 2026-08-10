@@ -1,23 +1,23 @@
-export type OnboardingInput = { nombre: string; cedula: string; telefono: string };
+import {
+  esCiudadValida,
+  esEstadoValido,
+  esTelefonoValido,
+  normalizarDocumento,
+  normalizarTelefono,
+  parseDocumento,
+  PAIS_META,
+  type Pais,
+} from "@vnzl/paises";
+
+// Las reglas de formato viven en @vnzl/paises, que también usa la API: una sola
+// definición en vez de dos regex que se van desincronizando.
+export { normalizarDocumento as normalizeCedula, normalizarTelefono as normalizeTelefono };
+
+export type OnboardingInput = { pais: Pais; nombre: string; cedula: string; telefono: string };
 export type OnboardingErrors = { nombre?: string; cedula?: string; telefono?: string };
 
-// Mismas reglas que el backend (apps/api OnboardDto), para no recibir 400.
-const CEDULA_RE = /^[VE]\d{6,9}$/;
-const TELEFONO_RE = /^(?:\+?58|0)?4(?:12|14|16|24|26)\d{7}$/;
-
-// Mayúsculas, sin puntos/espacios/guiones; dígitos solos -> prefijo V.
-export function normalizeCedula(raw: string): string {
-  let v = raw.toUpperCase().replace(/[.\s-]/g, "");
-  if (/^\d+$/.test(v)) v = "V" + v;
-  return v;
-}
-
-// Quita espacios, guiones y paréntesis.
-export function normalizeTelefono(raw: string): string {
-  return raw.replace(/[\s\-()]/g, "");
-}
-
 export type CentroInput = {
+  pais: Pais;
   nombre: string;
   ciudad: string;
   estado: string;
@@ -42,12 +42,12 @@ export function validateCentro(body: CentroInput): CentroErrors {
     errors.nombre = "El nombre debe tener al menos 3 caracteres.";
   }
 
-  if (body.ciudad.trim().length === 0) {
-    errors.ciudad = "La ciudad es obligatoria.";
-  }
+  const meta = PAIS_META[body.pais];
 
-  if (body.estado.trim().length === 0) {
-    errors.estado = "El estado / provincia es obligatorio.";
+  if (!esEstadoValido(body.pais, body.estado)) {
+    errors.estado = `${meta.labelEstado} inválido.`;
+  } else if (!esCiudadValida(body.pais, body.estado, body.ciudad)) {
+    errors.ciudad = `${meta.labelCiudad} inválido para ese ${meta.labelEstado.toLowerCase()}.`;
   }
 
   if (body.direccion.trim().length < 5) {
@@ -80,12 +80,16 @@ export function validateOnboarding(body: OnboardingInput): OnboardingErrors {
     errors.nombre = "El nombre debe tener al menos 3 caracteres.";
   }
 
-  if (!CEDULA_RE.test(normalizeCedula(body.cedula))) {
-    errors.cedula = "Cédula inválida. Ej: V12345678 o E1234567.";
+  const meta = PAIS_META[body.pais];
+
+  // Normalizar primero: en Venezuela el prefijo "V" es implícito y el formulario
+  // acepta que se teclee solo el número.
+  if (!parseDocumento(body.pais, normalizarDocumento(body.pais, body.cedula)).valid) {
+    errors.cedula = `Documento inválido. Ej: ${meta.ejemploDocumento}.`;
   }
 
-  if (!TELEFONO_RE.test(normalizeTelefono(body.telefono))) {
-    errors.telefono = "Teléfono móvil venezolano inválido. Ej: 04141234567.";
+  if (!esTelefonoValido(body.pais, body.telefono)) {
+    errors.telefono = `Teléfono móvil inválido. Ej: ${meta.ejemploTelefono}.`;
   }
 
   return errors;
