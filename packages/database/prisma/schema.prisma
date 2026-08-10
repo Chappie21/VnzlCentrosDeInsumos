@@ -52,7 +52,9 @@ model Centro {
   horarioCierre   String? // "20:00" — solo display, nunca se filtra por él
   creadoEn    DateTime     @default(now())
 
-  // Verificación manual (etiqueta, no portón): el centro opera desde PENDIENTE.
+  // Verificación manual: es un PORTÓN. Un centro nace PENDIENTE y no aparece en
+  // el directorio, el mapa ni por link directo hasta que el equipo lo aprueba.
+  // Sus miembros sí lo ven y lo administran desde /centros/mios.
   verificacion EstadoVerificacion @default(PENDIENTE)
   verificadoEn DateTime?
   verificadoPorId String? // qué admin lo verificó (accountability)
@@ -139,9 +141,9 @@ enum RolVoluntario {
 }
 
 enum EstadoVerificacion {
-  PENDIENTE   // recién creado, sin revisar (igual opera)
+  PENDIENTE   // recién creado, sin revisar: NO se lista en superficies públicas
   VERIFICADO  // el equipo confirmó que existe
-  RECHAZADO   // el equipo lo marcó como no legítimo
+  RECHAZADO   // el equipo lo marcó como no legítimo: tampoco se lista
 }
 
 // Motivo por el que un usuario reporta un centro (CEN-22).

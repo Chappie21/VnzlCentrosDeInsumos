@@ -8,6 +8,7 @@ config({ path: "../../.env" });
 const CENTROS = [
   {
     id: "seed-centro-deportivo",
+    verificacion: "VERIFICADO",
     nombre: "Centro Deportivo Municipal",
     estado: "Distrito Capital",
     ciudad: "Caracas",
@@ -24,6 +25,7 @@ const CENTROS = [
   },
   {
     id: "seed-escuela-bolivar",
+    verificacion: "VERIFICADO",
     nombre: "Escuela Primaria Simón Bolívar",
     estado: "Miranda",
     ciudad: "Los Teques",
@@ -39,6 +41,7 @@ const CENTROS = [
   },
   {
     id: "seed-plaza-constitucion",
+    verificacion: "VERIFICADO",
     nombre: "Plaza de la Constitución",
     estado: "Carabobo",
     ciudad: "Valencia",
@@ -54,6 +57,7 @@ const CENTROS = [
   },
   {
     id: "seed-polideportivo-zulia",
+    verificacion: "VERIFICADO",
     nombre: "Polideportivo de Maracaibo",
     estado: "Zulia",
     ciudad: "Maracaibo",
@@ -70,6 +74,7 @@ const CENTROS = [
   },
   {
     id: "seed-iglesia-merida",
+    verificacion: "VERIFICADO",
     nombre: "Parroquia Sagrado Corazón",
     estado: "Mérida",
     ciudad: "Mérida",
@@ -86,6 +91,7 @@ const CENTROS = [
   // Colombia: sin estos, el listado y el mapa del país salen vacíos el día 1.
   {
     id: "seed-co-coliseo-medellin",
+    verificacion: "VERIFICADO",
     nombre: "Coliseo Iván de Bedout",
     pais: "CO",
     estado: "Antioquia",
@@ -103,6 +109,7 @@ const CENTROS = [
   },
   {
     id: "seed-co-parroquia-bogota",
+    verificacion: "VERIFICADO",
     nombre: "Parroquia San Diego",
     pais: "CO",
     estado: "Bogotá D.C.",
@@ -119,6 +126,9 @@ const CENTROS = [
   },
   {
     id: "seed-centro-sin-coords",
+    // Se deja PENDIENTE a propósito: el directorio no debe mostrarlo y la cola de
+    // moderación local no queda vacía.
+    verificacion: "PENDIENTE",
     nombre: "Refugio Comunitario El Valle",
     estado: "Distrito Capital",
     ciudad: "Caracas",

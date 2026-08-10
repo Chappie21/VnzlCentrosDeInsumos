@@ -29,7 +29,6 @@ export default function DirectorioCentros() {
     [FILTERS.cerca]: false,
     [FILTERS.abiertos]: false,
     [FILTERS.urgencia]: false,
-    [FILTERS.verificado]: false,
   });
 
   // Pide GPS al montar. Si hay coords, mostramos distancias siempre; el chip "Cerca de mí" filtra a 5km.
@@ -52,7 +51,6 @@ export default function DirectorioCentros() {
       pais,
       soloAbiertos: active[FILTERS.abiertos],
       urgenciaAlta: active[FILTERS.urgencia],
-      verificado: active[FILTERS.verificado],
       lat: coords ? round(coords.lat) : null,
       lng: coords ? round(coords.lng) : null,
       cerca: active[FILTERS.cerca] && coords != null,

@@ -166,8 +166,6 @@ class ListCentrosQueryDto {
   @IsOptional() @toOptionalBool() @IsBoolean()
   urgenciaAlta?: boolean; // >=1 insumo nivel URGENTE
 
-  @IsOptional() @toOptionalBool() @IsBoolean()
-  verificado?: boolean; // solo centros verificados por el equipo
 }
 
 // El mapa público solo filtra por país. DTO propio para que lo valide el
@@ -591,10 +589,12 @@ export class CentrosService {
           { ciudad: { contains: q.q, mode: "insensitive" } },
         ],
       }),
+      // Portón, no filtro: un centro sin revisar por el equipo NO se lista. Deja
+      // fuera también a los RECHAZADO. Los miembros igual ven el suyo por /mios.
+      verificacion: EstadoVerificacion.VERIFICADO,
       ...(q.pais && { pais: q.pais }),
       ...(q.soloAbiertos && { recibiendoAhora: true }),
       ...(q.urgenciaAlta && { insumos: { some: { nivel: NivelInsumo.URGENTE } } }),
-      ...(q.verificado && { verificacion: EstadoVerificacion.VERIFICADO }),
     };
   }
 
@@ -614,7 +614,6 @@ export class CentrosService {
       radiusKm: q.radiusKm ?? null,
       soloAbiertos: q.soloAbiertos ?? false,
       urgenciaAlta: q.urgenciaAlta ?? false,
-      verificado: q.verificado ?? false,
     })}`;
 
     return this.redis.cached(key, TTL.centrosList, () =>
@@ -630,7 +629,12 @@ export class CentrosService {
     const key = `${CACHE.centrosMapaPrefix}:v${version}:${pais ?? "all"}`;
     return this.redis.cached(key, TTL.centrosMapa, async () => {
       const rows = await prisma.centro.findMany({
-        where: { ...(pais && { pais }), latitud: { not: null }, longitud: { not: null } },
+        where: {
+          verificacion: EstadoVerificacion.VERIFICADO, // mismo portón que el directorio
+          ...(pais && { pais }),
+          latitud: { not: null },
+          longitud: { not: null },
+        },
         select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
         take: 1000,
       });
@@ -795,8 +799,11 @@ export class CentrosService {
       `${CACHE.centrosPublicoPrefix}:v${version}:${centroId}`,
       TTL.centrosPublico,
       async () => {
-        const row = await prisma.centro.findUnique({
-          where: { id: centroId },
+        // findFirst y no findUnique: la verificación entra en el WHERE para que un
+        // centro sin revisar sea indistinguible de uno inexistente. Si no, el link
+        // directo sería una vía para saltarse el portón del directorio.
+        const row = await prisma.centro.findFirst({
+          where: { id: centroId, verificacion: EstadoVerificacion.VERIFICADO },
           select: publicoSelect,
         });
         if (!row) throw new NotFoundException("Centro no encontrado");

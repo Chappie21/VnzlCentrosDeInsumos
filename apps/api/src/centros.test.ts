@@ -10,6 +10,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(),
       count: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
@@ -183,6 +184,36 @@ describe("CentrosService.list — sin coordenadas (paginación DB)", () => {
     prismaMock.centro.findMany.mockClear();
     await service.list({});
     expect(prismaMock.centro.findMany.mock.calls[0][0].where).not.toHaveProperty("pais");
+  });
+});
+
+describe("CentrosService.list — portón de verificación", () => {
+  it("solo lista centros VERIFICADO, sin que el cliente pueda pedir lo contrario", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+    prismaMock.centro.count.mockResolvedValue(0);
+
+    await service.list({});
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
+
+    // `verificado` ya no es un parámetro: mandarlo no cambia nada (el
+    // ValidationPipe global lo descarta por whitelist).
+    prismaMock.centro.findMany.mockClear();
+    await service.list({ verificado: false } as any);
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
+  });
+
+  it("el portón también aplica en la rama con GPS", async () => {
+    prismaMock.centro.findMany.mockResolvedValue([]);
+
+    await service.list({ lat: 10.5, lng: -66.9, radiusKm: 50 });
+
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
   });
 });
 
@@ -734,8 +765,8 @@ describe("CentrosService.detallePublico", () => {
 
   it("proyecta payload público: solo URGENTE/NORMAL, SIN cantidad ni PII, ordena URGENTE primero", async () => {
     // El mock devuelve lo que la BD ya filtró (URGENTE/NORMAL, sin cantidadTotal).
-    prismaMock.centro.findUnique.mockResolvedValue({
-      id: "c1", nombre: "Uno", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
+    prismaMock.centro.findFirst.mockResolvedValue({
+      id: "c1", nombre: "Uno", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
       latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
       insumos: [
         { nombre: "Arroz", nivel: "NORMAL", categoria: "ALIMENTOS" },
@@ -747,7 +778,10 @@ describe("CentrosService.detallePublico", () => {
     const r = await service.detallePublico("c1");
 
     // El query público pide SOLO URGENTE/NORMAL y NO pide cantidadTotal.
-    const arg = prismaMock.centro.findUnique.mock.calls[0][0] as any;
+    const arg = prismaMock.centro.findFirst.mock.calls[0][0] as any;
+    // La verificación viaja en el WHERE: un centro sin revisar es indistinguible
+    // de uno inexistente, así el link directo no saltea el portón del directorio.
+    expect(arg.where).toEqual({ id: "c1", verificacion: "VERIFICADO" });
     expect(arg.select.insumos.where).toEqual({ nivel: { in: ["URGENTE", "NORMAL"] } });
     expect(arg.select.insumos.select).not.toHaveProperty("cantidadTotal");
 
@@ -758,8 +792,18 @@ describe("CentrosService.detallePublico", () => {
   });
 
   it("lanza 404 si el centro no existe", async () => {
-    prismaMock.centro.findUnique.mockResolvedValue(null);
+    prismaMock.centro.findFirst.mockResolvedValue(null);
     await expect(service.detallePublico("nope")).rejects.toThrow("Centro no encontrado");
+  });
+
+  // Mismo 404 que un id inexistente: no se filtra que el centro existe pero está
+  // pendiente de revisión.
+  it("lanza 404 si el centro no está verificado", async () => {
+    prismaMock.centro.findFirst.mockResolvedValue(null); // el WHERE ya lo descartó
+    await expect(service.detallePublico("pendiente")).rejects.toThrow("Centro no encontrado");
+    expect(prismaMock.centro.findFirst.mock.calls[0][0].where).toMatchObject({
+      verificacion: "VERIFICADO",
+    });
   });
 });
 
@@ -775,7 +819,11 @@ describe("CentrosService.mapaCoords", () => {
 
     expect(prismaMock.centro.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { latitud: { not: null }, longitud: { not: null } },
+        where: {
+          verificacion: "VERIFICADO",
+          latitud: { not: null },
+          longitud: { not: null },
+        },
       }),
     );
     expect(puntos).toEqual([
