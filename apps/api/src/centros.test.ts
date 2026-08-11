@@ -67,7 +67,8 @@ const cedula = {
   verificar: vi.fn().mockResolvedValue(null),
   validarYGuardar: vi.fn().mockResolvedValue(undefined),
 } as any;
-const service = new CentrosService(redis, cedula);
+const email = { notificarCentroNuevo: vi.fn().mockResolvedValue(undefined) } as any;
+const service = new CentrosService(redis, cedula, email);
 
 const centroBase = {
   id: "c1",

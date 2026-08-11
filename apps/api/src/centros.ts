@@ -40,6 +40,7 @@ import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
 import { distanciaMetros, PAISES, type Pais } from "@vnzl/paises";
 import { RedisService } from "./redis.service";
+import { EmailService } from "./email.service";
 import { CedulaService } from "./cedula";
 import { IsCiudadDeEstado, IsEstadoDePais } from "./validators";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
@@ -579,6 +580,7 @@ export class CentrosService {
   constructor(
     private readonly redis: RedisService,
     private readonly cedula: CedulaService,
+    private readonly email: EmailService,
   ) {}
 
   private buildWhere(q: ListCentrosQueryDto): Prisma.CentroWhereInput {
@@ -758,6 +760,7 @@ export class CentrosService {
     });
     await this.redis.bumpCentros();
     void this.cedula.validarYGuardar(userId); // CEN-23: en segundo plano
+    void this.email.notificarCentroNuevo(centro); // avisa a moderadores, best-effort
     return centro;
   }
 

@@ -13,6 +13,8 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.1.27",
     "@nestjs/swagger": "^11.4.5",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.9",
     "@sentry/nestjs": "^10.62.0",
     "@vnzl/database": "workspace:*",
     "@vnzl/paises": "workspace:*",
@@ -25,7 +27,10 @@
     "helmet": "^8.2.0",
     "ioredis": "^5.11.1",
     "railway": "^3.8.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.16.0",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
@@ -34,6 +39,8 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
