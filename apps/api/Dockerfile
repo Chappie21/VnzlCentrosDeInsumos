@@ -18,13 +18,13 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY packages/database/package.json packages/database/
-COPY packages/venezuela/package.json packages/venezuela/
+COPY packages/paises/package.json packages/paises/
 # --ignore-scripts: evita prepare/postinstall (prisma generate corre luego, con el schema ya copiado).
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 # Orden explícito (sin turbo: su binario se baja en postinstall, saltado arriba).
-RUN pnpm --filter @vnzl/venezuela build \
+RUN pnpm --filter @vnzl/paises build \
   && pnpm --filter @vnzl/database build \
   && pnpm --filter @vnzl/api build
 # ponytail: no se hace `pnpm prune --prod` — reinstala node_modules y borra el
