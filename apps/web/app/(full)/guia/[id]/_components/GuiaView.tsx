@@ -14,11 +14,17 @@ function destinoLabel(destino: Guia["destino"]): string {
 export default function GuiaView({ guia }: { guia: Guia }) {
   const bultos = guia.items.reduce((sum, i) => sum + i.cantidad, 0);
 
+  // Transporte y "Despachado por" son PII: el backend solo los envía al JEFE del
+  // centro origen/destino. Si vienen, se muestran; si no, se omiten esas filas.
   const filas: { label: string; value: string }[] = [
     { label: "Origen", value: `${guia.origen.nombre} — ${guia.origen.ciudad}` },
     { label: "Destino", value: destinoLabel(guia.destino) },
-    { label: "Transporte", value: guia.transporte },
-    { label: "Despachado por", value: guia.despachadoPor ?? "—" },
+    ...(guia.transporte !== undefined
+      ? [{ label: "Transporte", value: guia.transporte }]
+      : []),
+    ...(guia.despachadoPor !== undefined
+      ? [{ label: "Despachado por", value: guia.despachadoPor ?? "—" }]
+      : []),
     { label: "Fecha", value: fmtFecha(guia.creadoEn) },
   ];
 

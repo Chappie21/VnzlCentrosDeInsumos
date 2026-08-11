@@ -35,10 +35,10 @@ export type CentrosPage = {
 function buildQuery(filters: CentrosFilters, page: number): string {
   const p = new URLSearchParams();
   p.set("page", String(page));
+  p.set("pais", filters.pais);
   if (filters.q) p.set("q", filters.q);
   if (filters.soloAbiertos) p.set("soloAbiertos", "true");
   if (filters.urgenciaAlta) p.set("urgenciaAlta", "true");
-  if (filters.verificado) p.set("verificado", "true");
   if (filters.lat != null && filters.lng != null) {
     p.set("lat", String(filters.lat));
     p.set("lng", String(filters.lng));

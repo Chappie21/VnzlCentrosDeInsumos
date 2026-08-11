@@ -2,12 +2,16 @@ import { forwardRef, useId } from "react";
 import type { SelectHTMLAttributes } from "react";
 import Icon from "./Icon";
 
+// Un string suelto vale cuando el valor y la etiqueta coinciden (estados,
+// ciudades); el par se usa cuando difieren (país: "CO" → "Colombia").
+export type SelectOption = string | { value: string; label: string };
+
 type SelectFieldProps = {
   label: string;
   icon: string;
   error?: string;
   placeholder?: string;
-  options: readonly string[];
+  options: readonly SelectOption[];
 } & SelectHTMLAttributes<HTMLSelectElement>;
 
 // Select nativo (sin librería de combobox): estilado como Field para que la
@@ -44,11 +48,14 @@ const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
                 {placeholder}
               </option>
             )}
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
+            {options.map((o) => {
+              const { value, label: texto } = typeof o === "string" ? { value: o, label: o } : o;
+              return (
+                <option key={value} value={value}>
+                  {texto}
+                </option>
+              );
+            })}
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
             <Icon name="expand_more" />

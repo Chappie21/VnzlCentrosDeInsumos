@@ -21,11 +21,11 @@ import Map from "./Map";
 
 describe("Map", () => {
   it("muestra el marcador solo cuando hay un punto", () => {
-    const { rerender } = render(<Map value={null} onChange={vi.fn()} />);
+    const { rerender } = render(<Map value={null} onChange={vi.fn()} pais="VE" />);
     expect(screen.getByTestId("map")).toBeTruthy();
     expect(screen.queryByTestId("marker")).toBeNull();
 
-    rerender(<Map value={{ lat: 10.5, lng: -66.9 }} onChange={vi.fn()} />);
+    rerender(<Map value={{ lat: 10.5, lng: -66.9 }} onChange={vi.fn()} pais="VE" />);
     expect(screen.getByTestId("marker")).toBeTruthy();
   });
 });

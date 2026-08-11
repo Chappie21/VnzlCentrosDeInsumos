@@ -7,7 +7,6 @@ const allOff = {
   [FILTERS.cerca]: false,
   [FILTERS.abiertos]: false,
   [FILTERS.urgencia]: false,
-  [FILTERS.verificado]: false,
 };
 
 describe("FilterChips", () => {

@@ -34,12 +34,14 @@ import {
   type ValidationArguments,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
+import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
-import { ESTADOS, municipiosDe, distanciaMetros } from "@vnzl/venezuela";
+import { distanciaMetros, PAISES, type Pais } from "@vnzl/paises";
 import { RedisService } from "./redis.service";
 import { CedulaService } from "./cedula";
+import { IsCiudadDeEstado, IsEstadoDePais } from "./validators";
 import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
 import { calcularNivel } from "./constants/insumos";
 import { boundingBox, sortByProximity } from "./geo";
@@ -51,28 +53,6 @@ const toOptionalBool = () =>
     value === undefined ? undefined : value === true || value === "true" || value === "1",
   );
 
-// Valida que la ciudad pertenezca al estado enviado (whitelist @vnzl/venezuela).
-// Cross-field: lee el sibling `estado` del objeto en validación.
-function IsCiudadDeEstado() {
-  return function (object: object, propertyName: string) {
-    registerDecorator({
-      name: "isCiudadDeEstado",
-      target: object.constructor,
-      propertyName,
-      validator: {
-        validate(value: unknown, args: ValidationArguments) {
-          const estado = (args.object as { estado?: string }).estado ?? "";
-          return typeof value === "string" && municipiosDe(estado).includes(value);
-        },
-        defaultMessage(args: ValidationArguments) {
-          const estado = (args.object as { estado?: string }).estado ?? "";
-          return `ciudad no pertenece al estado "${estado}"`;
-        },
-      },
-    });
-  };
-}
-
 // Inventario inicial (carga de un acopio que se digitaliza). cantidad admite 0
 // (decisión B3: registrar un insumo sin stock todavía). Solo en la creación.
 export class InsumoInicialDto {
@@ -83,7 +63,10 @@ export class InsumoInicialDto {
 
 export class CreateCentroDto {
   @IsString() nombre: string;
-  @IsString() @IsIn([...ESTADOS]) estado: string;
+  // El país lo manda el cliente pero create() lo contrasta con el del usuario:
+  // acá solo sirve para validar estado/ciudad contra el dataset correcto.
+  @IsIn([...PAISES]) pais: Pais;
+  @IsString() @IsEstadoDePais() estado: string;
   @IsString() @IsCiudadDeEstado() ciudad: string;
   @IsString() direccion: string;
   @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
@@ -117,12 +100,14 @@ export class ReporteDto {
 const REPORTE_THRESHOLD = 3;
 
 // Edición de datos principales (solo JEFE). Todo opcional: se actualiza solo lo
-// enviado. Regla: `ciudad` necesita `estado` para validar contra la whitelist, así
-// que si viene `ciudad` exigimos también `estado` (ValidateIf fuerza su presencia).
+// enviado. Regla: `ciudad` necesita `estado` Y `pais` para validar contra la
+// whitelist, así que si viene cualquiera de los dos exigimos los tres.
 export class UpdateCentroDto {
   @IsOptional() @IsString() nombre?: string;
   @ValidateIf((o) => o.estado !== undefined || o.ciudad !== undefined)
-  @IsString() @IsIn([...ESTADOS]) estado?: string;
+  @IsIn([...PAISES]) pais?: Pais;
+  @ValidateIf((o) => o.estado !== undefined || o.ciudad !== undefined)
+  @IsString() @IsEstadoDePais() estado?: string;
   @IsOptional() @IsString() @IsCiudadDeEstado() ciudad?: string;
   @IsOptional() @IsString() direccion?: string;
   @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
@@ -161,6 +146,11 @@ class ListCentrosQueryDto {
   @IsOptional() @IsString() @MaxLength(80)
   q?: string; // matchea nombre OR ciudad, case-insensitive
 
+  // Sin país no se filtra: /centros es público y quien llega por un link
+  // compartido no tiene país. El front siempre lo manda.
+  @IsOptional() @IsIn([...PAISES])
+  pais?: Pais;
+
   @IsOptional() @Type(() => Number) @IsLatitude()
   lat?: number;
 
@@ -176,8 +166,12 @@ class ListCentrosQueryDto {
   @IsOptional() @toOptionalBool() @IsBoolean()
   urgenciaAlta?: boolean; // >=1 insumo nivel URGENTE
 
-  @IsOptional() @toOptionalBool() @IsBoolean()
-  verificado?: boolean; // solo centros verificados por el equipo
+}
+
+// El mapa público solo filtra por país. DTO propio para que lo valide el
+// ValidationPipe global en vez de parsear el query a mano.
+class MapaQueryDto {
+  @IsOptional() @IsIn([...PAISES]) pais?: Pais;
 }
 
 // Proyección de card: solo lo que la UI necesita. Nunca fingerprint ni voluntarios.
@@ -322,6 +316,7 @@ const detalleSelect = (userId: string) =>
   ({
     id: true,
     nombre: true,
+    pais: true,
     estado: true,
     ciudad: true,
     direccion: true,
@@ -355,6 +350,7 @@ export type InsumoDetalle = {
 export type CentroDetalle = {
   id: string;
   nombre: string;
+  pais: Pais;
   estado: string;
   ciudad: string;
   direccion: string;
@@ -375,6 +371,7 @@ function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
   return {
     id: c.id,
     nombre: c.nombre,
+    pais: c.pais,
     estado: c.estado,
     ciudad: c.ciudad,
     direccion: c.direccion,
@@ -397,6 +394,7 @@ function toCentroDetalle(c: DetalleRow, donaciones: number): CentroDetalle {
 const publicoSelect = {
   id: true,
   nombre: true,
+  pais: true,
   estado: true,
   ciudad: true,
   direccion: true,
@@ -404,17 +402,23 @@ const publicoSelect = {
   longitud: true,
   recibiendoAhora: true,
   horarioCierre: true,
-  insumos: { select: { nombre: true, nivel: true, categoria: true, cantidadTotal: true } },
+  // Público: solo necesidades reales (URGENTE/NORMAL) y SIN cantidad — no exponemos
+  // el inventario/capacidad de cada centro.
+  insumos: {
+    where: { nivel: { in: [NivelInsumo.URGENTE, NivelInsumo.NORMAL] } },
+    select: { nombre: true, nivel: true, categoria: true },
+  },
   _count: { select: { voluntarios: true } },
 } satisfies Prisma.CentroSelect;
 
 type PublicoRow = Prisma.CentroGetPayload<{ select: typeof publicoSelect }>;
 
-type NecesidadPublica = Necesidad & { cantidad: number };
+type NecesidadPublica = Necesidad;
 
 export type CentroDetallePublico = {
   id: string;
   nombre: string;
+  pais: Pais;
   estado: string;
   ciudad: string;
   direccion: string;
@@ -429,10 +433,11 @@ export type CentroDetallePublico = {
 function toDetallePublico(c: PublicoRow): CentroDetallePublico {
   const necesidades = [...c.insumos]
     .sort((a, b) => NIVEL_ORDER[a.nivel] - NIVEL_ORDER[b.nivel])
-    .map((i) => ({ nombre: i.nombre, nivel: i.nivel, categoria: i.categoria, cantidad: i.cantidadTotal }));
+    .map((i) => ({ nombre: i.nombre, nivel: i.nivel, categoria: i.categoria }));
   return {
     id: c.id,
     nombre: c.nombre,
+    pais: c.pais,
     estado: c.estado,
     ciudad: c.ciudad,
     direccion: c.direccion,
@@ -584,9 +589,12 @@ export class CentrosService {
           { ciudad: { contains: q.q, mode: "insensitive" } },
         ],
       }),
+      // Portón, no filtro: un centro sin revisar por el equipo NO se lista. Deja
+      // fuera también a los RECHAZADO. Los miembros igual ven el suyo por /mios.
+      verificacion: EstadoVerificacion.VERIFICADO,
+      ...(q.pais && { pais: q.pais }),
       ...(q.soloAbiertos && { recibiendoAhora: true }),
       ...(q.urgenciaAlta && { insumos: { some: { nivel: NivelInsumo.URGENTE } } }),
-      ...(q.verificado && { verificacion: EstadoVerificacion.VERIFICADO }),
     };
   }
 
@@ -600,12 +608,12 @@ export class CentrosService {
       page,
       limit,
       q: q.q ?? null,
+      pais: q.pais ?? null, // sin esto, un país envenena la caché del otro
       lat: q.lat ?? null,
       lng: q.lng ?? null,
       radiusKm: q.radiusKm ?? null,
       soloAbiertos: q.soloAbiertos ?? false,
       urgenciaAlta: q.urgenciaAlta ?? false,
-      verificado: q.verificado ?? false,
     })}`;
 
     return this.redis.cached(key, TTL.centrosList, () =>
@@ -616,11 +624,17 @@ export class CentrosService {
   // Todos los centros con coordenadas, para el mapa público. Payload mínimo.
   // Cacheado (versionado): es público y de alto tráfico → evita pegarle a la DB
   // en cada carga del mapa. ponytail: scan full-table con cap 1000.
-  async mapaCoords(): Promise<MapaPunto[]> {
+  async mapaCoords(pais?: Pais): Promise<MapaPunto[]> {
     const version = await this.redis.centrosVersion();
-    return this.redis.cached(`${CACHE.centrosMapaPrefix}:v${version}`, TTL.centrosMapa, async () => {
+    const key = `${CACHE.centrosMapaPrefix}:v${version}:${pais ?? "all"}`;
+    return this.redis.cached(key, TTL.centrosMapa, async () => {
       const rows = await prisma.centro.findMany({
-        where: { latitud: { not: null }, longitud: { not: null } },
+        where: {
+          verificacion: EstadoVerificacion.VERIFICADO, // mismo portón que el directorio
+          ...(pais && { pais }),
+          latitud: { not: null },
+          longitud: { not: null },
+        },
         select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
         take: 1000,
       });
@@ -700,6 +714,15 @@ export class CentrosService {
   async create(userId: string, dto: CreateCentroDto) {
     // IdentidadGuard already guarantees the Usuario exists with a complete identity.
     const { insumos, ...datos } = dto;
+    // El país del centro lo manda el creador: el DTO ya validó estado/ciudad contra
+    // ese dataset, pero la fuente de verdad es el usuario.
+    const usuario = await prisma.usuario.findUniqueOrThrow({
+      where: { id: userId },
+      select: { pais: true },
+    });
+    if (dto.pais !== usuario.pais) {
+      throw new BadRequestException("Solo puedes crear centros en tu país");
+    }
     // Agrupa el inventario inicial por nombre (case-insensitive) para no duplicar
     // insumos en un mismo payload; mismo criterio que `recibir`.
     const seed = new Map<string, { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }>();
@@ -776,8 +799,11 @@ export class CentrosService {
       `${CACHE.centrosPublicoPrefix}:v${version}:${centroId}`,
       TTL.centrosPublico,
       async () => {
-        const row = await prisma.centro.findUnique({
-          where: { id: centroId },
+        // findFirst y no findUnique: la verificación entra en el WHERE para que un
+        // centro sin revisar sea indistinguible de uno inexistente. Si no, el link
+        // directo sería una vía para saltarse el portón del directorio.
+        const row = await prisma.centro.findFirst({
+          where: { id: centroId, verificacion: EstadoVerificacion.VERIFICADO },
           select: publicoSelect,
         });
         if (!row) throw new NotFoundException("Centro no encontrado");
@@ -932,7 +958,10 @@ export class CentrosService {
 
     const dir = join(process.cwd(), "uploads", "centros");
     mkdirSync(dir, { recursive: true });
-    const filename = `${centroId}-${Date.now()}.${ext}`;
+
+    // Sanitize centroId to prevent Path Traversal
+    const safeCentroId = centroId.replace(/[^a-zA-Z0-9-]/g, "");
+    const filename = `${safeCentroId}-${Date.now()}.${ext}`;
     writeFileSync(join(dir, filename), buf);
 
     const fotoUrl = `/uploads/centros/${filename}`;
@@ -948,6 +977,33 @@ export class CentrosController {
 
   // Directorio público (también "solo observar"). Sin guard: cualquiera puede ver.
   @Get()
+  @ApiTags("publico")
+  @ApiOperation({ summary: "Directorio de centros de acopio (paginado, filtros opcionales)" })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        items: [
+          {
+            id: "ckxyz...",
+            nombre: "Centro Mariposa",
+            ciudad: "Caracas",
+            estado: "Distrito Capital",
+            direccion: "Av. Principal, Local 3",
+            recibiendoAhora: true,
+            horarioCierre: "18:00",
+            verificado: true,
+            distanciaKm: null,
+            prioridadAlta: true,
+            necesidades: [{ nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" }],
+          },
+        ],
+        page: 1,
+        limit: 20,
+        total: 42,
+        hasNext: true,
+      },
+    },
+  })
   list(@Query() query: ListCentrosQueryDto) {
     return this.service.list(query);
   }
@@ -972,8 +1028,24 @@ export class CentrosController {
 
   // Mapa público de centros con coordenadas. Literal antes de ":centroId".
   @Get("mapa")
-  mapa() {
-    return this.service.mapaCoords();
+  @ApiTags("publico")
+  @ApiOperation({ summary: "Coordenadas de todos los centros para pintar el mapa" })
+  @ApiOkResponse({
+    schema: {
+      example: [
+        {
+          id: "ckxyz...",
+          nombre: "Centro Mariposa",
+          ciudad: "Caracas",
+          latitud: 10.5,
+          longitud: -66.9,
+          recibiendoAhora: true,
+        },
+      ],
+    },
+  })
+  mapa(@Query() q: MapaQueryDto) {
+    return this.service.mapaCoords(q.pais);
   }
 
   // Identified users only. Rate-limited (spec §6.5).
@@ -985,6 +1057,25 @@ export class CentrosController {
 
   // Detalle público (directorio). Sin guard: ruta distinta a la de miembros.
   @Get(":centroId/publico")
+  @ApiTags("publico")
+  @ApiOperation({ summary: "Detalle público de un centro (sin cantidades; solo insumos URGENTE/NORMAL)" })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        id: "ckxyz...",
+        nombre: "Centro Mariposa",
+        estado: "Distrito Capital",
+        ciudad: "Caracas",
+        direccion: "Av. Principal, Local 3",
+        latitud: 10.5,
+        longitud: -66.9,
+        recibiendoAhora: true,
+        horarioCierre: "18:00",
+        voluntarios: 4,
+        necesidades: [{ nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" }],
+      },
+    },
+  })
   detallePublico(@Param("centroId") centroId: string) {
     return this.service.detallePublico(centroId);
   }

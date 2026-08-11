@@ -57,6 +57,8 @@ describe("AuthService.register", () => {
     prismaMock.usuario.create.mockResolvedValue(createdUser);
 
     const res = await service.register({
+      pais: "VE",
+      nombre: "John Doe",
       cedula: "V12345678",
       telefono: "04141234567",
       password: "securepassword",
@@ -88,6 +90,8 @@ describe("AuthService.register", () => {
 
     await expect(
       service.register({
+        pais: "VE",
+        nombre: "John Doe",
         cedula: "V12345678",
         telefono: "04141234567",
         password: "securepassword",
@@ -105,6 +109,8 @@ describe("AuthService.register", () => {
 
     await expect(
       service.register({
+        pais: "VE",
+        nombre: "John Doe",
         cedula: "V12345678",
         telefono: "04141234567",
         password: "securepassword",
@@ -124,6 +130,8 @@ describe("AuthService.register", () => {
     prismaMock.usuario.create.mockResolvedValue({ id: "u1", nombre: "MARIA OFICIAL PEREZ", cedula: "V12345678", telefono: "04141234567" });
 
     await service.register({
+      pais: "VE",
+      nombre: "maria",
       cedula: "V12345678",
       telefono: "04141234567",
       password: "securepassword",
@@ -181,6 +189,45 @@ describe("AuthService.login", () => {
     await expect(
       service.login({ cedula: "V00000000", password: "any" }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  // El login no pide país. Un documento colombiano son puros dígitos y NO debe
+  // recibir el prefijo "V" implícito, o el usuario no encuentra su propia cuenta.
+  it("encuentra a un usuario colombiano por su documento numérico", async () => {
+    const { hash } = await import("bcryptjs");
+    const passwordHash = await hash("mypassword", 10);
+
+    prismaMock.usuario.findUnique.mockResolvedValue({
+      id: "user-co-1",
+      pais: "CO",
+      cedula: "1020304050",
+      passwordHash,
+    });
+
+    const res = await service.login({ cedula: "1.020.304.050", password: "mypassword" });
+
+    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({
+      where: { cedula: "1020304050" },
+    });
+    expect(res.usuario).toMatchObject({ id: "user-co-1", pais: "CO" });
+  });
+
+  // Los usuarios previos a Colombia se guardaron con el prefijo: teclear solo
+  // dígitos tiene que seguir funcionando para ellos.
+  it("reintenta con el prefijo V cuando el documento numérico no existe tal cual", async () => {
+    const { hash } = await import("bcryptjs");
+    const passwordHash = await hash("mypassword", 10);
+
+    prismaMock.usuario.findUnique
+      .mockResolvedValueOnce(null) // "12345678" no existe
+      .mockResolvedValueOnce({ id: "user-ve-1", pais: "VE", cedula: "V12345678", passwordHash });
+
+    const res = await service.login({ cedula: "12345678", password: "mypassword" });
+
+    expect(prismaMock.usuario.findUnique).toHaveBeenNthCalledWith(2, {
+      where: { cedula: "V12345678" },
+    });
+    expect(res.usuario).toMatchObject({ id: "user-ve-1" });
   });
 
   it("lanza UnauthorizedException si el usuario no tiene passwordHash (google-only)", async () => {

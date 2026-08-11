@@ -36,4 +36,16 @@ describe("GuiaView", () => {
     render(<GuiaView guia={base} />);
     expect(screen.getByTestId("total-bultos").textContent).toContain("7");
   });
+
+  it("oculta transporte y despachador cuando no vienen (no JEFE)", () => {
+    const { transporte, despachadoPor, ...sinPii } = base;
+    void transporte;
+    void despachadoPor;
+    render(<GuiaView guia={sinPii} />);
+    expect(screen.queryByText("Transporte")).toBeNull();
+    expect(screen.queryByText("Despachado por")).toBeNull();
+    // el manifiesto sí se ve
+    expect(screen.getByText(/Centro Norte/)).toBeTruthy();
+    expect(screen.getByText("Agua")).toBeTruthy();
+  });
 });

@@ -8,6 +8,7 @@ config({ path: "../../.env" });
 const CENTROS = [
   {
     id: "seed-centro-deportivo",
+    verificacion: "VERIFICADO",
     nombre: "Centro Deportivo Municipal",
     estado: "Distrito Capital",
     ciudad: "Caracas",
@@ -24,6 +25,7 @@ const CENTROS = [
   },
   {
     id: "seed-escuela-bolivar",
+    verificacion: "VERIFICADO",
     nombre: "Escuela Primaria Simón Bolívar",
     estado: "Miranda",
     ciudad: "Los Teques",
@@ -39,6 +41,7 @@ const CENTROS = [
   },
   {
     id: "seed-plaza-constitucion",
+    verificacion: "VERIFICADO",
     nombre: "Plaza de la Constitución",
     estado: "Carabobo",
     ciudad: "Valencia",
@@ -54,6 +57,7 @@ const CENTROS = [
   },
   {
     id: "seed-polideportivo-zulia",
+    verificacion: "VERIFICADO",
     nombre: "Polideportivo de Maracaibo",
     estado: "Zulia",
     ciudad: "Maracaibo",
@@ -70,6 +74,7 @@ const CENTROS = [
   },
   {
     id: "seed-iglesia-merida",
+    verificacion: "VERIFICADO",
     nombre: "Parroquia Sagrado Corazón",
     estado: "Mérida",
     ciudad: "Mérida",
@@ -83,8 +88,47 @@ const CENTROS = [
       { nombre: "Mantas", nivel: "SUFICIENTE", categoria: "ROPA" },
     ],
   },
+  // Colombia: sin estos, el listado y el mapa del país salen vacíos el día 1.
+  {
+    id: "seed-co-coliseo-medellin",
+    verificacion: "VERIFICADO",
+    nombre: "Coliseo Iván de Bedout",
+    pais: "CO",
+    estado: "Antioquia",
+    ciudad: "Medellín",
+    direccion: "Cra. 73 #48-101, Estadio",
+    latitud: 6.2554,
+    longitud: -75.5906,
+    recibiendoAhora: true,
+    horarioCierre: null as string | null,
+    insumos: [
+      { nombre: "Agua potable", nivel: "URGENTE", categoria: "AGUA" },
+      { nombre: "Kits de aseo", nivel: "URGENTE", categoria: "MEDICAMENTOS" },
+      { nombre: "Colchonetas", nivel: "NORMAL", categoria: "ROPA" },
+    ],
+  },
+  {
+    id: "seed-co-parroquia-bogota",
+    verificacion: "VERIFICADO",
+    nombre: "Parroquia San Diego",
+    pais: "CO",
+    estado: "Bogotá D.C.",
+    ciudad: "Bogotá D.C.",
+    direccion: "Cra. 7 #26-08, Santa Fe",
+    latitud: 4.6146,
+    longitud: -74.0687,
+    recibiendoAhora: true,
+    horarioCierre: "19:00",
+    insumos: [
+      { nombre: "Alimentos no perecederos", nivel: "URGENTE", categoria: "ALIMENTOS" },
+      { nombre: "Ropa", nivel: "NORMAL", categoria: "ROPA" },
+    ],
+  },
   {
     id: "seed-centro-sin-coords",
+    // Se deja PENDIENTE a propósito: el directorio no debe mostrarlo y la cola de
+    // moderación local no queda vacía.
+    verificacion: "PENDIENTE",
     nombre: "Refugio Comunitario El Valle",
     estado: "Distrito Capital",
     ciudad: "Caracas",

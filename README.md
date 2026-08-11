@@ -1,4 +1,4 @@
-# Plataforma Logística de Emergencia — Centros de Acopio (Venezuela)
+# Plataforma Logística de Emergencia — Centros de Acopio (Venezuela y Colombia)
 
 Monorepo Turborepo: `apps/web` (Next.js), `apps/api` (NestJS), `packages/database` (Prisma).
 

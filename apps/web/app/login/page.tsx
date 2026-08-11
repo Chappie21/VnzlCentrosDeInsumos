@@ -9,7 +9,6 @@ import { AuthShell, StatusFooter } from "../_components/AuthShell";
 import { GoogleButton } from "../_components/GoogleButton";
 import { ROUTES } from "../constants";
 import { login } from "../lib/authApi";
-import { normalizeCedula } from "../lib/validate";
 import { setIdentity, syncIdentity } from "../lib/identity";
 
 type LoginInput = { cedula: string; password: string };
@@ -32,15 +31,22 @@ function LoginView() {
   async function onValid(values: LoginInput) {
     setApiError(null);
     try {
-      const { usuario } = await login(normalizeCedula(values.cedula), values.password);
+      // Sin normalizar del lado del cliente: el login no pide país y el prefijo
+      // "V" solo aplica a Venezuela. La API resuelve ambos formatos.
+      const { usuario } = await login(values.cedula, values.password);
       if (usuario.nombre && usuario.cedula && usuario.telefono) {
-        setIdentity({ nombre: usuario.nombre, cedula: usuario.cedula, telefono: usuario.telefono });
+        setIdentity({
+          pais: usuario.pais,
+          nombre: usuario.nombre,
+          cedula: usuario.cedula,
+          telefono: usuario.telefono,
+        });
       } else {
         await syncIdentity();
       }
       router.push(next);
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Cédula o contraseña inválida");
+      setApiError(e instanceof Error ? e.message : "Documento o contraseña inválida");
     }
   }
 
@@ -59,11 +65,11 @@ function LoginView() {
       <form onSubmit={handleSubmit(onValid)} className="space-y-6">
         <div className="space-y-4">
           <Field
-            label="Cédula de identidad"
+            label="Documento de identidad"
             icon="badge"
-            placeholder="V12345678"
+            placeholder="V12345678 · 1020304050"
             error={errors.cedula?.message}
-            {...register("cedula", { required: "Ingresa tu cédula" })}
+            {...register("cedula", { required: "Ingresa tu documento" })}
           />
           <Field
             label="Contraseña"

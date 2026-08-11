@@ -1,3 +1,4 @@
+import type { Pais } from "@vnzl/paises";
 import { getFingerprint } from "../fingerprint";
 import { getToken } from "./auth";
 import type { DonationItem } from "./donation";
@@ -18,10 +19,11 @@ export function apiFetch(path: string, init?: RequestInit) {
   });
 }
 
-export type OnboardBody = { nombre?: string; cedula: string; telefono: string };
+export type OnboardBody = { pais: Pais; nombre?: string; cedula: string; telefono: string };
 
 export type Me = {
   id: string;
+  pais: Pais;
   nombre: string | null;
   cedula: string | null;
   telefono: string | null;
@@ -44,6 +46,7 @@ export type InsumoInicial = { nombre: string; categoria?: Categoria; cantidad: n
 
 export type CreateCentroBody = {
   nombre: string;
+  pais: Pais;
   estado: string;
   ciudad: string;
   direccion: string;
@@ -110,10 +113,11 @@ export function recibirDonacion(centroId: string, items: DonationItem[]) {
 
 // Lista liviana de centros para el dropdown de destino (CEN-17).
 export type CentroLite = { id: string; nombre: string; ciudad: string };
-export async function getCentrosSelect(): Promise<CentroLite[]> {
+export async function getCentrosSelect(pais: Pais): Promise<CentroLite[]> {
   // ponytail: trae la primera página (máx del backend = 50). Si los centros pasan
   // de 50, paginar o agregar un endpoint liviano de solo {id, nombre}.
-  const res = await apiFetch("/centros?limit=50");
+  // El país es obligatorio: sin él un jefe vería centros de otro país como destino.
+  const res = await apiFetch(`/centros?limit=50&pais=${pais}`);
   if (!res.ok) throw new Error("No se pudieron cargar los centros");
   const data = await res.json();
   return (data.items ?? []).map((c: any) => ({ id: c.id, nombre: c.nombre, ciudad: c.ciudad }));
@@ -142,11 +146,12 @@ export type GuiaDestino = { nombre: string; ciudad: string } | { texto: string |
 export type Guia = {
   id: string;
   creadoEn: string;
-  transporte: string;
-  despachadoPor: string | null;
   origen: { nombre: string; ciudad: string; estado: string };
   destino: GuiaDestino;
   items: { nombre: string; cantidad: number }[];
+  // Solo presentes si el que consulta es JEFE del centro origen/destino (PII).
+  transporte?: string;
+  despachadoPor?: string | null;
 };
 export async function getGuia(id: string): Promise<Guia> {
   const res = await apiFetch(`/envios/${id}`);
@@ -198,6 +203,7 @@ export type InsumoDetalle = {
 export type CentroDetalle = {
   id: string;
   nombre: string;
+  pais: Pais;
   estado: string;
   ciudad: string;
   direccion: string;
@@ -225,12 +231,12 @@ export type NecesidadPublica = {
   nombre: string;
   nivel: NivelInsumo;
   categoria: string | null;
-  cantidad: number;
 };
 
 export type CentroPublico = {
   id: string;
   nombre: string;
+  pais: Pais;
   estado: string;
   ciudad: string;
   direccion: string;

@@ -1,5 +1,5 @@
 {
-  "name": "@vnzl/venezuela",
+  "name": "@vnzl/paises",
   "version": "0.0.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

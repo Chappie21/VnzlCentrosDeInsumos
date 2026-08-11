@@ -5,6 +5,7 @@ import type { CentroDetalle } from "../../../../lib/api";
 
 const base: Omit<CentroDetalle, "rol"> = {
   id: "c1",
+  pais: "VE",
   nombre: "Centro Norte",
   estado: "Zulia",
   ciudad: "Maracaibo",

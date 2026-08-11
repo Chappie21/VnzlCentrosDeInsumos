@@ -16,6 +16,8 @@ export const metadata: Metadata = {
     "centros de acopio",
     "donaciones",
     "Venezuela",
+    "Colombia",
+    "LATAM",
     "emergencia",
     "ayuda humanitaria",
     "voluntarios",
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
-    locale: "es_VE",
+    locale: "es_419", // español latinoamericano: la app ya no es de un solo país
     url: SITE_URL,
     siteName: SITE_NAME,
     title: SITE_NAME,

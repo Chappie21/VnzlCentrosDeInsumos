@@ -14,6 +14,9 @@ Vista "Directorio de Centros" (diseño Stitch, mobile). Pedido textual:
 - **Bottom navigation** como **componente global** (compartido entre vistas).
 - El EP de listado debe funcionar con **paginación** y los **filtros** del diseño:
   búsqueda por ciudad/nombre, "Cerca de mí", "Solo Abiertos", "Urgencia Alta".
+- **(2026-08-10)** El listado solo muestra centros **verificados por el equipo**. Ver
+  [`verificacion-reporte.md`](verificacion-reporte.md): la verificación pasó de etiqueta a
+  portón y se quitó el chip "Verificados", que dejó de filtrar nada.
 - Cards con: nombre, dirección, distancia ("A X.Xkm"), badges de necesidades
   (con color por urgencia + ícono por categoría) y footer de estado
   ("RECIBIENDO AHORA" / "Cerrado"). FAB "Agregar centro de acopio".

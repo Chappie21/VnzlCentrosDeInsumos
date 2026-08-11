@@ -124,7 +124,6 @@ export default function CentroDetallePublico() {
                       {catLabel(n.categoria)}
                     </p>
                   )}
-                  <p className="text-sm text-on-surface-variant">{n.cantidad} en stock</p>
                 </div>
                 <span
                   className={`shrink-0 rounded-badge px-2 py-1 text-[11px] font-bold uppercase tracking-wider ${NIVEL_BADGE[n.nivel]}`}

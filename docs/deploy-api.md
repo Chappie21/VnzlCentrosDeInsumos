@@ -26,7 +26,8 @@ docker run --rm -p 3001:3001 \
 | `JWT_SECRET` | sí | Firma de invitaciones (JWT). |
 | `WEB_ORIGIN` | prod | Origen(es) permitido(s) por CORS, separados por coma (p. ej. el dominio de Vercel). Sin esta var se permite todo (dev). |
 | `PORT` | la inyecta la plataforma | Puerto de escucha. Fallback: `API_PORT` y luego `3001`. |
-| `APP_ID_CEDULA`, `TOKEN_CEDULA` | opcional | Verificación de cédula (CEN-23); sin ellas se omite. |
+| `APP_ID_CEDULA`, `TOKEN_CEDULA` | ver nota | Verificación de cédula (CEN-23). Con el portón activo (default) y **sin** estas credenciales, todo registro venezolano responde 503. |
+| `RAILWAY_TOKEN` | recomendado | Project token de Railway para leer los [feature flags](feature-flags.md). Railway **no** lo inyecta solo; sin él se sirven los defaults. |
 
 ## Plataformas
 

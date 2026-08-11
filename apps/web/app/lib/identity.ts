@@ -1,17 +1,20 @@
 "use client";
 
+import type { Pais } from "@vnzl/paises";
 import { getMe } from "./api";
 import { getToken, clearToken } from "./auth";
 import { STORAGE } from "../constants";
 
-export type Identity = { nombre: string; cedula: string; telefono: string };
+export type Identity = { pais: Pais; nombre: string; cedula: string; telefono: string };
 
 export function getIdentity(): Identity | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(STORAGE.identity);
     if (!raw) return null;
-    return JSON.parse(raw) as Identity;
+    const id = JSON.parse(raw) as Identity;
+    // Entradas guardadas antes de que existiera el campo: eran todas de Venezuela.
+    return { ...id, pais: id.pais ?? "VE" };
   } catch {
     return null;
   }
@@ -55,6 +58,7 @@ export async function syncIdentity(): Promise<Identity | null> {
     const me = await res.json();
     if (me?.identidadCompleta && me.nombre && me.cedula && me.telefono) {
       const identity: Identity = {
+        pais: me.pais ?? "VE",
         nombre: me.nombre,
         cedula: me.cedula,
         telefono: me.telefono,

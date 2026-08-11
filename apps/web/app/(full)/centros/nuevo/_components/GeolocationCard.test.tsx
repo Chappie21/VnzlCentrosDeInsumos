@@ -11,6 +11,7 @@ describe("GeolocationCard", () => {
         denied={false}
         onRequest={onRequest}
         onPick={vi.fn()}
+        pais="VE"
         lat=""
         lng=""
       />,
@@ -26,6 +27,7 @@ describe("GeolocationCard", () => {
         denied={false}
         onRequest={vi.fn()}
         onPick={vi.fn()}
+        pais="VE"
         lat="10.500000"
         lng="-71.600000"
       />,

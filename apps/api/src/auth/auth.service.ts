@@ -4,9 +4,11 @@ import { hash, compare } from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "@vnzl/database";
 import { signUserToken } from "./jwt-session";
-import { normalizarCedula, normalizarTelefono } from "../usuarios";
+import { normalizarDocumento, normalizarTelefono } from "@vnzl/paises";
 import { CedulaService } from "../cedula";
 import { RegisterDto, LoginDto } from "./dto";
+
+const DUMMY_HASH = "$2b$10$eCnKleOuUjlWnp6FKGd1GutvBdFEueoXmYVhixx4mhVtDXwGwGgtm";
 
 @Injectable()
 export class AuthService {
@@ -19,15 +21,17 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const cedula = normalizarCedula(dto.cedula);
+    const cedula = normalizarDocumento(dto.pais, dto.cedula);
     const telefono = normalizarTelefono(dto.telefono);
     const existe = await prisma.usuario.findUnique({ where: { cedula } });
-    if (existe) throw new ConflictException("Ya existe una cuenta con esa cédula");
-    // Portón: la cédula debe ser de una persona real. El nombre sale del registro
-    // oficial (sin respaldo → si la API no responde, lanza 503).
-    const v = await this.cedula.validarParaRegistro(cedula);
+    if (existe) throw new ConflictException("Ya existe una cuenta con ese documento");
+    // Portón (activo en Venezuela): el documento debe ser de una persona real y
+    // el nombre sale del registro oficial. En Colombia no hay registro que
+    // consultar, así que vale el nombre tecleado.
+    const v = await this.cedula.validarParaRegistro(dto.pais, cedula, dto.nombre);
     const usuario = await prisma.usuario.create({
       data: {
+        pais: dto.pais,
         nombre: v.nombre,
         cedula,
         telefono,
@@ -41,11 +45,31 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const cedula = normalizarCedula(dto.cedula);
-    const usuario = await prisma.usuario.findUnique({ where: { cedula } });
-    if (!usuario?.passwordHash || !(await compare(dto.password, usuario.passwordHash)))
-      throw new UnauthorizedException("Cédula o contraseña inválida");
+    const usuario = await this.porDocumento(dto.cedula);
+    // Se compara SIEMPRE, incluso cuando no hay usuario, contra un hash dummy:
+    // si no, el tiempo de respuesta delata qué documentos tienen cuenta.
+    const match = await compare(dto.password, usuario?.passwordHash || DUMMY_HASH);
+    if (!usuario?.passwordHash || !match)
+      throw new UnauthorizedException("Documento o contraseña inválida");
     return { token: await signUserToken(this.jwt, usuario.id), usuario: this.publico(usuario) };
+  }
+
+  // ponytail: el login no sabe el país (no se pide, para no meter fricción en el
+  // flujo más caliente). Se busca el documento tal cual y, si no aparece y son
+  // puros dígitos, se reintenta con el prefijo "V" implícito de Venezuela — que
+  // es como quedaron guardados todos los usuarios previos a Colombia.
+  // Dos findUnique en el peor caso; el login no es hot path.
+  private async porDocumento(raw: string) {
+    const v = raw.toUpperCase().replace(/[.\s-]/g, "");
+    if (!/^\d+$/.test(v)) return prisma.usuario.findUnique({ where: { cedula: v } });
+    // Las dos búsquedas SIEMPRE y en paralelo. Cortar en la primera que acierta
+    // haría que el tiempo delate si el documento está guardado con o sin el
+    // prefijo "V" — el mismo tipo de fuga que cierra el hash dummy del login.
+    const [exacto, conPrefijo] = await Promise.all([
+      prisma.usuario.findUnique({ where: { cedula: v } }),
+      prisma.usuario.findUnique({ where: { cedula: "V" + v } }),
+    ]);
+    return exacto ?? conPrefijo;
   }
 
   async google(idToken: string) {
@@ -70,7 +94,7 @@ export class AuthService {
 
   private publico(u: any) {
     return {
-      id: u.id, nombre: u.nombre, cedula: u.cedula, telefono: u.telefono,
+      id: u.id, pais: u.pais, nombre: u.nombre, cedula: u.cedula, telefono: u.telefono,
       identidadCompleta: Boolean(u.nombre && u.cedula && u.telefono),
     };
   }
