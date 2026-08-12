@@ -740,20 +740,31 @@ export class CentrosService {
       await tx.voluntario.create({
         data: { usuarioId: userId, centroId: c.id, rol: RolVoluntario.JEFE },
       });
-      // Carga inicial: cada insumo se crea en 0 y se mueve vía Historial (regla de
-      // oro). tipo CARGA_INICIAL para no contarlo como donación. cantidad 0 igual
-      // crea el insumo y su movimiento (registro de que existe sin stock).
-      for (const it of seed.values()) {
-        const insumo = await tx.insumo.create({
-          data: { centroId: c.id, nombre: it.nombre, categoria: it.categoria, cantidadTotal: 0 },
-          select: { id: true },
+      // Carga inicial: tipo CARGA_INICIAL para no contarlo como donación. cantidad 0
+      // igual crea el insumo y su movimiento (registro de que existe sin stock).
+      // Regla de oro: el insumo nace con su cantidad y el Historial por el MISMO
+      // monto se crea en esta misma tx, así cantidadTotal === suma(Historial) sin
+      // gastar un create+update por insumo (el inventario inicial puede traer decenas).
+      const items = [...seed.values()];
+      if (items.length) {
+        const creados = await tx.insumo.createManyAndReturn({
+          data: items.map((it) => ({
+            centroId: c.id,
+            nombre: it.nombre,
+            categoria: it.categoria,
+            cantidadTotal: it.cantidad,
+          })),
+          select: { id: true, nombre: true },
         });
-        await tx.historial.create({
-          data: { insumoId: insumo.id, usuarioId: userId, cantidad: it.cantidad, tipo: TipoMovimiento.CARGA_INICIAL },
-        });
-        await tx.insumo.update({
-          where: { id: insumo.id },
-          data: { cantidadTotal: { increment: it.cantidad } },
+        // Se mapea por nombre (las claves del seed ya son únicas case-insensitive),
+        // no por índice: no dependemos del orden que devuelva el INSERT.
+        await tx.historial.createMany({
+          data: creados.map((i) => ({
+            insumoId: i.id,
+            usuarioId: userId,
+            cantidad: seed.get(i.nombre.toLowerCase())!.cantidad,
+            tipo: TipoMovimiento.CARGA_INICIAL,
+          })),
         });
       }
       return c;

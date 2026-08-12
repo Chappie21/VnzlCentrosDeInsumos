@@ -4,8 +4,8 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 const { tx, prismaMock } = vi.hoisted(() => {
   const tx = {
     envio: { create: vi.fn() },
-    historial: { create: vi.fn() },
-    insumo: { update: vi.fn() },
+    historial: { createMany: vi.fn() },
+    insumo: { updateMany: vi.fn() },
   };
   return {
     tx,
@@ -62,14 +62,16 @@ describe("EnviosService.crear", () => {
         }),
       }),
     );
-    expect(tx.historial.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ insumoId: "i1", usuarioId: "vol-1", cantidad: -3, envioId: "e1", tipo: "SALIDA" }),
-      }),
-    );
-    expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "i1" }, data: { cantidadTotal: { decrement: 3 } } }),
-    );
+    // Regla de oro: el Historial(-3) y el movimiento del contador son el mismo monto.
+    expect(tx.historial.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ insumoId: "i1", usuarioId: "vol-1", cantidad: -3, envioId: "e1", tipo: "SALIDA" }),
+      ],
+    });
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["i1"] } },
+      data: { cantidadTotal: { increment: -3 } },
+    });
     expect(redis.bumpCentros).toHaveBeenCalled();
     expect(res).toEqual({ id: "e1" });
   });
@@ -122,10 +124,34 @@ describe("EnviosService.crear", () => {
         { insumoId: "i1", cantidad: 3 },
       ],
     });
-    expect(tx.insumo.update).toHaveBeenCalledTimes(1);
-    expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { cantidadTotal: { decrement: 5 } } }),
+    expect(tx.insumo.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { cantidadTotal: { increment: -5 } } }),
     );
+  });
+
+  it("N items: un solo createMany y un updateMany por monto distinto", async () => {
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 10 },
+      { id: "i2", cantidadTotal: 10 },
+      { id: "i3", cantidadTotal: 10 },
+    ]);
+    await service.crear("vol-1", {
+      ...base,
+      items: [
+        { insumoId: "i1", cantidad: 3 },
+        { insumoId: "i2", cantidad: 3 },
+        { insumoId: "i3", cantidad: 8 },
+      ],
+    });
+
+    expect(tx.historial.createMany).toHaveBeenCalledTimes(1);
+    expect(tx.historial.createMany.mock.calls[0][0].data).toHaveLength(3);
+    expect(tx.insumo.updateMany).toHaveBeenCalledTimes(2); // montos 3 y 8
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["i1", "i2"] } },
+      data: { cantidadTotal: { increment: -3 } },
+    });
   });
 });
 
