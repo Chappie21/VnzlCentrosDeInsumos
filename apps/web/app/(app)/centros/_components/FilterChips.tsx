@@ -2,6 +2,7 @@
 
 import { Icon } from "../../../_components";
 import { FILTER_CHIPS, type FilterId } from "../../../constants";
+import type { IconName } from "../../../constants/icons";
 
 function Chip({
   label,
@@ -10,7 +11,7 @@ function Chip({
   onClick,
 }: {
   label: string;
-  icon: string;
+  icon: IconName;
   active: boolean;
   onClick: () => void;
 }) {

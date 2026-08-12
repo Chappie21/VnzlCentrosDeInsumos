@@ -1,10 +1,11 @@
 import { forwardRef, useId } from "react";
 import type { TextareaHTMLAttributes } from "react";
 import Icon from "./Icon";
+import type { IconName } from "../constants/icons";
 
 type TextAreaFieldProps = {
   label: string;
-  icon?: string;
+  icon?: IconName;
   error?: string;
 } & TextareaHTMLAttributes<HTMLTextAreaElement>;
 

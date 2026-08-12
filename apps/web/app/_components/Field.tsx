@@ -1,10 +1,11 @@
 import { forwardRef, useId } from "react";
 import type { InputHTMLAttributes } from "react";
 import Icon from "./Icon";
+import type { IconName } from "../constants/icons";
 
 type FieldProps = {
   label: string;
-  icon: string;
+  icon: IconName;
   error?: string;
 } & InputHTMLAttributes<HTMLInputElement>;
 

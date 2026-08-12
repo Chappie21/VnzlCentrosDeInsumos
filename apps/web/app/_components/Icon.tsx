@@ -1,5 +1,9 @@
+import type { IconName } from "../constants/icons";
+
 type IconProps = {
-  name: string;
+  // Tipado contra la lista blanca: un icono fuera del subset que pide layout.tsx
+  // rompe el typecheck en vez de renderizar el ligature crudo en pantalla.
+  name: IconName;
   className?: string;
   filled?: boolean;
 };

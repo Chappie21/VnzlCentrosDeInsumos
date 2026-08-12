@@ -4,8 +4,17 @@ import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import Providers from "./providers";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, THEME_COLOR } from "./constants/site";
+import { ICON_NAMES } from "./constants/icons";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
+// `icon_names=` hace que Google sirva solo los glifos que usamos (~78 KB) en vez del
+// variable font completo (~3.9 MB). next/font/google no puede generar este parámetro
+// (su getGoogleFontsUrl solo arma family/axes/display), así que el <link> se queda.
+const MATERIAL_SYMBOLS_HREF =
+  "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" +
+  `&icon_names=${ICON_NAMES.join(",")}` +
+  "&display=swap";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -55,10 +64,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Material Symbols: preconnect + display=swap para no bloquear el render. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-        />
+        <link rel="stylesheet" href={MATERIAL_SYMBOLS_HREF} />
       </head>
       <body className="bg-surface text-on-surface font-sans antialiased">
         <Providers>{children}</Providers>

@@ -1,3 +1,5 @@
+import type { IconName } from "./icons";
+
 export const FILTERS = {
   cerca: "cerca",
   abiertos: "soloAbiertos",
@@ -6,7 +8,7 @@ export const FILTERS = {
 
 export type FilterId = (typeof FILTERS)[keyof typeof FILTERS];
 
-export const FILTER_CHIPS: { id: FilterId; label: string; icon: string }[] = [
+export const FILTER_CHIPS: { id: FilterId; label: string; icon: IconName }[] = [
   { id: FILTERS.cerca, label: "Cerca de mí", icon: "near_me" },
   { id: FILTERS.abiertos, label: "Solo Abiertos", icon: "check_circle" },
   { id: FILTERS.urgencia, label: "Urgencia Alta", icon: "priority_high" },
@@ -26,11 +28,11 @@ export const NIVEL_BADGE: Record<string, string> = {
 };
 
 // Categoría de insumo -> ícono Material. Fallback genérico si falta/llega otra.
-export const CATEGORIA_ICON: Record<string, string> = {
+export const CATEGORIA_ICON: Record<string, IconName> = {
   AGUA: "water_drop",
   MEDICAMENTOS: "medical_services",
   ROPA: "checkroom",
   ALIMENTOS: "restaurant",
   HERRAMIENTAS: "handyman",
 };
-export const CATEGORIA_ICON_FALLBACK = "inventory_2";
+export const CATEGORIA_ICON_FALLBACK: IconName = "inventory_2";

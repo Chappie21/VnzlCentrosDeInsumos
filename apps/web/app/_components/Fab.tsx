@@ -1,6 +1,7 @@
 "use client";
 
 import Icon from "./Icon";
+import type { IconName } from "../constants/icons";
 
 // Botón de acción flotante (esquina inferior derecha, sobre el BottomNav).
 export default function Fab({
@@ -8,7 +9,7 @@ export default function Fab({
   label,
   onClick,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   onClick: () => void;
 }) {
