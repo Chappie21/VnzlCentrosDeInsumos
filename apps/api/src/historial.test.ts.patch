@@ -1,0 +1,26 @@
+--- apps/api/src/historial.test.ts
++++ apps/api/src/historial.test.ts
+@@ -107,6 +107,24 @@
+     expect(res).toBe("hist");
+     expect(prismaMock.insumo.findUnique).toHaveBeenCalledWith({
+       where: { id: "i1" },
+       select: { centroId: true },
+     });
+   });
++
++  it("Valida ValidationPipe con cantidad negativa para AddDto", async () => {
++    // Vitest test para comprobar que la validación falla con un negativo.
++    const { validate } = await import("class-validator");
++    const { AddDto } = await import("./historial");
++
++    const dto = new AddDto();
++    dto.centroId = "c1";
++    dto.insumoId = "i1";
++    dto.cantidad = -5;
++
++    const errors = await validate(dto);
++    expect(errors.length).toBeGreaterThan(0);
++    const constraints = errors.find((e) => e.property === "cantidad")?.constraints;
++    expect(constraints).toHaveProperty("min");
++  });
++
