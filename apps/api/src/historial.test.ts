@@ -167,6 +167,7 @@ describe("HistorialService.addOne — movimiento simple", () => {
       service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 })
     ).rejects.toThrow(/no pertenece al centro/i);
   });
+
 });
 
 describe("HistorialService — recálculo de nivel por evento", () => {
