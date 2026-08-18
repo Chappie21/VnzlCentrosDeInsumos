@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Icon } from "../../../_components";
 import type { MotivoReporte } from "../../../lib/api";
+import type { IconName } from "../../../constants/icons";
 
-const MOTIVOS: { value: MotivoReporte; label: string; icon: string }[] = [
+const MOTIVOS: { value: MotivoReporte; label: string; icon: IconName }[] = [
   { value: "NO_EXISTE", label: "Ya no está", icon: "location_off" },
   { value: "INFO_INCORRECTA", label: "Info incorrecta", icon: "edit_note" },
   { value: "ENGANOSO", label: "Engañoso / falso", icon: "report" },

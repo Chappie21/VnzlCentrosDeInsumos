@@ -3,14 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // tx: el cliente dentro de $transaction. prismaMock.$transaction ejecuta el callback con él.
 const { tx, prismaMock } = vi.hoisted(() => {
   const tx = {
-    insumo: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
-    historial: { create: vi.fn() },
+    insumo: { findMany: vi.fn(), createManyAndReturn: vi.fn(), updateMany: vi.fn() },
+    historial: { createMany: vi.fn() },
   };
   return {
     tx,
     prismaMock: {
       $transaction: vi.fn(),
-      insumo: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+      insumo: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
       historial: { create: vi.fn() },
     },
   };
@@ -43,53 +43,77 @@ beforeEach(() => {
 });
 
 describe("HistorialService.recibir — donación por nombre", () => {
-  it("crea el insumo si no existe e incrementa cantidadTotal vía Historial", async () => {
-    tx.insumo.findFirst.mockResolvedValue(null);
-    tx.insumo.create.mockResolvedValue({ id: "new1" });
+  it("crea el insumo si no existe, con su Historial por el mismo monto", async () => {
+    tx.insumo.findMany.mockResolvedValue([]);
+    tx.insumo.createManyAndReturn.mockResolvedValue([{ id: "new1", nombre: "Agua embotellada" }]);
 
     const res = await service.recibir("vol-1", {
       centroId: "c1",
       items: [{ nombre: "Agua embotellada", categoria: "AGUA", cantidad: 5 }],
     });
 
-    expect(tx.insumo.create).toHaveBeenCalledWith(
+    // El insumo nace con su cantidad; la regla de oro se sostiene porque el
+    // Historial del MISMO monto se crea en la misma tx (y no hay increment extra).
+    expect(tx.insumo.createManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          centroId: "c1",
-          nombre: "Agua embotellada",
-          categoria: "AGUA",
-          cantidadTotal: 0,
-        }),
+        data: [
+          expect.objectContaining({
+            centroId: "c1",
+            nombre: "Agua embotellada",
+            categoria: "AGUA",
+            cantidadTotal: 5,
+          }),
+        ],
       }),
     );
-    expect(tx.historial.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ insumoId: "new1", usuarioId: "vol-1", cantidad: 5 }),
-      }),
-    );
-    expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "new1" }, data: { cantidadTotal: { increment: 5 } } }),
-    );
+    expect(tx.historial.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ insumoId: "new1", usuarioId: "vol-1", cantidad: 5 })],
+    });
+    expect(tx.insumo.updateMany).not.toHaveBeenCalled(); // ya nació con el stock
     expect(redis.bumpCentros).toHaveBeenCalled();
     expect(res).toEqual({ ok: true, recibidos: 1 });
   });
 
   it("usa el insumo existente (no lo crea) e incrementa", async () => {
-    tx.insumo.findFirst.mockResolvedValue({ id: "exist1" });
+    tx.insumo.findMany.mockResolvedValue([{ id: "exist1", nombre: "Agua" }]);
 
     await service.recibir("vol-1", {
       centroId: "c1",
       items: [{ nombre: "Agua", cantidad: 3 }],
     });
 
-    expect(tx.insumo.create).not.toHaveBeenCalled();
-    expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "exist1" }, data: { cantidadTotal: { increment: 3 } } }),
-    );
+    expect(tx.insumo.createManyAndReturn).not.toHaveBeenCalled();
+    expect(tx.historial.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ insumoId: "exist1", cantidad: 3 })],
+    });
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["exist1"] } },
+      data: { cantidadTotal: { increment: 3 } },
+    });
+  });
+
+  it("matchea el nombre case-insensitive en un único lookup por lote", async () => {
+    tx.insumo.findMany.mockResolvedValue([{ id: "exist1", nombre: "AGUA" }]);
+
+    await service.recibir("vol-1", {
+      centroId: "c1",
+      items: [{ nombre: "agua", cantidad: 4 }],
+    });
+
+    expect(tx.insumo.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.insumo.findMany.mock.calls[0][0].where).toEqual({
+      centroId: "c1",
+      OR: [{ nombre: { equals: "agua", mode: "insensitive" } }],
+    });
+    expect(tx.insumo.createManyAndReturn).not.toHaveBeenCalled(); // "AGUA" ya existe
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["exist1"] } },
+      data: { cantidadTotal: { increment: 4 } },
+    });
   });
 
   it("agrupa items con el mismo nombre (case-insensitive) sumando cantidades", async () => {
-    tx.insumo.findFirst.mockResolvedValue({ id: "exist1" });
+    tx.insumo.findMany.mockResolvedValue([{ id: "exist1", nombre: "Agua" }]);
 
     await service.recibir("vol-1", {
       centroId: "c1",
@@ -99,10 +123,40 @@ describe("HistorialService.recibir — donación por nombre", () => {
       ],
     });
 
-    expect(tx.insumo.findFirst).toHaveBeenCalledTimes(1); // un único nombre
-    expect(tx.insumo.update).toHaveBeenCalledWith(
+    // un único nombre -> un único movimiento de 5, no dos de 2 y 3
+    expect(tx.insumo.findMany.mock.calls[0][0].where.OR).toHaveLength(1);
+    expect(tx.historial.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ insumoId: "exist1", cantidad: 5 })],
+    });
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { cantidadTotal: { increment: 5 } } }),
     );
+  });
+
+  it("un solo par de queries para N items: createMany + un updateMany por monto", async () => {
+    tx.insumo.findMany.mockResolvedValue([
+      { id: "e1", nombre: "Agua" },
+      { id: "e2", nombre: "Mantas" },
+      { id: "e3", nombre: "Arroz" },
+    ]);
+
+    await service.recibir("vol-1", {
+      centroId: "c1",
+      items: [
+        { nombre: "Agua", cantidad: 2 },
+        { nombre: "Mantas", cantidad: 2 },
+        { nombre: "Arroz", cantidad: 7 },
+      ],
+    });
+
+    expect(tx.historial.createMany).toHaveBeenCalledTimes(1);
+    expect(tx.historial.createMany.mock.calls[0][0].data).toHaveLength(3);
+    // 2 montos distintos -> 2 updateMany, no 3 updates
+    expect(tx.insumo.updateMany).toHaveBeenCalledTimes(2);
+    expect(tx.insumo.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["e1", "e2"] } },
+      data: { cantidadTotal: { increment: 2 } },
+    });
   });
 });
 
@@ -180,8 +234,9 @@ describe("HistorialService — recálculo de nivel por evento", () => {
 
     await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 7 });
 
-    expect(prismaMock.insumo.update).toHaveBeenCalledWith({
-      where: { id: "i1" },
+    // agrupado por nivel destino: un updateMany por nivel, no uno por insumo
+    expect(prismaMock.insumo.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["i1"] } },
       data: { nivel: "SUFICIENTE" },
     });
   });
@@ -195,10 +250,9 @@ describe("HistorialService — recálculo de nivel por evento", () => {
 
     await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 7 });
 
-    // El increment de moveOps sí ocurre; lo que NO debe ocurrir es un update de `nivel`.
-    expect(prismaMock.insumo.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ nivel: expect.anything() }) }),
-    );
+    // El increment de moveOps sí ocurre; lo que NO debe ocurrir es un update de
+    // `nivel` (recalcularNiveles es el único que usa updateMany acá).
+    expect(prismaMock.insumo.updateMany).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,7 @@
 import { forwardRef, useId } from "react";
 import type { SelectHTMLAttributes } from "react";
 import Icon from "./Icon";
+import type { IconName } from "../constants/icons";
 
 // Un string suelto vale cuando el valor y la etiqueta coinciden (estados,
 // ciudades); el par se usa cuando difieren (país: "CO" → "Colombia").
@@ -8,7 +9,7 @@ export type SelectOption = string | { value: string; label: string };
 
 type SelectFieldProps = {
   label: string;
-  icon: string;
+  icon: IconName;
   error?: string;
   placeholder?: string;
   options: readonly SelectOption[];

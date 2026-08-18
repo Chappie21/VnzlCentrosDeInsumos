@@ -1,8 +1,9 @@
 import { Icon } from "../../../../_components";
 import { STATS } from "../../../../constants";
 import type { CentroDetalle } from "../../../../lib/api";
+import type { IconName } from "../../../../constants/icons";
 
-function Stat({ icon, valor, label }: { icon: string; valor: number; label: string }) {
+function Stat({ icon, valor, label }: { icon: IconName; valor: number; label: string }) {
   return (
     <div className="flex flex-1 flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
       <Icon name={icon} className="text-on-surface-variant" />

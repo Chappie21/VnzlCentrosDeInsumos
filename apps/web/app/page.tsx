@@ -13,6 +13,7 @@ import {
   type Identity,
 } from "./lib/identity";
 import { clearToken } from "./lib/auth";
+import type { IconName } from "./constants/icons";
 
 function Home() {
   const router = useRouter();
@@ -125,7 +126,7 @@ function ProfileView({
   onDonate: () => void;
   onLogout: () => void;
 }) {
-  const rows: { icon: string; label: string; value: string }[] = [
+  const rows: { icon: IconName; label: string; value: string }[] = [
     { icon: "person", label: "Nombre completo", value: identity.nombre },
     { icon: "badge", label: "Cédula de identidad", value: identity.cedula },
     { icon: "phone", label: "Teléfono", value: identity.telefono },

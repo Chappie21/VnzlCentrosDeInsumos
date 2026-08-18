@@ -23,6 +23,7 @@ import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { prisma, TipoMovimiento, RolVoluntario } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, OptionalSesionGuard, userIdOf } from "./guards";
+import { incrementarStockOps } from "./historial";
 
 class EnvioItemDto {
   @IsString() insumoId: string;
@@ -84,16 +85,23 @@ export class EnviosService {
         },
         select: { id: true },
       });
-      for (const it of items) {
-        // Regla de oro: cantidadTotal solo se mueve creando Historial.
-        await tx.historial.create({
-          data: { insumoId: it.insumoId, usuarioId, cantidad: -it.cantidad, envioId: e.id, tipo: TipoMovimiento.SALIDA },
-        });
-        await tx.insumo.update({
-          where: { id: it.insumoId },
-          data: { cantidadTotal: { decrement: it.cantidad } },
-        });
-      }
+      // Regla de oro: cantidadTotal solo se mueve creando Historial. Los N pares
+      // (create + update) se colapsan en un createMany + los decrements agrupados.
+      await tx.historial.createMany({
+        data: items.map((it) => ({
+          insumoId: it.insumoId,
+          usuarioId,
+          cantidad: -it.cantidad,
+          envioId: e.id,
+          tipo: TipoMovimiento.SALIDA,
+        })),
+      });
+      await Promise.all(
+        incrementarStockOps(
+          tx,
+          items.map((it) => ({ insumoId: it.insumoId, delta: -it.cantidad })),
+        ),
+      );
       return e;
     });
 

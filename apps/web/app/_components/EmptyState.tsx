@@ -1,11 +1,12 @@
 import Icon from "./Icon";
+import type { IconName } from "../constants/icons";
 
 export default function EmptyState({
   icon = "inbox",
   title,
   subtitle,
 }: {
-  icon?: string;
+  icon?: IconName;
   title: string;
   subtitle?: string;
 }) {

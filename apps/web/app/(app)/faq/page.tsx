@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Icon } from "../../_components";
+import type { IconName } from "../../constants/icons";
 
 export const metadata: Metadata = {
   title: "Ayuda y preguntas frecuentes",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 // Contenido del FAQ (español neutro). Derivado de los flujos reales de la app.
 // ponytail: contenido estático en datos + <details> nativo (sin JS ni librerías).
-const SECCIONES: { titulo: string; icono: string; qa: { q: string; a: string }[] }[] = [
+const SECCIONES: { titulo: string; icono: IconName; qa: { q: string; a: string }[] }[] = [
   {
     titulo: "Sobre la aplicación",
     icono: "info",

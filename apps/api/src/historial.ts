@@ -18,7 +18,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
+import { prisma, Prisma, CategoriaInsumo, TipoMovimiento, type NivelInsumo } from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, JefeGuard, userIdOf } from "./guards";
 import { calcularNivel } from "./constants/insumos";
@@ -67,6 +67,29 @@ class AjusteDto {
   @IsOptional() @IsString() @MaxLength(200) motivo?: string;
 }
 
+// Mueve el stock de varios insumos agrupando por monto: un UPDATE por monto
+// distinto en vez de uno por insumo. `delta` es con signo (+ entrada, - salida) y
+// debe coincidir con el Historial creado en la MISMA transacción (regla de oro).
+// ponytail: el techo es N updates si todos los montos difieren; si eso pesa,
+// reemplazar por un `UPDATE ... FROM (VALUES ...)` crudo.
+export function incrementarStockOps(
+  tx: Prisma.TransactionClient,
+  deltas: { insumoId: string; delta: number }[],
+) {
+  const porMonto = new Map<number, string[]>();
+  for (const d of deltas) {
+    const ids = porMonto.get(d.delta);
+    if (ids) ids.push(d.insumoId);
+    else porMonto.set(d.delta, [d.insumoId]);
+  }
+  return [...porMonto].map(([delta, ids]) =>
+    tx.insumo.updateMany({
+      where: { id: { in: ids } },
+      data: { cantidadTotal: { increment: delta } },
+    }),
+  );
+}
+
 // "Regla de oro": cantidadTotal is never set directly — only moved via Historial.
 // The create + increment run in ONE transaction so inventory can't drift (spec §6.2).
 @Injectable()
@@ -98,12 +121,20 @@ export class HistorialService {
       where: { id: { in: insumoIds } },
       select: { id: true, cantidadTotal: true, nivel: true, umbralUrgente: true, umbralSuficiente: true },
     });
+    // `nivel` tiene 3 valores posibles: agrupamos por destino y mandamos un
+    // updateMany por nivel (<= 3 queries) en vez de un update por insumo.
+    const porNivel = new Map<NivelInsumo, string[]>();
+    for (const i of insumos) {
+      const nuevo = calcularNivel(i.cantidadTotal, i.umbralUrgente, i.umbralSuficiente);
+      if (nuevo == null || nuevo === i.nivel) continue;
+      const ids = porNivel.get(nuevo);
+      if (ids) ids.push(i.id);
+      else porNivel.set(nuevo, [i.id]);
+    }
     await Promise.all(
-      insumos.map((i) => {
-        const nuevo = calcularNivel(i.cantidadTotal, i.umbralUrgente, i.umbralSuficiente);
-        if (nuevo == null || nuevo === i.nivel) return Promise.resolve();
-        return prisma.insumo.update({ where: { id: i.id }, data: { nivel: nuevo } });
-      }),
+      [...porNivel].map(([nivel, ids]) =>
+        prisma.insumo.updateMany({ where: { id: { in: ids } }, data: { nivel } }),
+      ),
     );
   }
 
@@ -177,35 +208,62 @@ export class HistorialService {
     }
     const items = [...byKey.values()];
 
+    const claveDe = (nombre: string) => nombre.toLowerCase();
+
+    // Todo dentro de UNA tx (todo-o-nada), pero en queries por lote y no por item:
+    // 1 findMany + 1 createManyAndReturn + 1 historial.createMany + los increments
+    // agrupados por monto.
     const insumoIds = await prisma.$transaction(async (tx) => {
-      const ids: string[] = [];
-      for (const it of items) {
-        let insumo = await tx.insumo.findFirst({
-          where: { centroId: dto.centroId, nombre: { equals: it.nombre, mode: "insensitive" } },
-          select: { id: true },
+      // Un solo lookup para todos los nombres. El OR de `equals` + mode insensitive
+      // conserva exactamente la semántica del findFirst que había por item.
+      const existentes = await tx.insumo.findMany({
+        where: {
+          centroId: dto.centroId,
+          OR: items.map((it) => ({
+            nombre: { equals: it.nombre, mode: "insensitive" as const },
+          })),
+        },
+        select: { id: true, nombre: true },
+      });
+      const idPorNombre = new Map<string, string>();
+      // Si el centro ya tiene dos insumos que solo difieren en mayúsculas, gana el
+      // primero: mismo criterio que el findFirst anterior.
+      for (const i of existentes) if (!idPorNombre.has(claveDe(i.nombre))) idPorNombre.set(claveDe(i.nombre), i.id);
+
+      const nuevos = items.filter((it) => !idPorNombre.has(claveDe(it.nombre)));
+      const yaExistian = items.filter((it) => idPorNombre.has(claveDe(it.nombre)));
+      if (nuevos.length) {
+        // Nacen con su cantidad ya puesta: su Historial se crea abajo, en esta misma
+        // tx y por el mismo monto, así que cantidadTotal === suma(Historial) igual.
+        const creados = await tx.insumo.createManyAndReturn({
+          data: nuevos.map((it) => ({
+            centroId: dto.centroId,
+            nombre: it.nombre,
+            categoria: it.categoria,
+            cantidadTotal: it.cantidad,
+          })),
+          select: { id: true, nombre: true },
         });
-        if (!insumo) {
-          insumo = await tx.insumo.create({
-            data: {
-              centroId: dto.centroId,
-              nombre: it.nombre,
-              categoria: it.categoria,
-              cantidadTotal: 0,
-            },
-            select: { id: true },
-          });
-        }
-        // Regla de oro: cantidadTotal solo se mueve creando Historial dentro de la tx.
-        await tx.historial.create({
-          data: { insumoId: insumo.id, usuarioId, cantidad: it.cantidad },
-        });
-        await tx.insumo.update({
-          where: { id: insumo.id },
-          data: { cantidadTotal: { increment: it.cantidad } },
-        });
-        ids.push(insumo.id);
+        for (const i of creados) idPorNombre.set(claveDe(i.nombre), i.id);
       }
-      return ids;
+
+      // Regla de oro: cantidadTotal solo se mueve creando Historial dentro de la tx.
+      await tx.historial.createMany({
+        data: items.map((it) => ({
+          insumoId: idPorNombre.get(claveDe(it.nombre))!,
+          usuarioId,
+          cantidad: it.cantidad,
+        })),
+      });
+      // Solo los preexistentes necesitan mover el contador (los nuevos ya nacieron
+      // con su cantidad).
+      await Promise.all(
+        incrementarStockOps(
+          tx,
+          yaExistian.map((it) => ({ insumoId: idPorNombre.get(claveDe(it.nombre))!, delta: it.cantidad })),
+        ),
+      );
+      return items.map((it) => idPorNombre.get(claveDe(it.nombre))!);
     });
     await this.recalcularNiveles(insumoIds);
     await this.redis.bumpCentros();

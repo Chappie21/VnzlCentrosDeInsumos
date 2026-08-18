@@ -286,8 +286,10 @@ describe("CentrosService.create — escritura transaccional", () => {
     const txMock = {
       centro: { create: vi.fn().mockResolvedValue(creado) },
       voluntario: { create: vi.fn().mockResolvedValue({}) },
-      insumo: { create: vi.fn().mockResolvedValue({ id: "i-1" }), update: vi.fn() },
-      historial: { create: vi.fn() },
+      insumo: {
+        createManyAndReturn: vi.fn().mockResolvedValue([{ id: "i-1", nombre: "Agua" }]),
+      },
+      historial: { createMany: vi.fn() },
     };
     prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
@@ -301,15 +303,48 @@ describe("CentrosService.create — escritura transaccional", () => {
     expect(txMock.centro.create).toHaveBeenCalledWith({
       data: { nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av" },
     });
-    expect(txMock.insumo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ centroId: "new-id", nombre: "Agua", cantidadTotal: 0 }) }),
+    // Regla de oro: el insumo nace con cantidadTotal = 10 Y su Historial de 10 se
+    // crea en la MISMA tx, así que cantidadTotal === suma(Historial).
+    expect(txMock.insumo.createManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ centroId: "new-id", nombre: "Agua", cantidadTotal: 10 })],
+      }),
     );
-    expect(txMock.historial.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ insumoId: "i-1", cantidad: 10, tipo: "CARGA_INICIAL" }) }),
-    );
-    expect(txMock.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "i-1" }, data: { cantidadTotal: { increment: 10 } } }),
-    );
+    expect(txMock.historial.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ insumoId: "i-1", cantidad: 10, tipo: "CARGA_INICIAL" })],
+    });
+  });
+
+  it("N insumos iniciales = un createManyAndReturn + un historial.createMany", async () => {
+    const creado = { ...centroBase, id: "new-id" };
+    const txMock = {
+      centro: { create: vi.fn().mockResolvedValue(creado) },
+      voluntario: { create: vi.fn().mockResolvedValue({}) },
+      insumo: {
+        // el INSERT puede devolver las filas en cualquier orden: el mapeo es por nombre
+        createManyAndReturn: vi.fn().mockResolvedValue([
+          { id: "i-2", nombre: "Mantas" },
+          { id: "i-1", nombre: "Agua" },
+        ]),
+      },
+      historial: { createMany: vi.fn() },
+    };
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+    await service.create("fp-1", {
+      nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av",
+      insumos: [
+        { nombre: "Agua", cantidad: 10 },
+        { nombre: "Mantas", cantidad: 4 },
+      ],
+    } as any);
+
+    expect(txMock.insumo.createManyAndReturn).toHaveBeenCalledTimes(1);
+    expect(txMock.historial.createMany).toHaveBeenCalledTimes(1);
+    expect(txMock.historial.createMany.mock.calls[0][0].data).toEqual([
+      expect.objectContaining({ insumoId: "i-2", cantidad: 4, tipo: "CARGA_INICIAL" }),
+      expect.objectContaining({ insumoId: "i-1", cantidad: 10, tipo: "CARGA_INICIAL" }),
+    ]);
   });
 
   it("admite insumo inicial con cantidad 0 (decisión B3)", async () => {

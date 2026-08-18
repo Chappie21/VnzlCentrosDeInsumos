@@ -1,10 +1,11 @@
 import { ROUTES } from "./routes";
+import type { IconName } from "./icons";
 
 // Tabs del BottomNav global. `requiresIdentity`: solo visibles con identidad completa
 // (Mi Centro y Escanear son acciones de operador/voluntario; el directorio es público).
 export const NAV_TABS: {
   href: string;
-  icon: string;
+  icon: IconName;
   label: string;
   requiresIdentity: boolean;
 }[] = [
