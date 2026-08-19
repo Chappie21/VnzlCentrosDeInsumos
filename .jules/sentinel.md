@@ -29,3 +29,11 @@
 **Vulnerability:** The login endpoints (`AdminService.login` and `AuthService.login`) were vulnerable to user enumeration via timing attacks. If an invalid user was provided or the admin was inactive, the application skipped the `bcrypt.compare` operation. By analyzing response times, an attacker could enumerate which emails or cedulas were registered in the database, breaking privacy and providing targets for brute-force attacks.
 **Learning:** `bcrypt.compare` is computationally expensive by design. Conditional execution of this function based on the existence of a user creates a significant, observable timing difference in the response.
 **Prevention:** Always execute `bcrypt.compare` with a dummy hash (with the same cost factor as your real hashes, e.g., 10) when the requested user is not found or is inactive. Ensure the dummy check is structured such that `bcrypt.compare` runs uniformly across all paths, masking whether the underlying reason for authentication failure was a bad username or a bad password.
+
+## 2026-08-19 - Missing Input Validation on Logic Bypasses using Inherited DTOs
+
+**Vulnerability:** A controller method `add` used an inherited type `@Body() body: AddDto` which extended `MovimientoDto`. However `MovimientoDto` did not restrict `cantidad` to positive values. This allows attackers (any volunteer) to bypass `JefeGuard` and reduce inventory manually using the `add` endpoint, a task explicitly reserved for Jefes via the `ajuste` endpoint.
+
+**Learning:** Generic DTOs reused across endpoints with different authorization levels must be strictly typed to prevent logic bypasses. When applying stricter constraints to specific endpoints, we can override inherited fields. However, using `declare` keyword prevents TypeScript error TS2612 while allowing decorators to apply to the inherited field in `NestJS`.
+
+**Prevention:** Apply specific constraints (e.g., enforcing positive-only additions using `@Min(1)`) to derived DTOs rather than the shared base class to avoid breaking other legitimate operations (like deductions/ajustes which use negative numbers). Always use the `declare` modifier when adding validation constraints to uninitialized properties that overwrite base class properties to avoid TS compilation errors.
