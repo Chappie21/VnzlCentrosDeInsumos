@@ -4,7 +4,9 @@ import { CACHE } from "./constants";
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
-  readonly client = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+  readonly client = new Redis(
+    process.env.REDIS_URL || "redis://localhost:6379",
+  );
 
   // Fixed-window limiter. ponytail: good enough for abuse/DDoS guard.
   // Upgrade path: sliding-window Lua script if bursts at window edges matter.
@@ -15,7 +17,11 @@ export class RedisService implements OnModuleDestroy {
   }
 
   // read-through cache helper for the public directory
-  async cached<T>(key: string, ttlSec: number, fn: () => Promise<T>): Promise<T> {
+  async cached<T>(
+    key: string,
+    ttlSec: number,
+    fn: () => Promise<T>,
+  ): Promise<T> {
     const hit = await this.client.get(key);
     if (hit) return JSON.parse(hit) as T;
     const val = await fn();

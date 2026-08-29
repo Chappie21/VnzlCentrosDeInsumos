@@ -19,7 +19,11 @@ const { tx, prismaMock } = vi.hoisted(() => {
 vi.mock("@vnzl/database", () => ({
   prisma: prismaMock,
   Prisma: {},
-  NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
+  NivelInsumo: {
+    URGENTE: "URGENTE",
+    NORMAL: "NORMAL",
+    SUFICIENTE: "SUFICIENTE",
+  },
   CategoriaInsumo: {
     AGUA: "AGUA",
     MEDICAMENTOS: "MEDICAMENTOS",
@@ -27,7 +31,12 @@ vi.mock("@vnzl/database", () => ({
     ALIMENTOS: "ALIMENTOS",
     HERRAMIENTAS: "HERRAMIENTAS",
   },
-  TipoMovimiento: { DONACION: "DONACION", CARGA_INICIAL: "CARGA_INICIAL", AJUSTE: "AJUSTE", SALIDA: "SALIDA" },
+  TipoMovimiento: {
+    DONACION: "DONACION",
+    CARGA_INICIAL: "CARGA_INICIAL",
+    AJUSTE: "AJUSTE",
+    SALIDA: "SALIDA",
+  },
 }));
 
 import { HistorialService, HistorialController } from "./historial";
@@ -64,11 +73,18 @@ describe("HistorialService.recibir — donación por nombre", () => {
     );
     expect(tx.historial.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ insumoId: "new1", usuarioId: "vol-1", cantidad: 5 }),
+        data: expect.objectContaining({
+          insumoId: "new1",
+          usuarioId: "vol-1",
+          cantidad: 5,
+        }),
       }),
     );
     expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "new1" }, data: { cantidadTotal: { increment: 5 } } }),
+      expect.objectContaining({
+        where: { id: "new1" },
+        data: { cantidadTotal: { increment: 5 } },
+      }),
     );
     expect(redis.bumpCentros).toHaveBeenCalled();
     expect(res).toEqual({ ok: true, recibidos: 1 });
@@ -84,7 +100,10 @@ describe("HistorialService.recibir — donación por nombre", () => {
 
     expect(tx.insumo.create).not.toHaveBeenCalled();
     expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "exist1" }, data: { cantidadTotal: { increment: 3 } } }),
+      expect.objectContaining({
+        where: { id: "exist1" },
+        data: { cantidadTotal: { increment: 3 } },
+      }),
     );
   });
 
@@ -109,27 +128,52 @@ describe("HistorialService.recibir — donación por nombre", () => {
 describe("HistorialService.ajuste — corrección manual (JEFE)", () => {
   beforeEach(() => {
     // forma array de $transaction (ajuste usa moveOps(prisma, ...))
-    prismaMock.$transaction.mockImplementation(async (ops: any) => Promise.all(ops));
+    prismaMock.$transaction.mockImplementation(async (ops: any) =>
+      Promise.all(ops),
+    );
   });
 
   it("aplica el ajuste como Historial tipo AJUSTE y mueve cantidadTotal", async () => {
-    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1", cantidadTotal: 5 });
+    prismaMock.insumo.findUnique.mockResolvedValue({
+      centroId: "c1",
+      cantidadTotal: 5,
+    });
 
-    await service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: 3 });
+    await service.ajuste("jefe-1", {
+      centroId: "c1",
+      insumoId: "i1",
+      cantidad: 3,
+    });
 
     expect(prismaMock.historial.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ insumoId: "i1", cantidad: 3, tipo: "AJUSTE" }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          insumoId: "i1",
+          cantidad: 3,
+          tipo: "AJUSTE",
+        }),
+      }),
     );
     expect(prismaMock.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "i1" }, data: { cantidadTotal: { increment: 3 } } }),
+      expect.objectContaining({
+        where: { id: "i1" },
+        data: { cantidadTotal: { increment: 3 } },
+      }),
     );
     expect(redis.bumpCentros).toHaveBeenCalled();
   });
 
   it("rechaza un ajuste que dejaría el stock negativo", async () => {
-    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1", cantidadTotal: 2 });
+    prismaMock.insumo.findUnique.mockResolvedValue({
+      centroId: "c1",
+      cantidadTotal: 2,
+    });
     await expect(
-      service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: -5 }),
+      service.ajuste("jefe-1", {
+        centroId: "c1",
+        insumoId: "i1",
+        cantidad: -5,
+      }),
     ).rejects.toThrow(/negativo/i);
     expect(prismaMock.historial.create).not.toHaveBeenCalled();
   });
@@ -141,7 +185,10 @@ describe("HistorialService.ajuste — corrección manual (JEFE)", () => {
   });
 
   it("rechaza si el insumo es de otro centro", async () => {
-    prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "otro", cantidadTotal: 5 });
+    prismaMock.insumo.findUnique.mockResolvedValue({
+      centroId: "otro",
+      cantidadTotal: 5,
+    });
     await expect(
       service.ajuste("jefe-1", { centroId: "c1", insumoId: "i1", cantidad: 1 }),
     ).rejects.toThrow(/no pertenece/i);
@@ -153,7 +200,11 @@ describe("HistorialService.addOne — movimiento simple", () => {
   it("aplica el movimiento si el insumo pertenece al centro", async () => {
     prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1" });
     prismaMock.$transaction.mockResolvedValue(["hist"]);
-    const res = await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 });
+    const res = await service.addOne("vol-1", {
+      centroId: "c1",
+      insumoId: "i1",
+      cantidad: 5,
+    });
     expect(res).toBe("hist");
     expect(prismaMock.insumo.findUnique).toHaveBeenCalledWith({
       where: { id: "i1" },
@@ -164,7 +215,7 @@ describe("HistorialService.addOne — movimiento simple", () => {
   it("rechaza si el insumo es de otro centro", async () => {
     prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c2" });
     await expect(
-      service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 })
+      service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 5 }),
     ).rejects.toThrow(/no pertenece al centro/i);
   });
 });
@@ -175,10 +226,20 @@ describe("HistorialService — recálculo de nivel por evento", () => {
     prismaMock.$transaction.mockResolvedValue(["hist"]);
     // El stock ya cruzó el umbral suficiente (12 >= 10) y el nivel viejo era URGENTE.
     prismaMock.insumo.findMany.mockResolvedValue([
-      { id: "i1", cantidadTotal: 12, nivel: "URGENTE", umbralUrgente: 3, umbralSuficiente: 10 },
+      {
+        id: "i1",
+        cantidadTotal: 12,
+        nivel: "URGENTE",
+        umbralUrgente: 3,
+        umbralSuficiente: 10,
+      },
     ]);
 
-    await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 7 });
+    await service.addOne("vol-1", {
+      centroId: "c1",
+      insumoId: "i1",
+      cantidad: 7,
+    });
 
     expect(prismaMock.insumo.update).toHaveBeenCalledWith({
       where: { id: "i1" },
@@ -190,14 +251,26 @@ describe("HistorialService — recálculo de nivel por evento", () => {
     prismaMock.insumo.findUnique.mockResolvedValue({ centroId: "c1" });
     prismaMock.$transaction.mockResolvedValue(["hist"]);
     prismaMock.insumo.findMany.mockResolvedValue([
-      { id: "i1", cantidadTotal: 12, nivel: "URGENTE", umbralUrgente: null, umbralSuficiente: null },
+      {
+        id: "i1",
+        cantidadTotal: 12,
+        nivel: "URGENTE",
+        umbralUrgente: null,
+        umbralSuficiente: null,
+      },
     ]);
 
-    await service.addOne("vol-1", { centroId: "c1", insumoId: "i1", cantidad: 7 });
+    await service.addOne("vol-1", {
+      centroId: "c1",
+      insumoId: "i1",
+      cantidad: 7,
+    });
 
     // El increment de moveOps sí ocurre; lo que NO debe ocurrir es un update de `nivel`.
     expect(prismaMock.insumo.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ nivel: expect.anything() }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ nivel: expect.anything() }),
+      }),
     );
   });
 });

@@ -13,7 +13,11 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@vnzl/database", () => ({
   prisma: prismaMock,
   Prisma: {},
-  NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
+  NivelInsumo: {
+    URGENTE: "URGENTE",
+    NORMAL: "NORMAL",
+    SUFICIENTE: "SUFICIENTE",
+  },
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
 }));
 
@@ -37,7 +41,12 @@ beforeEach(() => {
 
 describe("UsuariosService.onboard", () => {
   it("portón de cédula: valida, guarda el nombre oficial + verificación y devuelve el usuario", async () => {
-    const updated = { id: "u1", nombre: "ANA OFICIAL", cedula: "V12345678", telefono: "04141234567" };
+    const updated = {
+      id: "u1",
+      nombre: "ANA OFICIAL",
+      cedula: "V12345678",
+      telefono: "04141234567",
+    };
     prismaMock.usuario.findUnique.mockResolvedValue(null); // cédula libre
     cedula.validarParaRegistro.mockResolvedValue({
       nombre: "ANA OFICIAL",
@@ -46,10 +55,19 @@ describe("UsuariosService.onboard", () => {
     });
     prismaMock.usuario.update.mockResolvedValue(updated);
 
-    const dto = { pais: "VE", nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+    const dto = {
+      pais: "VE",
+      nombre: "Ana",
+      cedula: "V12345678",
+      telefono: "04141234567",
+    } as any;
     const res = await service.onboard("u1", dto);
 
-    expect(cedula.validarParaRegistro).toHaveBeenCalledWith("VE", "V12345678", "Ana");
+    expect(cedula.validarParaRegistro).toHaveBeenCalledWith(
+      "VE",
+      "V12345678",
+      "Ana",
+    );
     expect(prismaMock.usuario.update).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: expect.objectContaining({
@@ -66,7 +84,12 @@ describe("UsuariosService.onboard", () => {
 
   it("rechaza si la cédula ya pertenece a otra cuenta", async () => {
     prismaMock.usuario.findUnique.mockResolvedValue({ id: "otro" });
-    const dto = { pais: "VE", nombre: "Ana", cedula: "V12345678", telefono: "04141234567" } as any;
+    const dto = {
+      pais: "VE",
+      nombre: "Ana",
+      cedula: "V12345678",
+      telefono: "04141234567",
+    } as any;
 
     await expect(service.onboard("u1", dto)).rejects.toThrow();
     expect(cedula.validarParaRegistro).not.toHaveBeenCalled();
@@ -78,7 +101,10 @@ describe("UsuariosService.invite", () => {
   it("firma { centroId, typ:'invite' } con expiresIn 1h y devuelve expiresInMin 60", () => {
     const res = service.invite("c1");
 
-    expect(jwt.sign).toHaveBeenCalledWith({ centroId: "c1", typ: "invite" }, { expiresIn: "1h" });
+    expect(jwt.sign).toHaveBeenCalledWith(
+      { centroId: "c1", typ: "invite" },
+      { expiresIn: "1h" },
+    );
     expect(res).toEqual({ token: "tok-123", expiresInMin: 60 });
     expect(INVITACION.ttlMin).toBe(60);
   });

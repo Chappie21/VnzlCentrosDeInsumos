@@ -35,14 +35,22 @@ export class InsumosService {
   async actualizar(userId: string, insumoId: string, dto: UpdateInsumoDto) {
     const insumo = await prisma.insumo.findUnique({
       where: { id: insumoId },
-      select: { centroId: true, nivel: true, umbralUrgente: true, umbralSuficiente: true },
+      select: {
+        centroId: true,
+        nivel: true,
+        umbralUrgente: true,
+        umbralSuficiente: true,
+      },
     });
     if (!insumo) throw new NotFoundException("Insumo no encontrado");
 
     const link = await prisma.voluntario.findUnique({
-      where: { usuarioId_centroId: { usuarioId: userId, centroId: insumo.centroId } },
+      where: {
+        usuarioId_centroId: { usuarioId: userId, centroId: insumo.centroId },
+      },
     });
-    if (!link) throw new ForbiddenException("No eres voluntario de este centro");
+    if (!link)
+      throw new ForbiddenException("No eres voluntario de este centro");
 
     // Si el insumo tiene umbrales, el nivel es automático: no se edita a mano.
     if (
@@ -52,8 +60,12 @@ export class InsumosService {
     )
       throw new ForbiddenException("El nivel es automático para este insumo");
 
-    const actualizado = await prisma.insumo.update({ where: { id: insumoId }, data: dto });
-    if (dto.nivel !== undefined && dto.nivel !== insumo.nivel) await this.redis.bumpCentros();
+    const actualizado = await prisma.insumo.update({
+      where: { id: insumoId },
+      data: dto,
+    });
+    if (dto.nivel !== undefined && dto.nivel !== insumo.nivel)
+      await this.redis.bumpCentros();
     return actualizado;
   }
 }
@@ -66,7 +78,11 @@ export class InsumosController {
   // service porque el centroId vive en el insumo, no en la ruta.
   @Patch(":id")
   @UseGuards(IdentidadGuard)
-  actualizar(@Req() req: any, @Param("id") id: string, @Body() dto: UpdateInsumoDto) {
+  actualizar(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdateInsumoDto,
+  ) {
     return this.service.actualizar(userIdOf(req), id, dto);
   }
 }

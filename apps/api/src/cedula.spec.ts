@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 
 // El portón vive en un feature flag de Railway. Se mockea el módulo para poder
 // prender y apagar el interruptor sin hablar con Railway.
@@ -11,7 +14,11 @@ vi.mock("./feature-flags", () => ({
   initFeatureFlags: async () => true,
 }));
 
-import { CedulaService, interpretarRespuesta, validacionActiva } from "./cedula";
+import {
+  CedulaService,
+  interpretarRespuesta,
+  validacionActiva,
+} from "./cedula";
 
 const portonVe = (activo: boolean) => flagMock.mockReturnValue(activo);
 
@@ -32,13 +39,18 @@ function espiando(result: any) {
 
 describe("interpretarRespuesta", () => {
   it("existe=true con data presente", () => {
-    expect(interpretarRespuesta({ error: false, data: { primer_nombre: "Ana" } })).toEqual({
+    expect(
+      interpretarRespuesta({ error: false, data: { primer_nombre: "Ana" } }),
+    ).toEqual({
       existe: true,
       nombre: "Ana",
     });
   });
   it("existe=false sin data", () => {
-    expect(interpretarRespuesta({ error: true })).toEqual({ existe: false, nombre: null });
+    expect(interpretarRespuesta({ error: true })).toEqual({
+      existe: false,
+      nombre: null,
+    });
   });
 });
 
@@ -72,10 +84,21 @@ describe("CedulaService.validarParaRegistro — portón APAGADO", () => {
   });
 
   it("NO consulta la API y deja pasar con el nombre tecleado", async () => {
-    const { service, verificar } = espiando({ existe: true, nombre: "OFICIAL" });
-    const r = await service.validarParaRegistro("VE", "V12345678", "Juan Perez");
+    const { service, verificar } = espiando({
+      existe: true,
+      nombre: "OFICIAL",
+    });
+    const r = await service.validarParaRegistro(
+      "VE",
+      "V12345678",
+      "Juan Perez",
+    );
     expect(verificar).not.toHaveBeenCalled();
-    expect(r).toEqual({ nombre: "Juan Perez", cedulaVerificada: null, cedulaNombre: null });
+    expect(r).toEqual({
+      nombre: "Juan Perez",
+      cedulaVerificada: null,
+      cedulaNombre: null,
+    });
   });
 
   // Con el portón apagado el formulario TIENE que pedir el nombre. Si no llega,
@@ -88,8 +111,16 @@ describe("CedulaService.validarParaRegistro — portón APAGADO", () => {
   });
 
   it("acepta un documento colombiano", async () => {
-    const r = await withVerificar(null).validarParaRegistro("CO", "1020304050", "Ana Gómez");
-    expect(r).toEqual({ nombre: "Ana Gómez", cedulaVerificada: null, cedulaNombre: null });
+    const r = await withVerificar(null).validarParaRegistro(
+      "CO",
+      "1020304050",
+      "Ana Gómez",
+    );
+    expect(r).toEqual({
+      nombre: "Ana Gómez",
+      cedulaVerificada: null,
+      cedulaNombre: null,
+    });
   });
 });
 
@@ -104,8 +135,16 @@ describe("CedulaService.validarParaRegistro — portón ENCENDIDO (default)", ()
   });
 
   it("fail-open CON nombre de respaldo (Google): deja pasar, no verificado", async () => {
-    const r = await withVerificar(null).validarParaRegistro("VE", "V12345678", "Juan Perez");
-    expect(r).toEqual({ nombre: "Juan Perez", cedulaVerificada: null, cedulaNombre: null });
+    const r = await withVerificar(null).validarParaRegistro(
+      "VE",
+      "V12345678",
+      "Juan Perez",
+    );
+    expect(r).toEqual({
+      nombre: "Juan Perez",
+      cedulaVerificada: null,
+      cedulaNombre: null,
+    });
   });
 
   it("SIN respaldo y API caída (null): lanza 503 (no registra)", async () => {
@@ -116,16 +155,19 @@ describe("CedulaService.validarParaRegistro — portón ENCENDIDO (default)", ()
 
   it("rechaza si la cédula no corresponde a una persona real", async () => {
     await expect(
-      withVerificar({ existe: false, nombre: null }).validarParaRegistro("VE", "V12345678", "Juan"),
+      withVerificar({ existe: false, nombre: null }).validarParaRegistro(
+        "VE",
+        "V12345678",
+        "Juan",
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("usa el nombre OFICIAL del registro cuando la cédula existe", async () => {
-    const r = await withVerificar({ existe: true, nombre: "MARIA OFICIAL PEREZ" }).validarParaRegistro(
-      "VE",
-      "V12345678",
-      "maria",
-    );
+    const r = await withVerificar({
+      existe: true,
+      nombre: "MARIA OFICIAL PEREZ",
+    }).validarParaRegistro("VE", "V12345678", "maria");
     expect(r).toEqual({
       nombre: "MARIA OFICIAL PEREZ",
       cedulaVerificada: true,
@@ -136,10 +178,21 @@ describe("CedulaService.validarParaRegistro — portón ENCENDIDO (default)", ()
   // Colombia no tiene registro público que consultar: se salta siempre y el
   // nombre tecleado (que el DTO exige) es la única fuente.
   it("Colombia se salta la verificación y usa el nombre tecleado", async () => {
-    const { service, verificar } = espiando({ existe: true, nombre: "OFICIAL" });
-    const r = await service.validarParaRegistro("CO", "1020304050", "Ana Gómez");
+    const { service, verificar } = espiando({
+      existe: true,
+      nombre: "OFICIAL",
+    });
+    const r = await service.validarParaRegistro(
+      "CO",
+      "1020304050",
+      "Ana Gómez",
+    );
     expect(verificar).not.toHaveBeenCalled();
-    expect(r).toEqual({ nombre: "Ana Gómez", cedulaVerificada: null, cedulaNombre: null });
+    expect(r).toEqual({
+      nombre: "Ana Gómez",
+      cedulaVerificada: null,
+      cedulaNombre: null,
+    });
   });
 
   it("Colombia sin nombre corta con 400", async () => {

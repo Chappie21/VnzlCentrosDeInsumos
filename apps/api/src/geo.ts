@@ -32,7 +32,9 @@ export function boundingBox(lat: number, lng: number, radiusKm: number) {
   };
 }
 
-export function sortByProximity<T extends { latitud: number | null; longitud: number | null }>(
+export function sortByProximity<
+  T extends { latitud: number | null; longitud: number | null },
+>(
   items: T[],
   lat: number,
   lng: number,
