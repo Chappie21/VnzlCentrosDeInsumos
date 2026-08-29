@@ -9,8 +9,18 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@vnzl/database", () => ({
   prisma: prismaMock,
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
-  NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
-  CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
+  NivelInsumo: {
+    URGENTE: "URGENTE",
+    NORMAL: "NORMAL",
+    SUFICIENTE: "SUFICIENTE",
+  },
+  CategoriaInsumo: {
+    AGUA: "AGUA",
+    MEDICAMENTOS: "MEDICAMENTOS",
+    ROPA: "ROPA",
+    ALIMENTOS: "ALIMENTOS",
+    HERRAMIENTAS: "HERRAMIENTAS",
+  },
 }));
 
 import { JefeGuard } from "./guards";
@@ -28,7 +38,8 @@ const ctxDe = (req: any) =>
   ({ switchToHttp: () => ({ getRequest: () => req }) }) as any;
 
 const reqDe = () => ({
-  header: (h: string) => h.toLowerCase() === "authorization" ? `Bearer ${validToken}` : undefined,
+  header: (h: string) =>
+    h.toLowerCase() === "authorization" ? `Bearer ${validToken}` : undefined,
   params: { centroId: "c1" },
   body: {},
 });
@@ -51,12 +62,16 @@ describe("JefeGuard", () => {
 
   it("rechaza a un VOLUNTARIO (Forbidden)", async () => {
     prismaMock.voluntario.findUnique.mockResolvedValue({ rol: "VOLUNTARIO" });
-    await expect(guard.canActivate(ctxDe(reqDe()))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(ctxDe(reqDe()))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it("rechaza a quien no es voluntario (Forbidden)", async () => {
     prismaMock.voluntario.findUnique.mockResolvedValue(null);
-    await expect(guard.canActivate(ctxDe(reqDe()))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(ctxDe(reqDe()))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   // Regresión IDOR (PR #78): un centroId en el body distinto al de la URL es
@@ -64,6 +79,8 @@ describe("JefeGuard", () => {
   it("rechaza ambigüedad param≠body (anti-IDOR)", async () => {
     prismaMock.voluntario.findUnique.mockResolvedValue({ rol: "JEFE" });
     const req = { ...reqDe(), body: { centroId: "c2" } }; // param es "c1"
-    await expect(guard.canActivate(ctxDe(req))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(guard.canActivate(ctxDe(req))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });

@@ -1,6 +1,17 @@
 import { Transform } from "class-transformer";
-import { IsIn, IsNotEmpty, IsString, MinLength, ValidateIf } from "class-validator";
-import { normalizarDocumento, normalizarTelefono, PAISES, type Pais } from "@vnzl/paises";
+import {
+  IsIn,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
+import {
+  normalizarDocumento,
+  normalizarTelefono,
+  PAISES,
+  type Pais,
+} from "@vnzl/paises";
 import { validacionActiva } from "../cedula";
 import { IsDocumentoDePais, IsTelefonoDePais } from "../validators";
 
@@ -18,12 +29,16 @@ export class RegisterDto {
   nombre!: string;
 
   @Transform(({ value, obj }) =>
-    typeof value === "string" && obj?.pais ? normalizarDocumento(obj.pais, value) : value,
+    typeof value === "string" && obj?.pais
+      ? normalizarDocumento(obj.pais, value)
+      : value,
   )
   @IsDocumentoDePais()
   cedula!: string;
 
-  @Transform(({ value }) => (typeof value === "string" ? normalizarTelefono(value) : value))
+  @Transform(({ value }) =>
+    typeof value === "string" ? normalizarTelefono(value) : value,
+  )
   @IsTelefonoDePais()
   telefono!: string;
 

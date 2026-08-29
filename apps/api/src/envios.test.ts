@@ -21,9 +21,24 @@ const { tx, prismaMock } = vi.hoisted(() => {
 vi.mock("@vnzl/database", () => ({
   prisma: prismaMock,
   Prisma: {},
-  NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
-  CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
-  TipoMovimiento: { DONACION: "DONACION", CARGA_INICIAL: "CARGA_INICIAL", AJUSTE: "AJUSTE", SALIDA: "SALIDA" },
+  NivelInsumo: {
+    URGENTE: "URGENTE",
+    NORMAL: "NORMAL",
+    SUFICIENTE: "SUFICIENTE",
+  },
+  CategoriaInsumo: {
+    AGUA: "AGUA",
+    MEDICAMENTOS: "MEDICAMENTOS",
+    ROPA: "ROPA",
+    ALIMENTOS: "ALIMENTOS",
+    HERRAMIENTAS: "HERRAMIENTAS",
+  },
+  TipoMovimiento: {
+    DONACION: "DONACION",
+    CARGA_INICIAL: "CARGA_INICIAL",
+    AJUSTE: "AJUSTE",
+    SALIDA: "SALIDA",
+  },
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
 }));
 
@@ -47,7 +62,9 @@ const base = {
 
 describe("EnviosService.crear", () => {
   it("descuenta el origen (Historial negativo + decrement) y guarda quién despachó", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 10 }]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 10 },
+    ]);
 
     const res = await service.crear("vol-1", base);
 
@@ -64,18 +81,29 @@ describe("EnviosService.crear", () => {
     );
     expect(tx.historial.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ insumoId: "i1", usuarioId: "vol-1", cantidad: -3, envioId: "e1", tipo: "SALIDA" }),
+        data: expect.objectContaining({
+          insumoId: "i1",
+          usuarioId: "vol-1",
+          cantidad: -3,
+          envioId: "e1",
+          tipo: "SALIDA",
+        }),
       }),
     );
     expect(tx.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "i1" }, data: { cantidadTotal: { decrement: 3 } } }),
+      expect.objectContaining({
+        where: { id: "i1" },
+        data: { cantidadTotal: { decrement: 3 } },
+      }),
     );
     expect(redis.bumpCentros).toHaveBeenCalled();
     expect(res).toEqual({ id: "e1" });
   });
 
   it("acepta destino de texto libre (albergue)", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 10 }]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 10 },
+    ]);
     await service.crear("vol-1", {
       ...base,
       centroDestinoId: undefined,
@@ -83,14 +111,21 @@ describe("EnviosService.crear", () => {
     });
     expect(tx.envio.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ centroDestinoId: null, destinoTexto: "Albergue Regional Sur" }),
+        data: expect.objectContaining({
+          centroDestinoId: null,
+          destinoTexto: "Albergue Regional Sur",
+        }),
       }),
     );
   });
 
   it("rechaza si no hay destino (ni centro ni texto)", async () => {
     await expect(
-      service.crear("vol-1", { ...base, centroDestinoId: undefined, destinoTexto: undefined }),
+      service.crear("vol-1", {
+        ...base,
+        centroDestinoId: undefined,
+        destinoTexto: undefined,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
@@ -103,18 +138,26 @@ describe("EnviosService.crear", () => {
 
   it("rechaza si un insumo no pertenece al centro origen", async () => {
     prismaMock.insumo.findMany.mockResolvedValue([]); // i1 no está en el origen
-    await expect(service.crear("vol-1", base)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.crear("vol-1", base)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it("rechaza si el stock es insuficiente (no descuenta nada)", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
-    await expect(service.crear("vol-1", base)).rejects.toBeInstanceOf(BadRequestException);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 2 },
+    ]);
+    await expect(service.crear("vol-1", base)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it("agrupa items con el mismo insumo sumando cantidades", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 10 }]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 10 },
+    ]);
     await service.crear("vol-1", {
       ...base,
       items: [
@@ -137,7 +180,11 @@ describe("EnviosService.guia", () => {
     destinoTexto: null,
     centroOrigenId: "c1",
     centroDestinoId: "c2",
-    origen: { nombre: "Centro Norte", ciudad: "Caracas", estado: "Distrito Capital" },
+    origen: {
+      nombre: "Centro Norte",
+      ciudad: "Caracas",
+      estado: "Distrito Capital",
+    },
     destino: { nombre: "Centro Sur", ciudad: "Maracaibo", estado: "Zulia" },
     creadoPor: { nombre: "Ana" },
     movimientos: [
@@ -182,7 +229,11 @@ describe("EnviosService.guia", () => {
     // consulta JEFE contra origen O destino
     expect(prismaMock.voluntario.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { usuarioId: "jefe-1", rol: "JEFE", centroId: { in: ["c1", "c2"] } },
+        where: {
+          usuarioId: "jefe-1",
+          rol: "JEFE",
+          centroId: { in: ["c1", "c2"] },
+        },
       }),
     );
   });
@@ -206,7 +257,9 @@ describe("EnviosService.guia", () => {
 
   it("404 si el envío no existe", async () => {
     prismaMock.envio.findUnique.mockResolvedValue(null);
-    await expect(service.guia("nope", null)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.guia("nope", null)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
 
