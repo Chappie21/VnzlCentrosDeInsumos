@@ -1,0 +1,7 @@
+🛡️ Sentinel: [MEDIUM] Enforce positive quantities in Add and Batch endpoints
+
+🚨 Severity: MEDIUM
+💡 Vulnerability: The `MovimientoDto` allows negative values for `cantidad` (intended for adjustments). However, the `AddDto` and `BatchDto` use this DTO but are specifically meant to add inventory (donations). Without restricting `cantidad` to positive values, an attacker could bypass intended logic and deduct inventory through endpoints intended only for adding stock.
+🎯 Impact: A user could potentially exploit the `add` and `batch` API endpoints to improperly reduce the stock of items they shouldn't be able to decrease.
+🔧 Fix: We created a new `BatchItemDto` extending `MovimientoDto`, and we enforce `@IsInt() @Min(1)` on `cantidad` using `declare` in both `AddDto` and `BatchItemDto`.
+✅ Verification: `pnpm --filter @vnzl/api test` and `pnpm build` pass.
