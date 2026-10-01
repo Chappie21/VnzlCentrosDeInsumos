@@ -18,26 +18,33 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { prisma, Prisma, CategoriaInsumo, TipoMovimiento } from "@vnzl/database";
+import {
+  prisma,
+  Prisma,
+  CategoriaInsumo,
+  TipoMovimiento,
+} from "@vnzl/database";
 import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, JefeGuard, userIdOf } from "./guards";
 import { calcularNivel } from "./constants/insumos";
 
-class MovimientoDto {
+class AddDto {
+  @IsString() centroId: string;
   @IsString() insumoId: string;
-  @IsInt() cantidad: number; // + entrada, - salida
+  @IsInt() @Min(1) cantidad: number;
 }
 
-class AddDto extends MovimientoDto {
-  @IsString() centroId: string;
+class BatchItemDto {
+  @IsString() insumoId: string;
+  @IsInt() @Min(1) cantidad: number;
 }
 
 class BatchDto {
   @IsString() centroId: string;
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
-  @Type(() => MovimientoDto)
-  movimientos: MovimientoDto[];
+  @Type(() => BatchItemDto)
+  movimientos: BatchItemDto[];
 }
 
 // Donación escaneada desde un QR de donante: insumos por NOMBRE (el donante no
@@ -96,13 +103,26 @@ export class HistorialService {
   private async recalcularNiveles(insumoIds: string[]) {
     const insumos = await prisma.insumo.findMany({
       where: { id: { in: insumoIds } },
-      select: { id: true, cantidadTotal: true, nivel: true, umbralUrgente: true, umbralSuficiente: true },
+      select: {
+        id: true,
+        cantidadTotal: true,
+        nivel: true,
+        umbralUrgente: true,
+        umbralSuficiente: true,
+      },
     });
     await Promise.all(
       insumos.map((i) => {
-        const nuevo = calcularNivel(i.cantidadTotal, i.umbralUrgente, i.umbralSuficiente);
+        const nuevo = calcularNivel(
+          i.cantidadTotal,
+          i.umbralUrgente,
+          i.umbralSuficiente,
+        );
         if (nuevo == null || nuevo === i.nivel) return Promise.resolve();
-        return prisma.insumo.update({ where: { id: i.id }, data: { nivel: nuevo } });
+        return prisma.insumo.update({
+          where: { id: i.id },
+          data: { nivel: nuevo },
+        });
       }),
     );
   }
@@ -123,7 +143,13 @@ export class HistorialService {
       throw new BadRequestException("El stock no puede quedar negativo");
 
     const [hist] = await prisma.$transaction(
-      this.moveOps(prisma, dto.insumoId, usuarioId, dto.cantidad, TipoMovimiento.AJUSTE),
+      this.moveOps(
+        prisma,
+        dto.insumoId,
+        usuarioId,
+        dto.cantidad,
+        TipoMovimiento.AJUSTE,
+      ),
     );
     await this.recalcularNiveles([dto.insumoId]);
     await this.redis.bumpCentros();
@@ -139,7 +165,9 @@ export class HistorialService {
       throw new BadRequestException("Insumo no pertenece al centro");
     }
 
-    const [hist] = await prisma.$transaction(this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad));
+    const [hist] = await prisma.$transaction(
+      this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad),
+    );
     await this.recalcularNiveles([m.insumoId]);
     await this.redis.bumpCentros();
     return hist;
@@ -148,15 +176,23 @@ export class HistorialService {
   // QR drop-off: all-or-nothing batch (spec §6.3). One bad insumo -> whole thing rolls back.
   async batch(usuarioId: string, dto: BatchDto) {
     const insumos = await prisma.insumo.findMany({
-      where: { id: { in: dto.movimientos.map((m) => m.insumoId) }, centroId: dto.centroId },
+      where: {
+        id: { in: dto.movimientos.map((m) => m.insumoId) },
+        centroId: dto.centroId,
+      },
       select: { id: true },
     });
     const valid = new Set(insumos.map((i) => i.id));
     const bad = dto.movimientos.find((m) => !valid.has(m.insumoId));
-    if (bad) throw new BadRequestException(`Insumo ${bad.insumoId} no pertenece al centro`);
+    if (bad)
+      throw new BadRequestException(
+        `Insumo ${bad.insumoId} no pertenece al centro`,
+      );
 
     await prisma.$transaction(
-      dto.movimientos.flatMap((m) => this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad)),
+      dto.movimientos.flatMap((m) =>
+        this.moveOps(prisma, m.insumoId, usuarioId, m.cantidad),
+      ),
     );
     await this.recalcularNiveles(dto.movimientos.map((m) => m.insumoId));
     await this.redis.bumpCentros();
@@ -167,13 +203,21 @@ export class HistorialService {
   // (centroId, nombre) case-insensitive + entrada en Historial. Todo-o-nada.
   async recibir(usuarioId: string, dto: RecibirDto) {
     // Agrupar por nombre (case-insensitive) para no duplicar insumos en un mismo QR.
-    const byKey = new Map<string, { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }>();
+    const byKey = new Map<
+      string,
+      { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }
+    >();
     for (const it of dto.items) {
       const nombre = it.nombre.trim();
       const key = nombre.toLowerCase();
       const prev = byKey.get(key);
       if (prev) prev.cantidad += it.cantidad;
-      else byKey.set(key, { nombre, categoria: it.categoria ?? null, cantidad: it.cantidad });
+      else
+        byKey.set(key, {
+          nombre,
+          categoria: it.categoria ?? null,
+          cantidad: it.cantidad,
+        });
     }
     const items = [...byKey.values()];
 
@@ -181,7 +225,10 @@ export class HistorialService {
       const ids: string[] = [];
       for (const it of items) {
         let insumo = await tx.insumo.findFirst({
-          where: { centroId: dto.centroId, nombre: { equals: it.nombre, mode: "insensitive" } },
+          where: {
+            centroId: dto.centroId,
+            nombre: { equals: it.nombre, mode: "insensitive" },
+          },
           select: { id: true },
         });
         if (!insumo) {
