@@ -37,12 +37,28 @@ import { Transform, Type } from "class-transformer";
 import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { prisma, Prisma, NivelInsumo, CategoriaInsumo, RolVoluntario, EstadoVerificacion, TipoMovimiento, MotivoReporte } from "@vnzl/database";
+import {
+  prisma,
+  Prisma,
+  NivelInsumo,
+  CategoriaInsumo,
+  RolVoluntario,
+  EstadoVerificacion,
+  TipoMovimiento,
+  MotivoReporte,
+} from "@vnzl/database";
 import { distanciaMetros, PAISES, type Pais } from "@vnzl/paises";
 import { RedisService } from "./redis.service";
 import { CedulaService } from "./cedula";
 import { IsCiudadDeEstado, IsEstadoDePais } from "./validators";
-import { RateLimitGuard, IdentidadGuard, VoluntarioGuard, JefeGuard, AdminGuard, userIdOf } from "./guards";
+import {
+  RateLimitGuard,
+  IdentidadGuard,
+  VoluntarioGuard,
+  JefeGuard,
+  AdminGuard,
+  userIdOf,
+} from "./guards";
 import { calcularNivel } from "./constants/insumos";
 import { boundingBox, sortByProximity } from "./geo";
 import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
@@ -50,7 +66,9 @@ import { PAGINATION, CACHE, TTL, NIVEL_ORDER } from "./constants";
 // query strings -> boolean, preservando undefined cuando el param no viene
 const toOptionalBool = () =>
   Transform(({ value }) =>
-    value === undefined ? undefined : value === true || value === "true" || value === "1",
+    value === undefined
+      ? undefined
+      : value === true || value === "true" || value === "1",
   );
 
 // Inventario inicial (carga de un acopio que se digitaliza). cantidad admite 0
@@ -74,7 +92,10 @@ export class CreateCentroDto {
   // Geo del dispositivo al registrar (anti-fraude: se compara con la dirección).
   @IsOptional() @Type(() => Number) @IsLatitude() geoLat?: number;
   @IsOptional() @Type(() => Number) @IsLongitude() geoLng?: number;
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => InsumoInicialDto)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InsumoInicialDto)
   insumos?: InsumoInicialDto[];
 }
 
@@ -105,9 +126,12 @@ const REPORTE_THRESHOLD = 3;
 export class UpdateCentroDto {
   @IsOptional() @IsString() nombre?: string;
   @ValidateIf((o) => o.estado !== undefined || o.ciudad !== undefined)
-  @IsIn([...PAISES]) pais?: Pais;
+  @IsIn([...PAISES])
+  pais?: Pais;
   @ValidateIf((o) => o.estado !== undefined || o.ciudad !== undefined)
-  @IsString() @IsEstadoDePais() estado?: string;
+  @IsString()
+  @IsEstadoDePais()
+  estado?: string;
   @IsOptional() @IsString() @IsCiudadDeEstado() ciudad?: string;
   @IsOptional() @IsString() direccion?: string;
   @IsOptional() @Type(() => Number) @IsLatitude() latitud?: number;
@@ -125,47 +149,76 @@ export class UpdateOperativoDto {
 // (insumo vuelve a nivel manual). @ValidateIf deja pasar el null sin disparar @IsInt.
 class UmbralFilaDto {
   @IsString() insumoId: string;
-  @ValidateIf((_, v) => v !== null) @IsOptional() @IsInt() @Min(0) umbralUrgente?: number | null;
-  @ValidateIf((_, v) => v !== null) @IsOptional() @IsInt() @Min(0) umbralSuficiente?: number | null;
+  @ValidateIf((_, v) => v !== null)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  umbralUrgente?: number | null;
+  @ValidateIf((_, v) => v !== null)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  umbralSuficiente?: number | null;
 }
 
 export class UpdateUmbralesDto {
-  @IsArray() @ArrayMinSize(1)
+  @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => UmbralFilaDto)
   insumos: UmbralFilaDto[];
 }
 
 class ListCentrosQueryDto {
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(PAGINATION.maxLimit)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(PAGINATION.maxLimit)
   limit?: number;
 
-  @IsOptional() @IsString() @MaxLength(80)
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   q?: string; // matchea nombre OR ciudad, case-insensitive
 
   // Sin país no se filtra: /centros es público y quien llega por un link
   // compartido no tiene país. El front siempre lo manda.
-  @IsOptional() @IsIn([...PAISES])
+  @IsOptional()
+  @IsIn([...PAISES])
   pais?: Pais;
 
-  @IsOptional() @Type(() => Number) @IsLatitude()
+  @IsOptional()
+  @Type(() => Number)
+  @IsLatitude()
   lat?: number;
 
-  @IsOptional() @Type(() => Number) @IsLongitude()
+  @IsOptional()
+  @Type(() => Number)
+  @IsLongitude()
   lng?: number;
 
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   radiusKm?: number; // bound de "Cerca de mí"; ignorado si falta lat/lng
 
-  @IsOptional() @toOptionalBool() @IsBoolean()
+  @IsOptional()
+  @toOptionalBool()
+  @IsBoolean()
   soloAbiertos?: boolean; // recibiendoAhora = true
 
-  @IsOptional() @toOptionalBool() @IsBoolean()
+  @IsOptional()
+  @toOptionalBool()
+  @IsBoolean()
   urgenciaAlta?: boolean; // >=1 insumo nivel URGENTE
-
 }
 
 // El mapa público solo filtra por país. DTO propio para que lo valide el
@@ -175,7 +228,11 @@ class MapaQueryDto {
 }
 
 // Proyección de card: solo lo que la UI necesita. Nunca fingerprint ni voluntarios.
-type Necesidad = { nombre: string; nivel: NivelInsumo; categoria: CategoriaInsumo | null };
+type Necesidad = {
+  nombre: string;
+  nivel: NivelInsumo;
+  categoria: CategoriaInsumo | null;
+};
 export type CentroCard = {
   id: string;
   nombre: string;
@@ -265,13 +322,25 @@ const miCentroSelect = (userId: string) =>
     recibiendoAhora: true,
     horarioCierre: true,
     insumos: {
-      select: { id: true, nombre: true, nivel: true, categoria: true, cantidadTotal: true },
+      select: {
+        id: true,
+        nombre: true,
+        nivel: true,
+        categoria: true,
+        cantidadTotal: true,
+      },
     },
     _count: { select: { voluntarios: true } },
-    voluntarios: { where: { usuarioId: userId }, select: { rol: true }, take: 1 },
+    voluntarios: {
+      where: { usuarioId: userId },
+      select: { rol: true },
+      take: 1,
+    },
   }) satisfies Prisma.CentroSelect;
 
-type MiCentroRow = Prisma.CentroGetPayload<{ select: ReturnType<typeof miCentroSelect> }>;
+type MiCentroRow = Prisma.CentroGetPayload<{
+  select: ReturnType<typeof miCentroSelect>;
+}>;
 
 export type MiInsumo = {
   id: string;
@@ -328,13 +397,28 @@ const detalleSelect = (userId: string) =>
     fotoUrl: true,
     creadoEn: true,
     insumos: {
-      select: { id: true, nombre: true, descripcion: true, nivel: true, categoria: true, cantidadTotal: true, umbralUrgente: true, umbralSuficiente: true },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        nivel: true,
+        categoria: true,
+        cantidadTotal: true,
+        umbralUrgente: true,
+        umbralSuficiente: true,
+      },
     },
     _count: { select: { voluntarios: true } },
-    voluntarios: { where: { usuarioId: userId }, select: { rol: true }, take: 1 },
+    voluntarios: {
+      where: { usuarioId: userId },
+      select: { rol: true },
+      take: 1,
+    },
   }) satisfies Prisma.CentroSelect;
 
-type DetalleRow = Prisma.CentroGetPayload<{ select: ReturnType<typeof detalleSelect> }>;
+type DetalleRow = Prisma.CentroGetPayload<{
+  select: ReturnType<typeof detalleSelect>;
+}>;
 
 export type InsumoDetalle = {
   id: string;
@@ -460,7 +544,9 @@ const voluntarioSelect = {
   usuario: { select: { nombre: true, cedula: true, telefono: true } },
 } satisfies Prisma.VoluntarioSelect;
 
-type VoluntarioRow = Prisma.VoluntarioGetPayload<{ select: typeof voluntarioSelect }>;
+type VoluntarioRow = Prisma.VoluntarioGetPayload<{
+  select: typeof voluntarioSelect;
+}>;
 
 export type VoluntarioItem = {
   id: string;
@@ -502,7 +588,13 @@ const moderacionSelect = {
     where: { rol: RolVoluntario.JEFE },
     select: {
       usuario: {
-        select: { nombre: true, cedula: true, telefono: true, cedulaVerificada: true, cedulaNombre: true },
+        select: {
+          nombre: true,
+          cedula: true,
+          telefono: true,
+          cedulaVerificada: true,
+          cedulaNombre: true,
+        },
       },
     },
     take: 1,
@@ -515,9 +607,15 @@ const moderacionSelect = {
   },
 } satisfies Prisma.CentroSelect;
 
-type ModeracionRow = Prisma.CentroGetPayload<{ select: typeof moderacionSelect }>;
+type ModeracionRow = Prisma.CentroGetPayload<{
+  select: typeof moderacionSelect;
+}>;
 
-export type ReporteItem = { motivo: MotivoReporte; comentario: string | null; creadoEn: Date };
+export type ReporteItem = {
+  motivo: MotivoReporte;
+  comentario: string | null;
+  creadoEn: Date;
+};
 
 export type CentroModeracion = {
   id: string;
@@ -548,7 +646,10 @@ export type CentroModeracion = {
 
 function toModeracion(c: ModeracionRow): CentroModeracion {
   const tieneAmbas =
-    c.latitud != null && c.longitud != null && c.geoLat != null && c.geoLng != null;
+    c.latitud != null &&
+    c.longitud != null &&
+    c.geoLat != null &&
+    c.geoLng != null;
   const reportesCount = c._count.reportes;
   return {
     id: c.id,
@@ -594,7 +695,9 @@ export class CentrosService {
       verificacion: EstadoVerificacion.VERIFICADO,
       ...(q.pais && { pais: q.pais }),
       ...(q.soloAbiertos && { recibiendoAhora: true }),
-      ...(q.urgenciaAlta && { insumos: { some: { nivel: NivelInsumo.URGENTE } } }),
+      ...(q.urgenciaAlta && {
+        insumos: { some: { nivel: NivelInsumo.URGENTE } },
+      }),
     };
   }
 
@@ -635,7 +738,14 @@ export class CentrosService {
           latitud: { not: null },
           longitud: { not: null },
         },
-        select: { id: true, nombre: true, ciudad: true, latitud: true, longitud: true, recibiendoAhora: true },
+        select: {
+          id: true,
+          nombre: true,
+          ciudad: true,
+          latitud: true,
+          longitud: true,
+          recibiendoAhora: true,
+        },
         take: 1000,
       });
       return rows.map((r) => ({
@@ -725,12 +835,20 @@ export class CentrosService {
     }
     // Agrupa el inventario inicial por nombre (case-insensitive) para no duplicar
     // insumos en un mismo payload; mismo criterio que `recibir`.
-    const seed = new Map<string, { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }>();
+    const seed = new Map<
+      string,
+      { nombre: string; categoria: CategoriaInsumo | null; cantidad: number }
+    >();
     for (const it of insumos ?? []) {
       const nombre = it.nombre.trim();
       const prev = seed.get(nombre.toLowerCase());
       if (prev) prev.cantidad += it.cantidad;
-      else seed.set(nombre.toLowerCase(), { nombre, categoria: it.categoria ?? null, cantidad: it.cantidad });
+      else
+        seed.set(nombre.toLowerCase(), {
+          nombre,
+          categoria: it.categoria ?? null,
+          cantidad: it.cantidad,
+        });
     }
 
     const centro = await prisma.$transaction(async (tx) => {
@@ -743,11 +861,21 @@ export class CentrosService {
       // crea el insumo y su movimiento (registro de que existe sin stock).
       for (const it of seed.values()) {
         const insumo = await tx.insumo.create({
-          data: { centroId: c.id, nombre: it.nombre, categoria: it.categoria, cantidadTotal: 0 },
+          data: {
+            centroId: c.id,
+            nombre: it.nombre,
+            categoria: it.categoria,
+            cantidadTotal: 0,
+          },
           select: { id: true },
         });
         await tx.historial.create({
-          data: { insumoId: insumo.id, usuarioId: userId, cantidad: it.cantidad, tipo: TipoMovimiento.CARGA_INICIAL },
+          data: {
+            insumoId: insumo.id,
+            usuarioId: userId,
+            cantidad: it.cantidad,
+            tipo: TipoMovimiento.CARGA_INICIAL,
+          },
         });
         await tx.insumo.update({
           where: { id: insumo.id },
@@ -816,7 +944,10 @@ export class CentrosService {
   // campos enviados; bumpCentros porque nombre/ciudad/estado/direccion aparecen en
   // el directorio. Nunca toca cantidadTotal (regla de oro).
   async actualizar(centroId: string, dto: UpdateCentroDto) {
-    const centro = await prisma.centro.update({ where: { id: centroId }, data: dto });
+    const centro = await prisma.centro.update({
+      where: { id: centroId },
+      data: dto,
+    });
     await this.redis.bumpCentros();
     return centro;
   }
@@ -824,7 +955,10 @@ export class CentrosService {
   // Estado operativo (cualquier voluntario). bumpCentros porque recibiendoAhora
   // alimenta el filtro soloAbiertos del directorio.
   async actualizarOperativo(centroId: string, dto: UpdateOperativoDto) {
-    const centro = await prisma.centro.update({ where: { id: centroId }, data: dto });
+    const centro = await prisma.centro.update({
+      where: { id: centroId },
+      data: dto,
+    });
     await this.redis.bumpCentros();
     return centro;
   }
@@ -847,7 +981,9 @@ export class CentrosService {
       const u = f.umbralUrgente ?? null;
       const s = f.umbralSuficiente ?? null;
       if (u != null && s != null && u >= s)
-        throw new BadRequestException("umbralUrgente debe ser menor que umbralSuficiente");
+        throw new BadRequestException(
+          "umbralUrgente debe ser menor que umbralSuficiente",
+        );
     }
 
     await prisma.$transaction(
@@ -857,7 +993,11 @@ export class CentrosService {
         const nivel = calcularNivel(owned.get(f.insumoId)!.cantidadTotal, u, s);
         return prisma.insumo.update({
           where: { id: f.insumoId },
-          data: { umbralUrgente: u, umbralSuficiente: s, ...(nivel != null ? { nivel } : {}) },
+          data: {
+            umbralUrgente: u,
+            umbralSuficiente: s,
+            ...(nivel != null ? { nivel } : {}),
+          },
         });
       }),
     );
@@ -879,7 +1019,10 @@ export class CentrosService {
   // Remover un voluntario (solo JEFE). Identificado por Voluntario.id (nunca por
   // fingerprint). Valida pertenencia al centro (evita borrado cruzado) y prohíbe
   // remover al JEFE/dueño. bumpCentros: el conteo viaja en el directorio y el detalle.
-  async removerVoluntario(centroId: string, voluntarioId: string): Promise<{ ok: true }> {
+  async removerVoluntario(
+    centroId: string,
+    voluntarioId: string,
+  ): Promise<{ ok: true }> {
     const link = await prisma.voluntario.findUnique({
       where: { id: voluntarioId },
       select: { centroId: true, rol: true },
@@ -941,7 +1084,11 @@ export class CentrosService {
   ): Promise<{ ok: true }> {
     await prisma.centro.update({
       where: { id: centroId },
-      data: { verificacion: estado, verificadoEn: new Date(), verificadoPorId: adminId ?? null },
+      data: {
+        verificacion: estado,
+        verificadoEn: new Date(),
+        verificadoPorId: adminId ?? null,
+      },
     });
     await this.redis.bumpCentros();
     return { ok: true };
@@ -949,12 +1096,19 @@ export class CentrosService {
 
   // Guardar la foto del local (data URL base64) en disco y apuntar fotoUrl.
   // ponytail: disco local; mover a object storage para prod multi-instancia.
-  async setFoto(centroId: string, dataUrl: string): Promise<{ fotoUrl: string }> {
+  async setFoto(
+    centroId: string,
+    dataUrl: string,
+  ): Promise<{ fotoUrl: string }> {
     const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/);
-    if (!m) throw new BadRequestException("Formato de imagen inválido (png, jpg o webp)");
+    if (!m)
+      throw new BadRequestException(
+        "Formato de imagen inválido (png, jpg o webp)",
+      );
     const ext = m[1] === "jpeg" ? "jpg" : m[1];
     const buf = Buffer.from(m[2], "base64");
-    if (buf.length > 3 * 1024 * 1024) throw new BadRequestException("La imagen supera 3 MB");
+    if (buf.length > 3 * 1024 * 1024)
+      throw new BadRequestException("La imagen supera 3 MB");
 
     const dir = join(process.cwd(), "uploads", "centros");
     mkdirSync(dir, { recursive: true });
@@ -978,7 +1132,9 @@ export class CentrosController {
   // Directorio público (también "solo observar"). Sin guard: cualquiera puede ver.
   @Get()
   @ApiTags("publico")
-  @ApiOperation({ summary: "Directorio de centros de acopio (paginado, filtros opcionales)" })
+  @ApiOperation({
+    summary: "Directorio de centros de acopio (paginado, filtros opcionales)",
+  })
   @ApiOkResponse({
     schema: {
       example: {
@@ -994,7 +1150,9 @@ export class CentrosController {
             verificado: true,
             distanciaKm: null,
             prioridadAlta: true,
-            necesidades: [{ nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" }],
+            necesidades: [
+              { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" },
+            ],
           },
         ],
         page: 1,
@@ -1029,7 +1187,9 @@ export class CentrosController {
   // Mapa público de centros con coordenadas. Literal antes de ":centroId".
   @Get("mapa")
   @ApiTags("publico")
-  @ApiOperation({ summary: "Coordenadas de todos los centros para pintar el mapa" })
+  @ApiOperation({
+    summary: "Coordenadas de todos los centros para pintar el mapa",
+  })
   @ApiOkResponse({
     schema: {
       example: [
@@ -1058,7 +1218,10 @@ export class CentrosController {
   // Detalle público (directorio). Sin guard: ruta distinta a la de miembros.
   @Get(":centroId/publico")
   @ApiTags("publico")
-  @ApiOperation({ summary: "Detalle público de un centro (sin cantidades; solo insumos URGENTE/NORMAL)" })
+  @ApiOperation({
+    summary:
+      "Detalle público de un centro (sin cantidades; solo insumos URGENTE/NORMAL)",
+  })
   @ApiOkResponse({
     schema: {
       example: {
@@ -1091,28 +1254,41 @@ export class CentrosController {
   // Editar datos principales: solo el JEFE.
   @Patch(":centroId")
   @UseGuards(IdentidadGuard, JefeGuard)
-  actualizar(@Param("centroId") centroId: string, @Body() dto: UpdateCentroDto) {
+  actualizar(
+    @Param("centroId") centroId: string,
+    @Body() dto: UpdateCentroDto,
+  ) {
     return this.service.actualizar(centroId, dto);
   }
 
   // Editar estado operativo: cualquier voluntario del centro.
   @Patch(":centroId/operativo")
   @UseGuards(IdentidadGuard, VoluntarioGuard)
-  actualizarOperativo(@Param("centroId") centroId: string, @Body() dto: UpdateOperativoDto) {
+  actualizarOperativo(
+    @Param("centroId") centroId: string,
+    @Body() dto: UpdateOperativoDto,
+  ) {
     return this.service.actualizarOperativo(centroId, dto);
   }
 
   // Configurar umbrales por insumo (nivel automático): solo el JEFE.
   @Patch(":centroId/umbrales")
   @UseGuards(IdentidadGuard, JefeGuard)
-  actualizarUmbrales(@Param("centroId") centroId: string, @Body() dto: UpdateUmbralesDto) {
+  actualizarUmbrales(
+    @Param("centroId") centroId: string,
+    @Body() dto: UpdateUmbralesDto,
+  ) {
     return this.service.actualizarUmbrales(centroId, dto);
   }
 
   // Verificar / rechazar un centro: solo el equipo (sesión JWT de admin).
   @Patch(":centroId/verificacion")
   @UseGuards(AdminGuard)
-  verificar(@Req() req: any, @Param("centroId") centroId: string, @Body() dto: VerificarDto) {
+  verificar(
+    @Req() req: any,
+    @Param("centroId") centroId: string,
+    @Body() dto: VerificarDto,
+  ) {
     return this.service.verificar(centroId, dto.estado, req.adminId);
   }
 
@@ -1127,7 +1303,11 @@ export class CentrosController {
   // Reportar un centro inválido: anónimo (x-fingerprint o IP), sin identidad. Rate-limited.
   @Post(":centroId/reportes")
   @UseGuards(RateLimitGuard)
-  reportar(@Req() req: any, @Param("centroId") centroId: string, @Body() dto: ReporteDto) {
+  reportar(
+    @Req() req: any,
+    @Param("centroId") centroId: string,
+    @Body() dto: ReporteDto,
+  ) {
     const fp: string = req.header("x-fingerprint") || req.ip || "anon";
     return this.service.reportar(centroId, fp, dto.motivo, dto.comentario);
   }

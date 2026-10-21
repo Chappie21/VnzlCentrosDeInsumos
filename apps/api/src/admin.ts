@@ -12,7 +12,8 @@ import { compare } from "bcryptjs";
 import { prisma } from "@vnzl/database";
 import { RateLimitGuard } from "./guards";
 
-const DUMMY_HASH = "$2b$10$eCnKleOuUjlWnp6FKGd1GutvBdFEueoXmYVhixx4mhVtDXwGwGgtm";
+const DUMMY_HASH =
+  "$2b$10$eCnKleOuUjlWnp6FKGd1GutvBdFEueoXmYVhixx4mhVtDXwGwGgtm";
 
 class LoginDto {
   @IsEmail() email: string;
@@ -25,13 +26,26 @@ class LoginDto {
 export class AdminService {
   constructor(private readonly jwt: JwtService) {}
 
-  async login(email: string, password: string): Promise<{ token: string; nombre: string }> {
-    const admin = await prisma.admin.findUnique({ where: { email: email.toLowerCase().trim() } });
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; nombre: string }> {
+    const admin = await prisma.admin.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
     // Mismo error siempre (no filtrar si el email existe).
-    const match = await compare(password, (admin && admin.activo && admin.passwordHash) ? admin.passwordHash : DUMMY_HASH);
+    const match = await compare(
+      password,
+      admin && admin.activo && admin.passwordHash
+        ? admin.passwordHash
+        : DUMMY_HASH,
+    );
     if (!admin || !admin.activo || !match)
       throw new UnauthorizedException("Credenciales inválidas");
-    const token = await this.jwt.signAsync({ sub: admin.id, typ: "admin" }, { expiresIn: "8h" });
+    const token = await this.jwt.signAsync(
+      { sub: admin.id, typ: "admin" },
+      { expiresIn: "8h" },
+    );
     return { token, nombre: admin.nombre };
   }
 }

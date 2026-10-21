@@ -15,7 +15,11 @@ const { prismaMock } = vi.hoisted(() => ({
 
 vi.mock("@vnzl/database", () => ({
   prisma: prismaMock,
-  NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
+  NivelInsumo: {
+    URGENTE: "URGENTE",
+    NORMAL: "NORMAL",
+    SUFICIENTE: "SUFICIENTE",
+  },
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
   CategoriaInsumo: {},
   Prisma: {},
@@ -127,7 +131,12 @@ describe("AuthService.register", () => {
       cedulaVerificada: true,
       cedulaNombre: "MARIA OFICIAL PEREZ",
     });
-    prismaMock.usuario.create.mockResolvedValue({ id: "u1", nombre: "MARIA OFICIAL PEREZ", cedula: "V12345678", telefono: "04141234567" });
+    prismaMock.usuario.create.mockResolvedValue({
+      id: "u1",
+      nombre: "MARIA OFICIAL PEREZ",
+      cedula: "V12345678",
+      telefono: "04141234567",
+    });
 
     await service.register({
       pais: "VE",
@@ -160,13 +169,19 @@ describe("AuthService.login", () => {
       passwordHash,
     });
 
-    const res = await service.login({ cedula: "E87654321", password: "mypassword" });
+    const res = await service.login({
+      cedula: "E87654321",
+      password: "mypassword",
+    });
 
     expect(res.token).toBeDefined();
     const userId = await verifyUserToken(jwt, res.token);
     expect(userId).toBe("user-uuid-2");
 
-    expect(res.usuario).toMatchObject({ id: "user-uuid-2", cedula: "E87654321" });
+    expect(res.usuario).toMatchObject({
+      id: "user-uuid-2",
+      cedula: "E87654321",
+    });
   });
 
   it("lanza UnauthorizedException con contraseña incorrecta", async () => {
@@ -204,7 +219,10 @@ describe("AuthService.login", () => {
       passwordHash,
     });
 
-    const res = await service.login({ cedula: "1.020.304.050", password: "mypassword" });
+    const res = await service.login({
+      cedula: "1.020.304.050",
+      password: "mypassword",
+    });
 
     expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({
       where: { cedula: "1020304050" },
@@ -220,9 +238,17 @@ describe("AuthService.login", () => {
 
     prismaMock.usuario.findUnique
       .mockResolvedValueOnce(null) // "12345678" no existe
-      .mockResolvedValueOnce({ id: "user-ve-1", pais: "VE", cedula: "V12345678", passwordHash });
+      .mockResolvedValueOnce({
+        id: "user-ve-1",
+        pais: "VE",
+        cedula: "V12345678",
+        passwordHash,
+      });
 
-    const res = await service.login({ cedula: "12345678", password: "mypassword" });
+    const res = await service.login({
+      cedula: "12345678",
+      password: "mypassword",
+    });
 
     expect(prismaMock.usuario.findUnique).toHaveBeenNthCalledWith(2, {
       where: { cedula: "V12345678" },
@@ -271,7 +297,9 @@ describe("AuthService.google", () => {
 
     const res = await service.google("fake-id-token");
 
-    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({ where: { googleId: "g1" } });
+    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({
+      where: { googleId: "g1" },
+    });
     expect(prismaMock.usuario.upsert).toHaveBeenCalledWith({
       where: { email: "a@b.com" },
       update: { googleId: "g1" },
@@ -295,7 +323,9 @@ describe("AuthService.google", () => {
 
     const res = await service.google("fake-id-token");
 
-    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({ where: { googleId: "g1" } });
+    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({
+      where: { googleId: "g1" },
+    });
     expect(prismaMock.usuario.upsert).not.toHaveBeenCalled();
     expect(res.needsProfile).toBe(true);
     expect(res.usuario.id).toBe("user-google-1");
@@ -306,6 +336,8 @@ describe("AuthService.google", () => {
       verifyIdToken: async () => ({ getPayload: () => ({ email: "a@b.com" }) }),
     };
 
-    await expect(service.google("bad-token")).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.google("bad-token")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });

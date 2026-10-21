@@ -35,12 +35,35 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@vnzl/database", () => ({
   prisma: prismaMock,
   Prisma: {},
-  NivelInsumo: { URGENTE: "URGENTE", NORMAL: "NORMAL", SUFICIENTE: "SUFICIENTE" },
-  CategoriaInsumo: { AGUA: "AGUA", MEDICAMENTOS: "MEDICAMENTOS", ROPA: "ROPA", ALIMENTOS: "ALIMENTOS", HERRAMIENTAS: "HERRAMIENTAS" },
+  NivelInsumo: {
+    URGENTE: "URGENTE",
+    NORMAL: "NORMAL",
+    SUFICIENTE: "SUFICIENTE",
+  },
+  CategoriaInsumo: {
+    AGUA: "AGUA",
+    MEDICAMENTOS: "MEDICAMENTOS",
+    ROPA: "ROPA",
+    ALIMENTOS: "ALIMENTOS",
+    HERRAMIENTAS: "HERRAMIENTAS",
+  },
   RolVoluntario: { JEFE: "JEFE", VOLUNTARIO: "VOLUNTARIO" },
-  EstadoVerificacion: { PENDIENTE: "PENDIENTE", VERIFICADO: "VERIFICADO", RECHAZADO: "RECHAZADO" },
-  TipoMovimiento: { DONACION: "DONACION", CARGA_INICIAL: "CARGA_INICIAL", AJUSTE: "AJUSTE", SALIDA: "SALIDA" },
-  MotivoReporte: { NO_EXISTE: "NO_EXISTE", INFO_INCORRECTA: "INFO_INCORRECTA", ENGANOSO: "ENGANOSO" },
+  EstadoVerificacion: {
+    PENDIENTE: "PENDIENTE",
+    VERIFICADO: "VERIFICADO",
+    RECHAZADO: "RECHAZADO",
+  },
+  TipoMovimiento: {
+    DONACION: "DONACION",
+    CARGA_INICIAL: "CARGA_INICIAL",
+    AJUSTE: "AJUSTE",
+    SALIDA: "SALIDA",
+  },
+  MotivoReporte: {
+    NO_EXISTE: "NO_EXISTE",
+    INFO_INCORRECTA: "INFO_INCORRECTA",
+    ENGANOSO: "ENGANOSO",
+  },
 }));
 
 // No tocar disco al subir fotos en los tests.
@@ -85,7 +108,9 @@ beforeEach(() => {
 
 describe("CentrosService.list — sin coordenadas (paginación DB)", () => {
   it("pagina con skip/take y calcula hasNext", async () => {
-    prismaMock.centro.findMany.mockResolvedValue([{ ...centroBase, insumos: [] }]);
+    prismaMock.centro.findMany.mockResolvedValue([
+      { ...centroBase, insumos: [] },
+    ]);
     prismaMock.centro.count.mockResolvedValue(25);
 
     const res = await service.list({ page: 1, limit: 20 });
@@ -170,7 +195,9 @@ describe("CentrosService.list — sin coordenadas (paginación DB)", () => {
     await service.list({ pais: "CO" });
     await service.list({});
 
-    const [kVE, kCO, kSinPais] = redis.cached.mock.calls.map((c: any[]) => c[0]);
+    const [kVE, kCO, kSinPais] = redis.cached.mock.calls.map(
+      (c: any[]) => c[0],
+    );
     expect(new Set([kVE, kCO, kSinPais]).size).toBe(3);
   });
 
@@ -179,11 +206,15 @@ describe("CentrosService.list — sin coordenadas (paginación DB)", () => {
     prismaMock.centro.count.mockResolvedValue(0);
 
     await service.list({ pais: "CO" });
-    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({ pais: "CO" });
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      pais: "CO",
+    });
 
     prismaMock.centro.findMany.mockClear();
     await service.list({});
-    expect(prismaMock.centro.findMany.mock.calls[0][0].where).not.toHaveProperty("pais");
+    expect(
+      prismaMock.centro.findMany.mock.calls[0][0].where,
+    ).not.toHaveProperty("pais");
   });
 });
 
@@ -228,19 +259,39 @@ describe("CentrosService.mapaCoords — aislamiento por país", () => {
     const keys = redis.cached.mock.calls.map((c: any[]) => c[0]);
     expect(new Set(keys).size).toBe(3);
     expect(keys[2]).toContain(":all");
-    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({ pais: "CO" });
-    expect(prismaMock.centro.findMany.mock.calls[2][0].where).not.toHaveProperty("pais");
+    expect(prismaMock.centro.findMany.mock.calls[0][0].where).toMatchObject({
+      pais: "CO",
+    });
+    expect(
+      prismaMock.centro.findMany.mock.calls[2][0].where,
+    ).not.toHaveProperty("pais");
   });
 });
 
 describe("CentrosService.list — con coordenadas (proximidad)", () => {
   it("ordena por cercanía y filtra por radio", async () => {
     prismaMock.centro.findMany.mockResolvedValue([
-      { ...centroBase, id: "lejos", latitud: 10.65, longitud: -71.64, insumos: [] },
-      { ...centroBase, id: "cerca", latitud: 10.5, longitud: -66.9, insumos: [] },
+      {
+        ...centroBase,
+        id: "lejos",
+        latitud: 10.65,
+        longitud: -71.64,
+        insumos: [],
+      },
+      {
+        ...centroBase,
+        id: "cerca",
+        latitud: 10.5,
+        longitud: -66.9,
+        insumos: [],
+      },
     ]);
 
-    const { items, total } = await service.list({ lat: 10.5, lng: -66.9, radiusKm: 50 });
+    const { items, total } = await service.list({
+      lat: 10.5,
+      lng: -66.9,
+      radiusKm: 50,
+    });
 
     expect(items[0].id).toBe("cerca");
     expect(items.find((i) => i.id === "lejos")).toBeUndefined(); // fuera del radio
@@ -259,7 +310,12 @@ describe("CentrosService.create — escritura transaccional", () => {
       ciudad: "Caracas",
       direccion: "Av 2",
     } as any;
-    const creado = { ...centroBase, id: "new-id", nombre: "Centro Nuevo", recibiendoAhora: true };
+    const creado = {
+      ...centroBase,
+      id: "new-id",
+      nombre: "Centro Nuevo",
+      recibiendoAhora: true,
+    };
 
     // tx expone los mismos modelos que usa create(); centro.create resuelve la fila.
     const txMock = {
@@ -285,29 +341,57 @@ describe("CentrosService.create — escritura transaccional", () => {
     const txMock = {
       centro: { create: vi.fn().mockResolvedValue(creado) },
       voluntario: { create: vi.fn().mockResolvedValue({}) },
-      insumo: { create: vi.fn().mockResolvedValue({ id: "i-1" }), update: vi.fn() },
+      insumo: {
+        create: vi.fn().mockResolvedValue({ id: "i-1" }),
+        update: vi.fn(),
+      },
       historial: { create: vi.fn() },
     };
     prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
     const dto = {
-      nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av",
+      nombre: "C",
+      pais: "VE",
+      estado: "DC",
+      ciudad: "Caracas",
+      direccion: "Av",
       insumos: [{ nombre: "Agua", categoria: "AGUA", cantidad: 10 }],
     } as any;
     await service.create("fp-1", dto);
 
     // el centro se crea sin el campo insumos (no es columna de Centro)
     expect(txMock.centro.create).toHaveBeenCalledWith({
-      data: { nombre: "C", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av" },
+      data: {
+        nombre: "C",
+        pais: "VE",
+        estado: "DC",
+        ciudad: "Caracas",
+        direccion: "Av",
+      },
     });
     expect(txMock.insumo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ centroId: "new-id", nombre: "Agua", cantidadTotal: 0 }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          centroId: "new-id",
+          nombre: "Agua",
+          cantidadTotal: 0,
+        }),
+      }),
     );
     expect(txMock.historial.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ insumoId: "i-1", cantidad: 10, tipo: "CARGA_INICIAL" }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          insumoId: "i-1",
+          cantidad: 10,
+          tipo: "CARGA_INICIAL",
+        }),
+      }),
     );
     expect(txMock.insumo.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "i-1" }, data: { cantidadTotal: { increment: 10 } } }),
+      expect.objectContaining({
+        where: { id: "i-1" },
+        data: { cantidadTotal: { increment: 10 } },
+      }),
     );
   });
 
@@ -322,7 +406,9 @@ describe("CentrosService.create — escritura transaccional", () => {
     const errs = await validate(
       plainToInstance(InsumoInicialDto, { nombre: "Agua", cantidad: -1 }),
     );
-    expect(errs.flatMap((e) => Object.keys(e.constraints ?? {}))).toContain("min");
+    expect(errs.flatMap((e) => Object.keys(e.constraints ?? {}))).toContain(
+      "min",
+    );
   });
 });
 
@@ -334,7 +420,9 @@ describe("CentrosService.mias — centros del voluntario", () => {
 
     expect(res).toEqual([]);
     const arg = prismaMock.centro.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ voluntarios: { some: { usuarioId: "fp-123" } } });
+    expect(arg.where).toEqual({
+      voluntarios: { some: { usuarioId: "fp-123" } },
+    });
   });
 
   it("expone insumos con cantidadTotal y la cuenta de voluntarios; sin PII", async () => {
@@ -342,7 +430,13 @@ describe("CentrosService.mias — centros del voluntario", () => {
       {
         ...centroBase,
         insumos: [
-          { id: "i1", nombre: "Agua", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+          {
+            id: "i1",
+            nombre: "Agua",
+            nivel: "URGENTE",
+            categoria: "AGUA",
+            cantidadTotal: 12,
+          },
         ],
         _count: { voluntarios: 3 },
         voluntarios: [{ rol: "JEFE" }],
@@ -392,8 +486,22 @@ describe("CentrosService.listarVoluntarios — gestión de miembros", () => {
     expect(arg.select).not.toHaveProperty("usuarioId");
 
     expect(res).toEqual([
-      { id: "v-jefe", nombre: "Ana", cedula: "V-1", telefono: "0414-1", rol: "JEFE", asignadoEn: new Date("2026-01-01") },
-      { id: "v-vol", nombre: "Beto", cedula: "V-2", telefono: "0414-2", rol: "VOLUNTARIO", asignadoEn: new Date("2026-02-01") },
+      {
+        id: "v-jefe",
+        nombre: "Ana",
+        cedula: "V-1",
+        telefono: "0414-1",
+        rol: "JEFE",
+        asignadoEn: new Date("2026-01-01"),
+      },
+      {
+        id: "v-vol",
+        nombre: "Beto",
+        cedula: "V-2",
+        telefono: "0414-2",
+        rol: "VOLUNTARIO",
+        asignadoEn: new Date("2026-02-01"),
+      },
     ]);
     expect(res[0]).not.toHaveProperty("usuarioId");
   });
@@ -401,31 +509,48 @@ describe("CentrosService.listarVoluntarios — gestión de miembros", () => {
 
 describe("CentrosService.removerVoluntario — remoción (solo JEFE)", () => {
   it("borra la fila, invalida cache y devuelve { ok: true }", async () => {
-    prismaMock.voluntario.findUnique.mockResolvedValue({ centroId: "c1", rol: "VOLUNTARIO" });
+    prismaMock.voluntario.findUnique.mockResolvedValue({
+      centroId: "c1",
+      rol: "VOLUNTARIO",
+    });
     prismaMock.voluntario.delete.mockResolvedValue({});
 
     const res = await service.removerVoluntario("c1", "v-vol");
 
-    expect(prismaMock.voluntario.delete).toHaveBeenCalledWith({ where: { id: "v-vol" } });
+    expect(prismaMock.voluntario.delete).toHaveBeenCalledWith({
+      where: { id: "v-vol" },
+    });
     expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
     expect(res).toEqual({ ok: true });
   });
 
   it("rechaza (NotFound) si la fila no existe", async () => {
     prismaMock.voluntario.findUnique.mockResolvedValue(null);
-    await expect(service.removerVoluntario("c1", "ghost")).rejects.toThrow(/no encontrado/i);
+    await expect(service.removerVoluntario("c1", "ghost")).rejects.toThrow(
+      /no encontrado/i,
+    );
     expect(prismaMock.voluntario.delete).not.toHaveBeenCalled();
   });
 
   it("rechaza (NotFound) si la fila es de otro centro (sin borrado cruzado)", async () => {
-    prismaMock.voluntario.findUnique.mockResolvedValue({ centroId: "otro", rol: "VOLUNTARIO" });
-    await expect(service.removerVoluntario("c1", "v-vol")).rejects.toThrow(/no encontrado/i);
+    prismaMock.voluntario.findUnique.mockResolvedValue({
+      centroId: "otro",
+      rol: "VOLUNTARIO",
+    });
+    await expect(service.removerVoluntario("c1", "v-vol")).rejects.toThrow(
+      /no encontrado/i,
+    );
     expect(prismaMock.voluntario.delete).not.toHaveBeenCalled();
   });
 
   it("rechaza remover a un JEFE (BadRequest)", async () => {
-    prismaMock.voluntario.findUnique.mockResolvedValue({ centroId: "c1", rol: "JEFE" });
-    await expect(service.removerVoluntario("c1", "v-jefe")).rejects.toThrow(/jefe/i);
+    prismaMock.voluntario.findUnique.mockResolvedValue({
+      centroId: "c1",
+      rol: "JEFE",
+    });
+    await expect(service.removerVoluntario("c1", "v-jefe")).rejects.toThrow(
+      /jefe/i,
+    );
     expect(prismaMock.voluntario.delete).not.toHaveBeenCalled();
   });
 });
@@ -470,7 +595,14 @@ describe("CentrosService.detalle — dashboard de miembros", () => {
       longitud: -66.9,
       creadoEn: new Date("2026-01-01"),
       insumos: [
-        { id: "i1", nombre: "Agua", descripcion: "Botellones", nivel: "URGENTE", categoria: "AGUA", cantidadTotal: 12 },
+        {
+          id: "i1",
+          nombre: "Agua",
+          descripcion: "Botellones",
+          nivel: "URGENTE",
+          categoria: "AGUA",
+          cantidadTotal: 12,
+        },
       ],
       _count: { voluntarios: 4 },
       voluntarios: [{ rol: "JEFE" }],
@@ -528,7 +660,10 @@ describe("CentrosService.actualizar / actualizarOperativo — escritura + bump",
 
     await service.actualizar("c1", dto);
 
-    expect(prismaMock.centro.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: dto });
+    expect(prismaMock.centro.update).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      data: dto,
+    });
     expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
   });
 
@@ -538,7 +673,10 @@ describe("CentrosService.actualizar / actualizarOperativo — escritura + bump",
 
     await service.actualizarOperativo("c1", dto);
 
-    expect(prismaMock.centro.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: dto });
+    expect(prismaMock.centro.update).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      data: dto,
+    });
     expect(redis.bumpCentros).toHaveBeenCalledTimes(1);
   });
 });
@@ -554,7 +692,9 @@ describe("UpdateCentroDto — whitelist y regla ciudad⇒estado", () => {
   });
 
   it("acepta pais + estado + ciudad coherentes", async () => {
-    expect(await errores({ pais: "VE", estado: "Miranda", ciudad: "Baruta" })).toHaveLength(0);
+    expect(
+      await errores({ pais: "VE", estado: "Miranda", ciudad: "Baruta" }),
+    ).toHaveLength(0);
     expect(
       await errores({ pais: "CO", estado: "Antioquia", ciudad: "Medellín" }),
     ).toHaveLength(0);
@@ -566,26 +706,31 @@ describe("UpdateCentroDto — whitelist y regla ciudad⇒estado", () => {
   });
 
   it("rechaza estado fuera de la whitelist", async () => {
-    expect(await errores({ pais: "VE", estado: "Narnia", ciudad: "Baruta" })).toContain(
-      "isEstadoDePais",
-    );
+    expect(
+      await errores({ pais: "VE", estado: "Narnia", ciudad: "Baruta" }),
+    ).toContain("isEstadoDePais");
   });
 
   it("rechaza ciudad que no pertenece al estado", async () => {
-    expect(await errores({ pais: "VE", estado: "Miranda", ciudad: "Maracaibo" })).toContain(
-      "isCiudadDeEstado",
-    );
+    expect(
+      await errores({ pais: "VE", estado: "Miranda", ciudad: "Maracaibo" }),
+    ).toContain("isCiudadDeEstado");
   });
 
   it("rechaza estado/ciudad sin país (no se sabe contra qué dataset validar)", async () => {
-    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toContain("isIn");
+    expect(await errores({ estado: "Miranda", ciudad: "Baruta" })).toContain(
+      "isIn",
+    );
   });
 });
 
 describe("UpdateOperativoDto — tipos", () => {
   it("acepta boolean + string (y vacío para limpiar)", async () => {
     const errs = await validate(
-      plainToInstance(UpdateOperativoDto, { recibiendoAhora: true, horarioCierre: "" }),
+      plainToInstance(UpdateOperativoDto, {
+        recibiendoAhora: true,
+        horarioCierre: "",
+      }),
     );
     expect(errs).toHaveLength(0);
   });
@@ -594,12 +739,18 @@ describe("UpdateOperativoDto — tipos", () => {
     const errs = await validate(
       plainToInstance(UpdateOperativoDto, { recibiendoAhora: "sí" }),
     );
-    expect(errs.flatMap((e) => Object.keys(e.constraints ?? {}))).toContain("isBoolean");
+    expect(errs.flatMap((e) => Object.keys(e.constraints ?? {}))).toContain(
+      "isBoolean",
+    );
   });
 });
 
 describe("CreateCentroDto — whitelist pais/estado/ciudad (@vnzl/paises)", () => {
-  const base = { nombre: "Centro X", direccion: "Av Principal 123", pais: "VE" };
+  const base = {
+    nombre: "Centro X",
+    direccion: "Av Principal 123",
+    pais: "VE",
+  };
   const errores = async (data: Record<string, unknown>) =>
     (await validate(plainToInstance(CreateCentroDto, data))).flatMap((e) =>
       Object.keys(e.constraints ?? {}),
@@ -607,7 +758,11 @@ describe("CreateCentroDto — whitelist pais/estado/ciudad (@vnzl/paises)", () =
 
   it("acepta estado real + ciudad de ese estado", async () => {
     const errs = await validate(
-      plainToInstance(CreateCentroDto, { ...base, estado: "Miranda", ciudad: "Baruta" }),
+      plainToInstance(CreateCentroDto, {
+        ...base,
+        estado: "Miranda",
+        ciudad: "Baruta",
+      }),
     );
     expect(errs).toHaveLength(0);
   });
@@ -630,24 +785,43 @@ describe("CreateCentroDto — whitelist pais/estado/ciudad (@vnzl/paises)", () =
   });
 
   it("rechaza ciudad que no pertenece al estado", async () => {
-    const e = await errores({ ...base, estado: "Miranda", ciudad: "Maracaibo" });
+    const e = await errores({
+      ...base,
+      estado: "Miranda",
+      ciudad: "Maracaibo",
+    });
     expect(e).toContain("isCiudadDeEstado");
   });
 
   // Lo que impide que un centro colombiano se guarde con geografía venezolana.
   it("no cruza los datasets entre países", async () => {
-    expect(await errores({ ...base, pais: "CO", estado: "Miranda", ciudad: "Baruta" })).toContain(
-      "isEstadoDePais",
-    );
     expect(
-      await errores({ ...base, pais: "VE", estado: "Antioquia", ciudad: "Medellín" }),
+      await errores({
+        ...base,
+        pais: "CO",
+        estado: "Miranda",
+        ciudad: "Baruta",
+      }),
+    ).toContain("isEstadoDePais");
+    expect(
+      await errores({
+        ...base,
+        pais: "VE",
+        estado: "Antioquia",
+        ciudad: "Medellín",
+      }),
     ).toContain("isEstadoDePais");
   });
 
   it("rechaza un país no soportado", async () => {
-    expect(await errores({ ...base, pais: "AR", estado: "Miranda", ciudad: "Baruta" })).toContain(
-      "isIn",
-    );
+    expect(
+      await errores({
+        ...base,
+        pais: "AR",
+        estado: "Miranda",
+        ciudad: "Baruta",
+      }),
+    ).toContain("isIn");
   });
 });
 
@@ -665,10 +839,22 @@ describe("CentrosService.verificar", () => {
 });
 
 const modRow = (over: Record<string, any> = {}) => ({
-  id: "c1", nombre: "C", estado: "DC", ciudad: "Caracas", direccion: "Av",
-  verificacion: "PENDIENTE", verificadoEn: null, creadoEn: new Date(),
-  fotoUrl: null, latitud: null, longitud: null, geoLat: null, geoLng: null,
-  voluntarios: [], _count: { reportes: 0 }, reportes: [],
+  id: "c1",
+  nombre: "C",
+  estado: "DC",
+  ciudad: "Caracas",
+  direccion: "Av",
+  verificacion: "PENDIENTE",
+  verificadoEn: null,
+  creadoEn: new Date(),
+  fotoUrl: null,
+  latitud: null,
+  longitud: null,
+  geoLat: null,
+  geoLng: null,
+  voluntarios: [],
+  _count: { reportes: 0 },
+  reportes: [],
   ...over,
 });
 
@@ -676,18 +862,29 @@ describe("CentrosService.moderacion", () => {
   it("calcula distanciaGeoM (haversine) y mapea al responsable", async () => {
     prismaMock.centro.findMany.mockResolvedValue([
       modRow({
-        latitud: 10.5061, longitud: -66.9146, geoLat: 10.4339, geoLng: -66.8758,
-        voluntarios: [{ usuario: { nombre: "Ana", cedula: "V-1", telefono: "0412" } }],
+        latitud: 10.5061,
+        longitud: -66.9146,
+        geoLat: 10.4339,
+        geoLng: -66.8758,
+        voluntarios: [
+          { usuario: { nombre: "Ana", cedula: "V-1", telefono: "0412" } },
+        ],
       }),
     ]);
     const [m] = await service.moderacion("PENDIENTE" as any);
     expect(m.distanciaGeoM).toBeGreaterThan(7000);
     expect(m.distanciaGeoM).toBeLessThan(10000);
-    expect(m.responsable).toEqual({ nombre: "Ana", cedula: "V-1", telefono: "0412" });
+    expect(m.responsable).toEqual({
+      nombre: "Ana",
+      cedula: "V-1",
+      telefono: "0412",
+    });
   });
 
   it("distanciaGeoM null si falta alguna coordenada", async () => {
-    prismaMock.centro.findMany.mockResolvedValue([modRow({ latitud: 10.5, longitud: -66.9 })]);
+    prismaMock.centro.findMany.mockResolvedValue([
+      modRow({ latitud: 10.5, longitud: -66.9 }),
+    ]);
     const [m] = await service.moderacion();
     expect(m.distanciaGeoM).toBeNull();
     expect(m.responsable).toBeNull();
@@ -695,10 +892,19 @@ describe("CentrosService.moderacion", () => {
 
   it("incluye reportados aunque no sean PENDIENTE y los prioriza (flag >= 3)", async () => {
     prismaMock.centro.findMany.mockResolvedValue([
-      modRow({ id: "pend", verificacion: "PENDIENTE", _count: { reportes: 0 }, reportes: [] }),
       modRow({
-        id: "rep", verificacion: "VERIFICADO", _count: { reportes: 4 },
-        reportes: [{ motivo: "ENGANOSO", comentario: null, creadoEn: new Date() }],
+        id: "pend",
+        verificacion: "PENDIENTE",
+        _count: { reportes: 0 },
+        reportes: [],
+      }),
+      modRow({
+        id: "rep",
+        verificacion: "VERIFICADO",
+        _count: { reportes: 4 },
+        reportes: [
+          { motivo: "ENGANOSO", comentario: null, creadoEn: new Date() },
+        ],
       }),
     ]);
     const res = await service.moderacion("PENDIENTE" as any);
@@ -719,9 +925,14 @@ describe("CentrosService.reportar", () => {
     prismaMock.reporte.upsert.mockResolvedValue({});
     await service.reportar("c1", "fp-1", "NO_EXISTE" as any, "ya cerró");
     const arg = prismaMock.reporte.upsert.mock.calls[0][0];
-    expect(arg.where).toEqual({ centroId_fingerprint: { centroId: "c1", fingerprint: "fp-1" } });
+    expect(arg.where).toEqual({
+      centroId_fingerprint: { centroId: "c1", fingerprint: "fp-1" },
+    });
     expect(arg.create).toMatchObject({
-      centroId: "c1", fingerprint: "fp-1", motivo: "NO_EXISTE", comentario: "ya cerró",
+      centroId: "c1",
+      fingerprint: "fp-1",
+      motivo: "NO_EXISTE",
+      comentario: "ya cerró",
     });
     expect(arg.update.motivo).toBe("NO_EXISTE");
   });
@@ -729,9 +940,9 @@ describe("CentrosService.reportar", () => {
 
 describe("CentrosService.setFoto", () => {
   it("rechaza un data URL que no es imagen", async () => {
-    await expect(service.setFoto("c1", "data:text/plain;base64,aaaa")).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.setFoto("c1", "data:text/plain;base64,aaaa"),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("acepta una imagen válida, guarda y apunta fotoUrl", async () => {
@@ -740,7 +951,10 @@ describe("CentrosService.setFoto", () => {
     const res = await service.setFoto("c1", png);
     expect(res.fotoUrl).toMatch(/^\/uploads\/centros\/c1-\d+\.png$/);
     expect(prismaMock.centro.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "c1" }, data: { fotoUrl: res.fotoUrl } }),
+      expect.objectContaining({
+        where: { id: "c1" },
+        data: { fotoUrl: res.fotoUrl },
+      }),
     );
   });
 
@@ -755,7 +969,10 @@ describe("CentrosService.setFoto", () => {
     // "etcpasswd" remains
     expect(res.fotoUrl).toMatch(/^\/uploads\/centros\/etcpasswd-\d+\.png$/);
     expect(prismaMock.centro.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: maliciousId }, data: { fotoUrl: res.fotoUrl } }),
+      expect.objectContaining({
+        where: { id: maliciousId },
+        data: { fotoUrl: res.fotoUrl },
+      }),
     );
   });
 });
@@ -766,8 +983,16 @@ describe("CentrosService.detallePublico", () => {
   it("proyecta payload público: solo URGENTE/NORMAL, SIN cantidad ni PII, ordena URGENTE primero", async () => {
     // El mock devuelve lo que la BD ya filtró (URGENTE/NORMAL, sin cantidadTotal).
     prismaMock.centro.findFirst.mockResolvedValue({
-      id: "c1", nombre: "Uno", pais: "VE", estado: "DC", ciudad: "Caracas", direccion: "Av 1",
-      latitud: 10.5, longitud: -66.9, recibiendoAhora: true, horarioCierre: null,
+      id: "c1",
+      nombre: "Uno",
+      pais: "VE",
+      estado: "DC",
+      ciudad: "Caracas",
+      direccion: "Av 1",
+      latitud: 10.5,
+      longitud: -66.9,
+      recibiendoAhora: true,
+      horarioCierre: null,
       insumos: [
         { nombre: "Arroz", nivel: "NORMAL", categoria: "ALIMENTOS" },
         { nombre: "Agua", nivel: "URGENTE", categoria: "AGUA" },
@@ -782,7 +1007,9 @@ describe("CentrosService.detallePublico", () => {
     // La verificación viaja en el WHERE: un centro sin revisar es indistinguible
     // de uno inexistente, así el link directo no saltea el portón del directorio.
     expect(arg.where).toEqual({ id: "c1", verificacion: "VERIFICADO" });
-    expect(arg.select.insumos.where).toEqual({ nivel: { in: ["URGENTE", "NORMAL"] } });
+    expect(arg.select.insumos.where).toEqual({
+      nivel: { in: ["URGENTE", "NORMAL"] },
+    });
     expect(arg.select.insumos.select).not.toHaveProperty("cantidadTotal");
 
     expect(r.necesidades[0].nivel).toBe("URGENTE");
@@ -793,14 +1020,18 @@ describe("CentrosService.detallePublico", () => {
 
   it("lanza 404 si el centro no existe", async () => {
     prismaMock.centro.findFirst.mockResolvedValue(null);
-    await expect(service.detallePublico("nope")).rejects.toThrow("Centro no encontrado");
+    await expect(service.detallePublico("nope")).rejects.toThrow(
+      "Centro no encontrado",
+    );
   });
 
   // Mismo 404 que un id inexistente: no se filtra que el centro existe pero está
   // pendiente de revisión.
   it("lanza 404 si el centro no está verificado", async () => {
     prismaMock.centro.findFirst.mockResolvedValue(null); // el WHERE ya lo descartó
-    await expect(service.detallePublico("pendiente")).rejects.toThrow("Centro no encontrado");
+    await expect(service.detallePublico("pendiente")).rejects.toThrow(
+      "Centro no encontrado",
+    );
     expect(prismaMock.centro.findFirst.mock.calls[0][0].where).toMatchObject({
       verificacion: "VERIFICADO",
     });
@@ -812,7 +1043,14 @@ describe("CentrosService.mapaCoords", () => {
 
   it("pide solo centros con coords y proyecta el punto del mapa", async () => {
     prismaMock.centro.findMany.mockResolvedValue([
-      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
+      {
+        id: "c1",
+        nombre: "Uno",
+        ciudad: "Caracas",
+        latitud: 10.5,
+        longitud: -66.9,
+        recibiendoAhora: true,
+      },
     ]);
 
     const puntos = await service.mapaCoords();
@@ -827,7 +1065,14 @@ describe("CentrosService.mapaCoords", () => {
       }),
     );
     expect(puntos).toEqual([
-      { id: "c1", nombre: "Uno", ciudad: "Caracas", latitud: 10.5, longitud: -66.9, recibiendoAhora: true },
+      {
+        id: "c1",
+        nombre: "Uno",
+        ciudad: "Caracas",
+        latitud: 10.5,
+        longitud: -66.9,
+        recibiendoAhora: true,
+      },
     ]);
   });
 });
@@ -835,11 +1080,15 @@ describe("CentrosService.mapaCoords", () => {
 describe("CentrosService.actualizarUmbrales — nivel automático (JEFE)", () => {
   beforeEach(() => {
     // forma array de $transaction: ejecuta los updates en paralelo.
-    prismaMock.$transaction.mockImplementation(async (ops: any) => Promise.all(ops));
+    prismaMock.$transaction.mockImplementation(async (ops: any) =>
+      Promise.all(ops),
+    );
   });
 
   it("setea umbrales y recalcula nivel con el stock actual", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 2 },
+    ]);
 
     await service.actualizarUmbrales("c1", {
       insumos: [{ insumoId: "i1", umbralUrgente: 3, umbralSuficiente: 10 }],
@@ -854,10 +1103,14 @@ describe("CentrosService.actualizarUmbrales — nivel automático (JEFE)", () =>
   });
 
   it("limpiar umbrales (null) no toca el nivel (vuelve a manual)", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 2 },
+    ]);
 
     await service.actualizarUmbrales("c1", {
-      insumos: [{ insumoId: "i1", umbralUrgente: null, umbralSuficiente: null }],
+      insumos: [
+        { insumoId: "i1", umbralUrgente: null, umbralSuficiente: null },
+      ],
     });
 
     expect(prismaMock.insumo.update).toHaveBeenCalledWith({
@@ -867,7 +1120,9 @@ describe("CentrosService.actualizarUmbrales — nivel automático (JEFE)", () =>
   });
 
   it("rechaza umbralUrgente >= umbralSuficiente", async () => {
-    prismaMock.insumo.findMany.mockResolvedValue([{ id: "i1", cantidadTotal: 2 }]);
+    prismaMock.insumo.findMany.mockResolvedValue([
+      { id: "i1", cantidadTotal: 2 },
+    ]);
     await expect(
       service.actualizarUmbrales("c1", {
         insumos: [{ insumoId: "i1", umbralUrgente: 10, umbralSuficiente: 5 }],

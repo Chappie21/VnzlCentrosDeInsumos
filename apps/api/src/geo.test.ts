@@ -41,6 +41,8 @@ describe("geo", () => {
     expect(lat).toBeGreaterThan(small.minLat);
     expect(lat).toBeLessThan(small.maxLat);
     // más radio -> caja más ancha
-    expect(big.maxLat - big.minLat).toBeGreaterThan(small.maxLat - small.minLat);
+    expect(big.maxLat - big.minLat).toBeGreaterThan(
+      small.maxLat - small.minLat,
+    );
   });
 });
