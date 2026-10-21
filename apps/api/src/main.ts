@@ -27,7 +27,10 @@ async function bootstrap() {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  app.enableCors({ origin: origins.length ? origins : true, credentials: true });
+  app.enableCors({
+    origin: origins.length ? origins : true,
+    credentials: true,
+  });
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   // Foto del local va como data URL base64 en JSON → subir el límite (default 100kb).
   app.use(express.json({ limit: "5mb" }));
@@ -39,14 +42,18 @@ async function bootstrap() {
   // marcados @ApiTags("publico") — los internos (admin/jefe/PII) NO se exponen.
   const config = new DocumentBuilder()
     .setTitle("Red de Acopio LATAM — API pública")
-    .setDescription("Endpoints públicos (sin autenticación) para consultar centros de acopio y sus necesidades.")
+    .setDescription(
+      "Endpoints públicos (sin autenticación) para consultar centros de acopio y sus necesidades.",
+    )
     .setVersion("1.0")
     .build();
   const full = SwaggerModule.createDocument(app, config);
   const paths: typeof full.paths = {};
   for (const [ruta, metodos] of Object.entries(full.paths)) {
     const pub = Object.fromEntries(
-      Object.entries(metodos).filter(([, op]) => (op as any).tags?.includes("publico")),
+      Object.entries(metodos).filter(([, op]) =>
+        (op as any).tags?.includes("publico"),
+      ),
     );
     if (Object.keys(pub).length) paths[ruta] = pub;
   }
@@ -68,9 +75,18 @@ async function bootstrap() {
     n = usados.size;
     for (const s of [...usados]) refs(todas[s], usados); // transitivo
   }
-  const schemas = Object.fromEntries(Object.entries(todas).filter(([k]) => usados.has(k)));
-  SwaggerModule.setup("docs", app, { ...full, paths, components: { ...full.components, schemas } });
+  const schemas = Object.fromEntries(
+    Object.entries(todas).filter(([k]) => usados.has(k)),
+  );
+  SwaggerModule.setup("docs", app, {
+    ...full,
+    paths,
+    components: { ...full.components, schemas },
+  });
   // PORT lo inyectan las plataformas (Render/Railway/Cloud Run); API_PORT para dev local.
-  await app.listen(Number(process.env.PORT) || Number(process.env.API_PORT) || 3001, "0.0.0.0");
+  await app.listen(
+    Number(process.env.PORT) || Number(process.env.API_PORT) || 3001,
+    "0.0.0.0",
+  );
 }
 bootstrap();

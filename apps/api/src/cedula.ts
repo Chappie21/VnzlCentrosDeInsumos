@@ -1,5 +1,9 @@
 import * as https from "https";
-import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { prisma } from "@vnzl/database";
 import { parseDocumento, type Pais } from "@vnzl/paises";
 import { cedulaValidacionVe } from "./feature-flags";
@@ -37,7 +41,12 @@ export type CedulaResultado = { existe: boolean; nombre: string | null };
 
 // Nombre completo a partir de los campos de la API.
 export function construirNombre(d: CedulaData): string {
-  return [d.primer_nombre, d.segundo_nombre, d.primer_apellido, d.segundo_apellido]
+  return [
+    d.primer_nombre,
+    d.segundo_nombre,
+    d.primer_apellido,
+    d.segundo_apellido,
+  ]
     .map((s) => (s ?? "").trim())
     .filter(Boolean)
     .join(" ");
@@ -102,7 +111,10 @@ export class CedulaService {
   }
 
   // Resultado, o null si no se pudo consultar (sin config / API caída / timeout).
-  async verificar(nacionalidad: "V" | "E", numero: number): Promise<CedulaResultado | null> {
+  async verificar(
+    nacionalidad: "V" | "E",
+    numero: number,
+  ): Promise<CedulaResultado | null> {
     const appId = process.env.APP_ID_CEDULA;
     const token = process.env.TOKEN_CEDULA;
     if (!appId || !token || appId === "REEMPLAZAR") return null; // no configurada
@@ -134,7 +146,11 @@ export class CedulaService {
       if (!r) return; // API caída/sin config → reintenta en el próximo trigger
       await prisma.usuario.update({
         where: { id: userId },
-        data: { cedulaVerificada: r.existe, cedulaNombre: r.nombre, cedulaVerificadaEn: new Date() },
+        data: {
+          cedulaVerificada: r.existe,
+          cedulaNombre: r.nombre,
+          cedulaVerificadaEn: new Date(),
+        },
       });
     } catch {
       /* best-effort */
@@ -145,18 +161,23 @@ export class CedulaService {
   // ponytail: rejectUnauthorized:false es inseguro (MITM) pero la API lo exige.
   private getJson(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      const req = https.get(url, { rejectUnauthorized: false, timeout: 10_000 }, (res) => {
-        let body = "";
-        res.on("data", (c) => (body += c));
-        res.on("end", () => {
-          if (!res.statusCode || res.statusCode >= 400) return reject(new Error(`HTTP ${res.statusCode}`));
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            reject(e);
-          }
-        });
-      });
+      const req = https.get(
+        url,
+        { rejectUnauthorized: false, timeout: 10_000 },
+        (res) => {
+          let body = "";
+          res.on("data", (c) => (body += c));
+          res.on("end", () => {
+            if (!res.statusCode || res.statusCode >= 400)
+              return reject(new Error(`HTTP ${res.statusCode}`));
+            try {
+              resolve(JSON.parse(body));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        },
+      );
       req.on("timeout", () => req.destroy(new Error("timeout")));
       req.on("error", reject);
     });

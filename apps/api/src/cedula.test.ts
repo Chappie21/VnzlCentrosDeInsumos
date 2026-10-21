@@ -27,18 +27,34 @@ import { construirNombre, interpretarRespuesta, CedulaService } from "./cedula";
 describe("cédula API — parseo de la respuesta", () => {
   it("construirNombre arma el nombre completo y filtra vacíos", () => {
     expect(
-      construirNombre({ primer_nombre: "JUAN", segundo_nombre: "", primer_apellido: "PEREZ", segundo_apellido: "GOMEZ" }),
+      construirNombre({
+        primer_nombre: "JUAN",
+        segundo_nombre: "",
+        primer_apellido: "PEREZ",
+        segundo_apellido: "GOMEZ",
+      }),
     ).toBe("JUAN PEREZ GOMEZ");
-    expect(construirNombre({ primer_nombre: "ANA", primer_apellido: "DIAZ" })).toBe("ANA DIAZ");
+    expect(
+      construirNombre({ primer_nombre: "ANA", primer_apellido: "DIAZ" }),
+    ).toBe("ANA DIAZ");
   });
 
   it("interpretarRespuesta: con data → existe + nombre", () => {
-    const r = interpretarRespuesta({ error: false, data: { primer_nombre: "JUAN", primer_apellido: "PEREZ" } });
+    const r = interpretarRespuesta({
+      error: false,
+      data: { primer_nombre: "JUAN", primer_apellido: "PEREZ" },
+    });
     expect(r).toEqual({ existe: true, nombre: "JUAN PEREZ" });
   });
 
   it("interpretarRespuesta: sin data → no existe", () => {
-    expect(interpretarRespuesta({ error: true, error_str: "no encontrado", data: false })).toEqual({
+    expect(
+      interpretarRespuesta({
+        error: true,
+        error_str: "no encontrado",
+        data: false,
+      }),
+    ).toEqual({
       existe: false,
       nombre: null,
     });
@@ -77,7 +93,10 @@ describe("CedulaService.validarYGuardar", () => {
       pais: "VE",
       cedulaVerificadaEn: null,
     });
-    vi.spyOn(svc, "verificar").mockResolvedValue({ existe: true, nombre: "JUAN PEREZ" });
+    vi.spyOn(svc, "verificar").mockResolvedValue({
+      existe: true,
+      nombre: "JUAN PEREZ",
+    });
 
     await svc.validarYGuardar("u1");
 
@@ -146,7 +165,10 @@ describe("CedulaService.validarYGuardar", () => {
   });
 
   it("sin cédula → no consulta ni escribe", async () => {
-    prismaMock.usuario.findUnique.mockResolvedValue({ cedula: null, cedulaVerificadaEn: null });
+    prismaMock.usuario.findUnique.mockResolvedValue({
+      cedula: null,
+      cedulaVerificadaEn: null,
+    });
     const verificar = vi.spyOn(svc, "verificar");
 
     await svc.validarYGuardar("u1");

@@ -53,7 +53,9 @@ export class OptionalSesionGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const auth: string = req.header("authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-    req.userId = token ? await verifyUserToken(this.jwt, token).catch(() => null) : null;
+    req.userId = token
+      ? await verifyUserToken(this.jwt, token).catch(() => null)
+      : null;
     return true;
   }
 }
@@ -91,7 +93,8 @@ export class VoluntarioGuard implements CanActivate {
     const link = await prisma.voluntario.findUnique({
       where: { usuarioId_centroId: { usuarioId: req.userId, centroId } },
     });
-    if (!link) throw new ForbiddenException("No eres voluntario de este centro");
+    if (!link)
+      throw new ForbiddenException("No eres voluntario de este centro");
     return true;
   }
 }
@@ -114,7 +117,8 @@ export class JefeGuard implements CanActivate {
     const link = await prisma.voluntario.findUnique({
       where: { usuarioId_centroId: { usuarioId: req.userId, centroId } },
     });
-    if (!link) throw new ForbiddenException("No eres voluntario de este centro");
+    if (!link)
+      throw new ForbiddenException("No eres voluntario de este centro");
     if (link.rol !== RolVoluntario.JEFE)
       throw new ForbiddenException("Solo el jefe del centro puede hacer esto");
     return true;
@@ -131,7 +135,8 @@ export class AdminGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const auth: string = req.header("authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-    if (!token) throw new UnauthorizedException("Sesión de moderación requerida");
+    if (!token)
+      throw new UnauthorizedException("Sesión de moderación requerida");
 
     let payload: any;
     try {
@@ -146,7 +151,8 @@ export class AdminGuard implements CanActivate {
       where: { id: payload.sub },
       select: { activo: true },
     });
-    if (!admin || !admin.activo) throw new ForbiddenException("Moderador inactivo");
+    if (!admin || !admin.activo)
+      throw new ForbiddenException("Moderador inactivo");
 
     req.adminId = payload.sub;
     return true;
@@ -178,7 +184,9 @@ export class RateLimitGuard implements CanActivate {
     const fp = req.header("x-fingerprint");
     if (fp) {
       const fpKey = `rl:${route}:${fp}`;
-      if (!(await this.redis.hit(fpKey, RATE_LIMIT.max, RATE_LIMIT.windowSec))) {
+      if (
+        !(await this.redis.hit(fpKey, RATE_LIMIT.max, RATE_LIMIT.windowSec))
+      ) {
         throw new HttpException(
           "Demasiadas solicitudes, espera un minuto",
           HttpStatus.TOO_MANY_REQUESTS,

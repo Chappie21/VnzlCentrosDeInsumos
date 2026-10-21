@@ -3,7 +3,13 @@ import { APP_FILTER } from "@nestjs/core";
 import { JwtModule } from "@nestjs/jwt";
 import { SentryModule, SentryGlobalFilter } from "@sentry/nestjs/setup";
 import { RedisService } from "./redis.service";
-import { RateLimitGuard, VoluntarioGuard, JefeGuard, IdentidadGuard, AdminGuard } from "./guards";
+import {
+  RateLimitGuard,
+  VoluntarioGuard,
+  JefeGuard,
+  IdentidadGuard,
+  AdminGuard,
+} from "./guards";
 import { CentrosController, CentrosService } from "./centros";
 import { ConfigController } from "./config.controller";
 import { HistorialController, HistorialService } from "./historial";
@@ -21,7 +27,9 @@ function jwtSecret(): string {
   const s = process.env.JWT_SECRET;
   if (s && s !== "dev-only-change-me") return s;
   if (process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET debe estar definido (y no ser el default) en producción");
+    throw new Error(
+      "JWT_SECRET debe estar definido (y no ser el default) en producción",
+    );
   }
   return "dev-only-change-me";
 }

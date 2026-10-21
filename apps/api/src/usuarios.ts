@@ -13,7 +13,12 @@ import { JwtService } from "@nestjs/jwt";
 import { IsIn, IsNotEmpty, IsString } from "class-validator";
 import { Transform } from "class-transformer";
 import { prisma } from "@vnzl/database";
-import { normalizarDocumento, normalizarTelefono, PAISES, type Pais } from "@vnzl/paises";
+import {
+  normalizarDocumento,
+  normalizarTelefono,
+  PAISES,
+  type Pais,
+} from "@vnzl/paises";
 import { CedulaService } from "./cedula";
 import { IsDocumentoDePais, IsTelefonoDePais } from "./validators";
 import {
@@ -35,12 +40,16 @@ class OnboardDto {
   nombre: string;
 
   @Transform(({ value, obj }) =>
-    typeof value === "string" && obj?.pais ? normalizarDocumento(obj.pais, value) : value,
+    typeof value === "string" && obj?.pais
+      ? normalizarDocumento(obj.pais, value)
+      : value,
   )
   @IsDocumentoDePais()
   cedula: string;
 
-  @Transform(({ value }) => (typeof value === "string" ? normalizarTelefono(value) : value))
+  @Transform(({ value }) =>
+    typeof value === "string" ? normalizarTelefono(value) : value,
+  )
   @IsTelefonoDePais()
   telefono: string;
 }
@@ -82,11 +91,19 @@ export class UsuariosService {
   // Completar perfil (Google): mismo portón de cédula que el registro.
   async onboard(userId: string, dto: OnboardDto) {
     // la cédula puede estar tomada por otra cuenta (cedula @unique)
-    const dueño = await prisma.usuario.findUnique({ where: { cedula: dto.cedula } });
+    const dueño = await prisma.usuario.findUnique({
+      where: { cedula: dto.cedula },
+    });
     if (dueño && dueño.id !== userId)
-      throw new ConflictException("Ese documento ya está registrado en otra cuenta");
+      throw new ConflictException(
+        "Ese documento ya está registrado en otra cuenta",
+      );
     // Portón: documento real + nombre oficial (fail-open si la API no responde).
-    const v = await this.cedula.validarParaRegistro(dto.pais, dto.cedula, dto.nombre);
+    const v = await this.cedula.validarParaRegistro(
+      dto.pais,
+      dto.cedula,
+      dto.nombre,
+    );
     return prisma.usuario.update({
       where: { id: userId },
       data: {

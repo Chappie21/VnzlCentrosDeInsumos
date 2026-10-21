@@ -14,11 +14,18 @@ import { cedulaValidacionVe, flagsSincronizados } from "./feature-flags";
 export class ConfigController {
   @Get("flags")
   @ApiTags("publico")
-  @ApiOperation({ summary: "Feature flags que afectan a los formularios públicos" })
-  @ApiOkResponse({ schema: { example: { cedulaValidacionVe: true, sincronizado: true } } })
+  @ApiOperation({
+    summary: "Feature flags que afectan a los formularios públicos",
+  })
+  @ApiOkResponse({
+    schema: { example: { cedulaValidacionVe: true, sincronizado: true } },
+  })
   // 30s de cache compartida: el kill switch tarda a lo sumo medio minuto en
   // llegar al frontend, y no le pega a la API en cada render.
-  @Header("cache-control", "public, max-age=0, s-maxage=30, stale-while-revalidate=60")
+  @Header(
+    "cache-control",
+    "public, max-age=0, s-maxage=30, stale-while-revalidate=60",
+  )
   flags() {
     return {
       // Con el portón activo el nombre lo pone el registro civil venezolano y el

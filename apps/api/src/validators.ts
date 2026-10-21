@@ -1,4 +1,8 @@
-import { registerDecorator, ValidationArguments, ValidationOptions } from "class-validator";
+import {
+  registerDecorator,
+  ValidationArguments,
+  ValidationOptions,
+} from "class-validator";
 import {
   esCiudadValida,
   esEstadoValido,
@@ -23,23 +27,28 @@ function crear(
   test: (pais: Pais, value: string, args: ValidationArguments) => boolean,
   mensaje: (pais: Pais | null) => string,
 ) {
-  return (options?: ValidationOptions) => (object: object, propertyName: string) => {
-    registerDecorator({
-      name,
-      target: object.constructor,
-      propertyName,
-      options,
-      validator: {
-        validate(value: unknown, args: ValidationArguments) {
-          const pais = paisDe(args);
-          return pais !== null && typeof value === "string" && test(pais, value, args);
+  return (options?: ValidationOptions) =>
+    (object: object, propertyName: string) => {
+      registerDecorator({
+        name,
+        target: object.constructor,
+        propertyName,
+        options,
+        validator: {
+          validate(value: unknown, args: ValidationArguments) {
+            const pais = paisDe(args);
+            return (
+              pais !== null &&
+              typeof value === "string" &&
+              test(pais, value, args)
+            );
+          },
+          defaultMessage(args: ValidationArguments) {
+            return mensaje(paisDe(args));
+          },
         },
-        defaultMessage(args: ValidationArguments) {
-          return mensaje(paisDe(args));
-        },
-      },
-    });
-  };
+      });
+    };
 }
 
 export const IsDocumentoDePais = crear(
@@ -55,13 +64,16 @@ export const IsTelefonoDePais = crear(
   "isTelefonoDePais",
   (pais, value) => esTelefonoValido(pais, value),
   (pais) =>
-    pais ? `Teléfono móvil inválido (ej: ${PAIS_META[pais].ejemploTelefono})` : "Teléfono móvil inválido",
+    pais
+      ? `Teléfono móvil inválido (ej: ${PAIS_META[pais].ejemploTelefono})`
+      : "Teléfono móvil inválido",
 );
 
 export const IsEstadoDePais = crear(
   "isEstadoDePais",
   (pais, value) => esEstadoValido(pais, value),
-  (pais) => (pais ? `${PAIS_META[pais].labelEstado} inválido` : "Estado inválido"),
+  (pais) =>
+    pais ? `${PAIS_META[pais].labelEstado} inválido` : "Estado inválido",
 );
 
 // La ciudad debe pertenecer al estado enviado, dentro del país enviado.
