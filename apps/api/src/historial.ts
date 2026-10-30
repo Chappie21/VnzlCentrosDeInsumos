@@ -23,21 +23,23 @@ import { RedisService } from "./redis.service";
 import { IdentidadGuard, VoluntarioGuard, JefeGuard, userIdOf } from "./guards";
 import { calcularNivel } from "./constants/insumos";
 
-class MovimientoDto {
+class AddDto {
+  @IsString() centroId: string;
   @IsString() insumoId: string;
-  @IsInt() cantidad: number; // + entrada, - salida
+  @IsInt() @Min(1) cantidad: number;
 }
 
-class AddDto extends MovimientoDto {
-  @IsString() centroId: string;
+class BatchItemDto {
+  @IsString() insumoId: string;
+  @IsInt() @Min(1) cantidad: number;
 }
 
 class BatchDto {
   @IsString() centroId: string;
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
-  @Type(() => MovimientoDto)
-  movimientos: MovimientoDto[];
+  @Type(() => BatchItemDto)
+  movimientos: BatchItemDto[];
 }
 
 // Donación escaneada desde un QR de donante: insumos por NOMBRE (el donante no
